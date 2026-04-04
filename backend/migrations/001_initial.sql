@@ -39,9 +39,11 @@ CREATE TABLE IF NOT EXISTS adapted_content (
     adapted_text TEXT,
     audio_url TEXT,
     diagram_url TEXT,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    UNIQUE(content_id, student_id, md5(adaptation_config::text))
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS adapted_content_unique_idx 
+ON adapted_content(content_id, student_id, md5(adaptation_config::text));
 
 -- Learning Sessions
 CREATE TABLE IF NOT EXISTS sessions (

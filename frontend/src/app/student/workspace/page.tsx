@@ -1,101 +1,266 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
+import { 
+  Bell, Settings, ChevronLeft, ChevronRight, Brain, 
+  BookOpen, Headphones, Eye, Play, CheckCircle, 
+  Sparkles, Zap, LogOut
+} from 'lucide-react';
 import { useAdaptation } from '@/hooks/useAdaptation';
 import { useTelemetry } from '@/hooks/useTelemetry';
+import GodModePanel from '@/components/workspace/GodModePanel';
 
 export default function Workspace() {
   const [studentId, setStudentId] = useState<string | null>(null);
+  const [chunks, setChunks] = useState<string[]>([]);
+  const [currentChunk, setCurrentChunk] = useState(0);
+  const [cssConfig, setCssConfig] = useState<any>({});
+  const [contentTitle, setContentTitle] = useState('Loading Lesson...');
   const router = useRouter();
 
+  // Hardcoded for MVP, would normally come from URL/Library
+  const SAMPLE_CONTENT_ID = '00000000-0000-0000-0000-000000000000'; 
+
   useEffect(() => {
-    const fetchUser = async () => {
+    const init = async () => {
       const token = localStorage.getItem('token');
       if (!token) {
         router.push('/auth/login');
         return;
       }
       try {
-        const response = await axios.get('http://localhost:8000/auth/me', {
+        const userRes = await axios.get('http://localhost:8000/auth/me', {
           headers: { Authorization: `Bearer ${token}` }
         });
-        setStudentId(response.data.id);
+        const sid = userRes.data.id;
+        setStudentId(sid);
+
+        // Fetch first available content if not hardcoded
+        const listRes = await axios.get('http://localhost:8000/content/list', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        const contentId = listRes.data.length > 0 ? listRes.data[0].id : SAMPLE_CONTENT_ID;
+        if (listRes.data.length > 0) setContentTitle(listRes.data[0].title);
+
+        const workspaceRes = await axios.get(`http://localhost:8000/student/workspace/${contentId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        setChunks(workspaceRes.data.chunks);
+        setCssConfig(workspaceRes.data.css_config);
       } catch (error) {
-        console.error('Failed to fetch user', error);
-        router.push('/auth/login');
+        console.error('Failed to initialize workspace', error);
+        // If content not found, we might show a placeholder
       }
     };
-    fetchUser();
+    init();
   }, [router]);
 
   const { isConnected, lastCommand, sendTelemetry } = useAdaptation(studentId);
   useTelemetry(sendTelemetry);
 
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    router.push('/auth/login');
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <header className="flex justify-between items-center mb-8 bg-white p-4 rounded-xl shadow-sm">
-        <h1 className="text-2xl font-bold text-indigo-600">AdaptLearn Workspace</h1>
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <span className={`h-3 w-3 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></span>
-            <span className="text-sm font-medium text-gray-600">{isConnected ? 'Live' : 'Disconnected'}</span>
+    <div className="flex flex-col h-screen overflow-hidden bg-surface-dim font-label text-on-surface selection:bg-primary/30">
+      <TopNavBar studentId={studentId} onLogout={handleLogout} />
+      <main className="flex-1 flex overflow-hidden pt-16">
+        <ReadingZone 
+          chunks={chunks} 
+          currentChunk={currentChunk} 
+          setCurrentChunk={setCurrentChunk} 
+          cssConfig={cssConfig}
+          title={contentTitle}
+        />
+        <AdaptationHUD isConnected={isConnected} lastCommand={lastCommand} />
+      </main>
+      <GodModePanel sendTelemetry={sendTelemetry} />
+    </div>
+  );
+}
+
+function TopNavBar({ studentId, onLogout }: { studentId: string | null, onLogout: () => void }) {
+  return (
+    <header className="fixed top-0 w-full z-50 flex justify-between items-center px-8 h-16 bg-[#131315]/80 backdrop-blur-xl border-b border-[#464555]/20 shadow-2xl shadow-black/50">
+      <div className="text-lg font-bold tracking-tighter text-[#e5e1e4] flex items-center gap-2 before:content-[''] before:w-3 before:h-3 before:bg-[#FF6B6B] before:rounded-full before:shadow-[16px_0_0_#FFB84D,32px_0_0_#00C896]">
+        Luminous Cognition
+      </div>
+      <nav className="hidden md:flex gap-8 items-center font-headline font-medium text-sm tracking-tight">
+        <a className="text-[#e5e1e4] border-b-2 border-[#6C63FF] pb-1" href="#">Workspace</a>
+        <a className="text-[#c7c4d8] hover:text-[#e5e1e4] pb-1 transition-all" href="#">Curriculum</a>
+        <a className="text-[#c7c4d8] hover:text-[#e5e1e4] pb-1 transition-all" href="#">Library</a>
+      </nav>
+      <div className="flex items-center gap-4">
+        <button onClick={onLogout} className="text-on-surface-variant hover:text-red-400 p-2 rounded-full transition-all flex items-center gap-2">
+            <span className="text-[10px] uppercase font-bold tracking-widest">Logout</span>
+            <LogOut size={18} />
+        </button>
+        <div className="text-[10px] font-bold text-on-surface-variant/40 uppercase tracking-widest hidden lg:block">
+            SID: {studentId?.substring(0, 8)}
+        </div>
+        <img alt="Avatar" className="w-8 h-8 rounded-full border border-outline-variant object-cover" src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=100&q=80" />
+      </div>
+    </header>
+  );
+}
+
+function ReadingZone({ chunks, currentChunk, setCurrentChunk, cssConfig, title }: any) {
+  const nextChunk = () => setCurrentChunk((c: number) => Math.min(c + 1, chunks.length - 1));
+  const prevChunk = () => setCurrentChunk((c: number) => Math.max(c - 1, 0));
+
+  return (
+    <section className="w-full md:w-[70%] p-6 lg:p-10 flex flex-col items-center bg-surface-dim overflow-y-auto">
+      <div className="w-full max-w-4xl bg-surface-container-high rounded-lg mac-shadow flex flex-col min-h-[80vh] overflow-hidden relative mb-12">
+        <div className="h-10 px-4 flex items-center bg-surface-container-highest/50 backdrop-blur-md border-b border-outline-variant/10">
+          <div className="flex gap-2">
+            <div className="w-3 h-3 rounded-full bg-[#FF6B6B]"></div>
+            <div className="w-3 h-3 rounded-full bg-[#FFB84D]"></div>
+            <div className="w-3 h-3 rounded-full bg-[#00C896]"></div>
           </div>
-          <div className="text-sm text-gray-500">
-            Student ID: {studentId?.substring(0, 8)}...
+          <div className="flex-1 text-center text-xs text-on-surface-variant font-medium opacity-60">Lesson: {title}</div>
+        </div>
+        
+        <div className="sepia-mode flex-1 p-12 lg:p-20 font-body relative group min-h-[60vh]">
+          <div className="space-y-12 leading-relaxed" style={cssConfig}>
+            {chunks.length > 0 ? (
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+                    {chunks[currentChunk]}
+                </div>
+            ) : (
+                <div className="text-center text-on-surface-variant opacity-50 py-20 italic">
+                    Loading adaptive content...
+                </div>
+            )}
+          </div>
+          
+          <div className="absolute left-4 top-1/2 -translate-y-1/2 flex flex-col gap-4">
+            <button 
+                onClick={prevChunk}
+                disabled={currentChunk === 0}
+                className="w-12 h-12 lg:w-16 lg:h-16 rounded-full glass-effect border border-white/10 flex items-center justify-center text-primary disabled:opacity-20 active:scale-90 transition-all shadow-xl hover:bg-white/10"
+            >
+              <ChevronLeft size={32} />
+            </button>
+          </div>
+          <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-4">
+            <button 
+                onClick={nextChunk}
+                disabled={currentChunk === chunks.length - 1}
+                className="w-12 h-12 lg:w-16 lg:h-16 rounded-full glass-effect border border-white/10 flex items-center justify-center text-primary disabled:opacity-20 active:scale-90 transition-all shadow-xl hover:bg-white/10"
+            >
+              <ChevronRight size={32} />
+            </button>
           </div>
         </div>
-      </header>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <main className="lg:col-span-2 space-y-6">
-          <div className="bg-white p-8 rounded-2xl shadow-sm min-h-[600px]">
-            <h2 className="text-xl font-bold mb-4">Learning Content</h2>
-            <div className="prose max-w-none text-gray-700 leading-relaxed">
-              <p className="mb-4">
-                Welcome to your personalized learning space. Start reading the content below. 
-                Our AI agents are monitoring your engagement in real-time to adapt the experience for you.
-              </p>
-              <p className="mb-4">
-                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. 
-                Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
-              </p>
-              {/* This is where the actual adapted content will go in later phases */}
-              {lastCommand && (
-                <div className="mt-8 p-4 bg-indigo-50 border-l-4 border-indigo-600 rounded">
-                  <h3 className="font-bold text-indigo-800">AI Adaptation Active</h3>
-                  <p className="text-indigo-700">Action: {lastCommand.action}</p>
-                  {lastCommand.reason && <p className="text-xs text-indigo-500 mt-1">Reason: {lastCommand.reason}</p>}
-                </div>
-              )}
+        
+        <div className="h-16 px-10 flex items-center justify-between bg-surface-container-highest/30 backdrop-blur-xl border-t border-outline-variant/10">
+          <div className="flex-1 mr-8">
+            <div className="flex justify-between text-xs text-on-surface-variant mb-2">
+              <span className="uppercase tracking-widest">Progress</span>
+              <span>Chunk {chunks.length > 0 ? currentChunk + 1 : 0} of {chunks.length}</span>
+            </div>
+            <div className="h-2 w-full bg-surface-container-low rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-primary shadow-[0_0_15px_rgba(196,192,255,0.6)] rounded-full transition-all duration-1000"
+                style={{ width: chunks.length > 0 ? `${((currentChunk + 1) / chunks.length) * 100}%` : '0%' }}
+              ></div>
             </div>
           </div>
-        </main>
-
-        <aside className="space-y-6">
-          <div className="bg-white p-6 rounded-2xl shadow-sm">
-            <h3 className="font-bold mb-4">God Mode Panel</h3>
-            <div className="space-y-2 text-sm">
-              <p className="text-gray-600">Engagement status is streamed to the backend.</p>
-              <div className="p-3 bg-gray-50 rounded border border-dashed border-gray-300">
-                <p><strong>Heuristics Trigger Guide:</strong></p>
-                <ul className="list-disc ml-4 mt-2 space-y-1 text-xs">
-                  <li><strong>Distracted:</strong> Tab out for &gt;30s</li>
-                  <li><strong>Bored:</strong> Scroll very fast</li>
-                  <li><strong>Frustrated:</strong> Click many times quickly</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-2xl shadow-sm">
-            <h3 className="font-bold mb-4">Profile Insights</h3>
-            <p className="text-sm text-gray-500">Your profile is being used to customize this session.</p>
-            {/* We could fetch and display profile info here */}
-          </div>
-        </aside>
+          <button 
+            onClick={nextChunk}
+            disabled={currentChunk === chunks.length - 1}
+            className="px-6 py-2 bg-primary text-on-primary font-bold rounded-full disabled:opacity-50 active:scale-95 transition-all shadow-lg shadow-primary/20"
+          >
+            Next Chunk
+          </button>
+        </div>
       </div>
-    </div>
+      <footer className="w-full flex flex-col items-center gap-4 text-center py-8 mt-auto">
+        <div className="font-headline text-[10px] uppercase tracking-widest text-[#c7c4d8]/50">
+            © 2024 Luminous Cognition. Designed for deep focus.
+        </div>
+      </footer>
+    </section>
+  );
+}
+
+function AdaptationHUD({ isConnected, lastCommand }: any) {
+  return (
+    <aside className="hidden md:flex flex-col w-[30%] bg-surface-container border-l border-outline-variant/15 p-8 gap-8 overflow-y-auto z-10">
+      <div className="flex items-center justify-between p-4 bg-surface-container-high rounded-xl border border-outline-variant/10">
+        <div className="flex items-center gap-4">
+          <div className="relative flex items-center justify-center">
+            {isConnected && <div className="absolute inset-0 bg-secondary/20 rounded-full animate-ping"></div>}
+            <Brain className={`${isConnected ? 'text-secondary' : 'text-on-surface-variant'} relative z-10`} size={28} />
+          </div>
+          <div>
+            <div className="text-[10px] uppercase tracking-tighter text-on-surface-variant font-bold">Neural Sync</div>
+            <div className={`${isConnected ? 'text-secondary' : 'text-red-400'} font-bold text-sm tracking-wide uppercase`}>
+                {isConnected ? 'Sync Active' : 'Offline'}
+            </div>
+          </div>
+        </div>
+        <div className={`h-8 w-1 ${isConnected ? 'bg-secondary' : 'bg-outline-variant'} rounded-full opacity-50`}></div>
+      </div>
+
+      <div className="flex p-1 bg-surface-container-lowest rounded-xl border border-outline-variant/5">
+        <button className="flex-1 py-3 px-2 flex flex-col items-center gap-1 rounded-lg text-primary bg-primary/10 transition-all">
+          <BookOpen size={20} />
+          <span className="text-[10px] uppercase font-bold tracking-widest">Read</span>
+        </button>
+        <button className="flex-1 py-3 px-2 flex flex-col items-center gap-1 rounded-lg text-on-surface-variant hover:bg-white/5 transition-all">
+          <Headphones size={20} />
+          <span className="text-[10px] uppercase font-bold tracking-widest">Listen</span>
+        </button>
+        <button className="flex-1 py-3 px-2 flex flex-col items-center gap-1 rounded-lg text-on-surface-variant hover:bg-white/5 transition-all">
+          <Eye size={20} />
+          <span className="text-[10px] uppercase font-bold tracking-widest">Visual</span>
+        </button>
+      </div>
+
+      <div className="p-6 bg-surface-container-high rounded-xl flex flex-col items-center border border-outline-variant/10">
+        <div className="relative w-40 h-40 mb-6 flex items-center justify-center">
+          <svg className="absolute inset-0 w-full h-full -rotate-90">
+            <circle className="text-surface-container-lowest" cx="80" cy="80" fill="transparent" r="74" stroke="currentColor" strokeWidth="4"></circle>
+            <circle className="text-primary transition-all duration-500" cx="80" cy="80" fill="transparent" r="74" stroke="currentColor" strokeDasharray="465" strokeDashoffset="465" strokeWidth="4"></circle>
+          </svg>
+          <button className="w-20 h-20 bg-primary/20 text-primary rounded-full flex items-center justify-center border border-primary/30 hover:scale-105 active:scale-95 transition-all cursor-not-allowed">
+            <Play size={32} fill="currentColor" className="ml-1" />
+          </button>
+        </div>
+        <div className="text-center">
+          <div className="text-on-surface font-semibold mb-1">Narration Stopped</div>
+          <div className="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest">Modality: Text Primary</div>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <div className="text-[10px] uppercase font-bold tracking-widest text-on-surface-variant px-1">Active AI Command</div>
+        <div className="flex flex-wrap gap-2">
+            {lastCommand ? (
+                <div className="flex items-center gap-2 py-2 px-4 bg-primary/10 rounded-full border border-primary/30 text-xs font-bold text-primary animate-pulse">
+                    {lastCommand.action}
+                    <Zap size={14} className="text-primary" fill="currentColor" />
+                </div>
+            ) : (
+                <div className="text-xs text-on-surface-variant italic px-1">Waiting for neural trigger...</div>
+            )}
+        </div>
+      </div>
+
+      <div className="mt-auto p-4 bg-primary/5 rounded-xl border border-primary/20 flex items-center justify-between cursor-pointer hover:bg-primary/10 transition-colors">
+        <div className="flex items-center gap-3">
+          <Sparkles size={18} className="text-primary" />
+          <span className="text-xs font-semibold text-primary">Summarize this chunk?</span>
+        </div>
+        <button className="text-primary p-1 rounded-lg transition-colors"><Zap size={18} fill="currentColor" /></button>
+      </div>
+    </aside>
   );
 }

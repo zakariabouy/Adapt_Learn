@@ -1,0 +1,49 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Lexend:wght@300;400;500;600&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-headline: "Inter", sans-serif;
+  --font-label: "Inter", sans-serif;
+  --font-body: "Lexend", sans-serif;
+
+  --color-surface-dim: #131315;
+  --color-surface: #131315;
+  --color-surface-container-lowest: #0e0e10;
+  --color-surface-container-low: #1b1b1d;
+  --color-surface-container: #201f21;
+  --color-surface-container-high: #2a2a2c;
+  --color-surface-container-highest: #353437;
+  
+  --color-on-surface: #e5e1e4;
+  --color-on-surface-variant: #c7c4d8;
+  
+  --color-primary: #c4c0ff;
+  --color-primary-container: #8781ff;
+  --color-on-primary: #2000a4;
+  
+  --color-secondary: #43e5b1;
+  --color-on-secondary: #003828;
+  
+  --color-tertiary: #ffb3b0;
+  --color-tertiary-container: #f16161;
+  
+  --color-outline: #918fa1;
+  --color-outline-variant: #464555;
+}
+
+body {
+  background-color: var(--color-surface-dim);
+  color: var(--color-on-surface);
+  font-family: var(--font-body);
+  /* Custom scrollbar for dark theme */
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: var(--color-surface-container-highest);
+    border-radius: 4px;
+  }
+}

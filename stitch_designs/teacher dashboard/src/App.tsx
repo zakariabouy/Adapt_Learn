@@ -1,0 +1,362 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React from 'react';
+import { motion } from 'motion/react';
+import {
+  LayoutDashboard,
+  Users,
+  BookOpen,
+  BarChart2,
+  Settings,
+  HelpCircle,
+  AlertTriangle,
+  Search,
+  Filter,
+  UserPlus,
+  FileUp,
+} from 'lucide-react';
+
+const STUDENTS = [
+  {
+    id: 'DS',
+    name: 'Dylan S.',
+    lastActive: '2m ago',
+    risk: 'High',
+    modules: '4/12',
+    sparkline: 'M0,5 Q10,18 20,8 T40,15 T60,5 T80,18 T100,20',
+    sparklineColor: 'stroke-tertiary-container',
+    avatarBg: 'from-tertiary-container to-on-tertiary-container',
+    avatarText: 'text-on-tertiary',
+    dotColor: 'bg-tertiary-container shadow-[0_0_12px_rgba(241,97,97,0.5)]',
+    riskColor: 'text-tertiary-container',
+  },
+  {
+    id: 'SK',
+    name: 'Sarah K.',
+    lastActive: '15m ago',
+    risk: 'Low',
+    modules: '11/12',
+    sparkline: 'M0,15 Q10,2 20,10 T40,5 T60,15 T80,2 T100,5',
+    sparklineColor: 'stroke-secondary',
+    avatarBg: 'from-secondary-container to-on-secondary-container',
+    avatarText: 'text-on-secondary',
+    dotColor: 'bg-secondary',
+    riskColor: 'text-secondary',
+  },
+  {
+    id: 'MV',
+    name: 'Marcus V.',
+    lastActive: '1h ago',
+    risk: 'Med',
+    modules: '7/12',
+    sparkline: 'M0,10 Q10,10 20,10 T40,10 T60,10 T80,10 T100,10',
+    sparklineColor: 'stroke-primary',
+    avatarBg: 'from-primary-container to-on-primary-container',
+    avatarText: 'text-primary-fixed',
+    dotColor: 'bg-primary-container',
+    riskColor: 'text-primary-container',
+  },
+  {
+    id: 'ER',
+    name: 'Elena R.',
+    lastActive: '5m ago',
+    risk: 'Low',
+    modules: '9/12',
+    sparkline: 'M0,20 L20,15 L40,18 L60,8 L80,5 L100,2',
+    sparklineColor: 'stroke-secondary',
+    avatarBg: 'from-secondary-fixed to-on-secondary-fixed-variant',
+    avatarText: 'text-on-secondary',
+    dotColor: 'bg-secondary',
+    riskColor: 'text-secondary',
+  },
+  {
+    id: 'JB',
+    name: 'Jordan B.',
+    lastActive: '3h ago',
+    risk: 'Med',
+    modules: '2/12',
+    sparkline: 'M0,5 Q20,20 40,5 T80,20 T100,5',
+    sparklineColor: 'stroke-primary-container',
+    avatarBg: 'bg-surface-container-highest border border-outline-variant/30',
+    avatarText: 'text-on-surface',
+    dotColor: 'bg-primary-container',
+    riskColor: 'text-primary-container',
+  },
+  {
+    id: 'CW',
+    name: 'Chloe W.',
+    lastActive: '12m ago',
+    risk: 'Low',
+    modules: '12/12',
+    sparkline: 'M0,10 L100,10',
+    sparklineColor: 'stroke-secondary',
+    avatarBg: 'bg-surface-container-highest border border-outline-variant/30',
+    avatarText: 'text-on-surface',
+    dotColor: 'bg-secondary',
+    riskColor: 'text-secondary',
+  },
+];
+
+const springTransition = {
+  type: 'spring',
+  stiffness: 120,
+  damping: 14,
+};
+
+export default function App() {
+  return (
+    <div className="min-h-screen bg-surface text-on-surface font-body selection:bg-primary/30 flex">
+      {/* Sidebar Navigation */}
+      <aside className="fixed left-0 top-0 h-full w-64 bg-surface-container border-r border-outline-variant/15 flex flex-col p-6 z-40">
+        {/* macOS Traffic Lights Decor */}
+        <div className="flex gap-2 mb-8 mac-traffic-lights">
+          <span className="bg-[#FF6B6B]"></span>
+          <span className="bg-[#FFB84D]"></span>
+          <span className="bg-[#00C896]"></span>
+        </div>
+
+        <div className="mb-8">
+          <h1 className="font-headline font-bold text-lg tracking-tight text-on-surface">
+            Instructor Portal
+          </h1>
+          <p className="font-label text-xs text-on-surface-variant uppercase tracking-widest mt-1">
+            Adaptive Logic v2.4
+          </p>
+        </div>
+
+        <nav className="flex-1 space-y-2">
+          <a
+            href="#"
+            className="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-white/5 rounded-xl transition-all duration-200"
+          >
+            <LayoutDashboard size={20} />
+            <span className="font-label text-sm font-medium">Dashboard</span>
+          </a>
+          <a
+            href="#"
+            className="flex items-center gap-3 px-4 py-3 bg-primary/15 text-primary font-semibold rounded-xl transition-all duration-200"
+          >
+            <Users size={20} />
+            <span className="font-label text-sm">Classrooms</span>
+          </a>
+          <a
+            href="#"
+            className="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-white/5 rounded-xl transition-all duration-200"
+          >
+            <BookOpen size={20} />
+            <span className="font-label text-sm">Resources</span>
+          </a>
+          <a
+            href="#"
+            className="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-white/5 rounded-xl transition-all duration-200"
+          >
+            <BarChart2 size={20} />
+            <span className="font-label text-sm">Reports</span>
+          </a>
+          <a
+            href="#"
+            className="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-white/5 rounded-xl transition-all duration-200"
+          >
+            <Settings size={20} />
+            <span className="font-label text-sm">Settings</span>
+          </a>
+        </nav>
+
+        <div className="mt-auto pt-6 border-t border-outline-variant/10 space-y-2">
+          <button className="w-full py-3 bg-primary text-on-primary-container font-headline font-bold rounded-xl active:scale-[0.96] transition-all">
+            Launch Zen Mode
+          </button>
+          <a
+            href="#"
+            className="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface transition-colors"
+          >
+            <HelpCircle size={20} />
+            <span className="font-label text-sm">Help</span>
+          </a>
+        </div>
+      </aside>
+
+      {/* Main Content Canvas */}
+      <main className="ml-64 flex-1 p-8 lg:p-12">
+        {/* Top Banner Alert */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={springTransition}
+          className="mb-10 animate-pulse"
+        >
+          <div className="bg-tertiary-container/20 border border-tertiary-container/30 p-4 rounded-xl flex items-center justify-between">
+            <div className="flex items-center gap-3 text-tertiary-container">
+              <AlertTriangle size={20} className="fill-current" />
+              <span className="font-headline font-semibold text-sm">
+                ⚠️ Dylan needs attention: Engagement drop detected in Module 4
+              </span>
+            </div>
+            <button className="text-xs font-bold uppercase tracking-widest hover:underline text-tertiary-container/80">
+              View Analysis
+            </button>
+          </div>
+        </motion.div>
+
+        {/* Header Section */}
+        <header className="mb-12 flex justify-between items-end">
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ ...springTransition, delay: 0.1 }}
+          >
+            <h2 className="text-3xl font-headline font-extrabold tracking-tighter text-on-surface">
+              Student Rosters
+            </h2>
+            <p className="text-on-surface-variant font-body mt-1">
+              Monitoring 24 active learners across 3 curriculum tracks.
+            </p>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ ...springTransition, delay: 0.1 }}
+            className="flex gap-4"
+          >
+            <div className="relative">
+              <Search
+                size={18}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-outline"
+              />
+              <input
+                type="text"
+                placeholder="Filter students..."
+                className="bg-surface-container-lowest border border-outline-variant/10 rounded-full pl-10 pr-4 py-2 text-sm focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all w-64"
+              />
+            </div>
+            <button className="bg-surface-container-high px-4 py-2 rounded-full border border-outline-variant/15 flex items-center gap-2 hover:bg-surface-bright transition-colors">
+              <Filter size={18} />
+              <span className="text-sm font-label">Filters</span>
+            </button>
+          </motion.div>
+        </header>
+
+        {/* Student Bento Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
+          {STUDENTS.map((student, idx) => (
+            <motion.div
+              key={student.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ ...springTransition, delay: 0.15 + idx * 0.05 }}
+              className="glass-panel rounded-2xl p-6 border border-outline-variant/15 hover:border-primary/30 transition-all group relative overflow-hidden"
+            >
+              <div className="absolute top-0 right-0 p-3">
+                <div className={`h-3 w-3 rounded-full ${student.dotColor}`}></div>
+              </div>
+
+              <div className="flex items-center gap-4 mb-6">
+                <div
+                  className={`h-12 w-12 rounded-full flex items-center justify-center font-headline font-bold text-lg ${
+                    student.avatarBg.includes('bg-')
+                      ? student.avatarBg
+                      : `bg-gradient-to-br ${student.avatarBg}`
+                  } ${student.avatarText}`}
+                >
+                  {student.id}
+                </div>
+                <div>
+                  <h3 className="font-headline font-bold text-on-surface group-hover:text-primary transition-colors">
+                    {student.name}
+                  </h3>
+                  <p className="text-xs text-on-surface-variant font-label">
+                    Last Active: {student.lastActive}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mb-6">
+                <p className="text-[10px] uppercase tracking-widest text-on-surface-variant font-label mb-2">
+                  7-Day Engagement
+                </p>
+                <svg className="w-full h-12 overflow-visible" viewBox="0 0 100 20">
+                  <path
+                    className={`sparkline-svg ${student.sparklineColor}`}
+                    d={student.sparkline}
+                  ></path>
+                </svg>
+              </div>
+
+              <div className="flex items-center justify-between text-xs font-label">
+                <span className={`font-semibold ${student.riskColor}`}>
+                  Risk: {student.risk}
+                </span>
+                <span className="text-on-surface-variant">
+                  {student.modules} Modules
+                </span>
+              </div>
+            </motion.div>
+          ))}
+
+          {/* Add New Student Placeholder */}
+          <motion.button
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ ...springTransition, delay: 0.15 + STUDENTS.length * 0.05 }}
+            className="rounded-2xl p-6 border-2 border-dashed border-outline-variant/20 hover:border-primary/40 hover:bg-primary/5 transition-all flex flex-col items-center justify-center gap-3 group min-h-[220px]"
+          >
+            <div className="h-12 w-12 rounded-full border border-outline-variant/30 flex items-center justify-center text-on-surface-variant group-hover:text-primary group-hover:border-primary transition-all">
+              <UserPlus size={24} />
+            </div>
+            <span className="font-headline font-bold text-on-surface-variant group-hover:text-on-surface">
+              Add Student
+            </span>
+          </motion.button>
+        </div>
+
+        {/* Footer */}
+        <motion.footer
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.8, delay: 0.5 }}
+          className="mt-20 pt-12 border-t border-outline-variant/10 flex flex-col items-center gap-4 text-center"
+        >
+          <p className="font-label text-xs uppercase tracking-widest text-on-surface-variant/50">
+            © 2024 Luminous Cognition. Designed for deep focus.
+          </p>
+          <div className="flex gap-8">
+            <a
+              href="#"
+              className="font-label text-xs uppercase tracking-widest text-on-surface-variant/50 hover:text-primary transition-colors"
+            >
+              Privacy Policy
+            </a>
+            <a
+              href="#"
+              className="font-label text-xs uppercase tracking-widest text-on-surface-variant/50 hover:text-primary transition-colors"
+            >
+              Terms of Service
+            </a>
+            <a
+              href="#"
+              className="font-label text-xs uppercase tracking-widest text-on-surface-variant/50 hover:text-primary transition-colors"
+            >
+              Accessibility Statement
+            </a>
+          </div>
+        </motion.footer>
+      </main>
+
+      {/* Floating Content Management */}
+      <motion.div
+        initial={{ scale: 0, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ ...springTransition, delay: 0.6 }}
+        className="fixed bottom-8 right-8 z-50"
+      >
+        <button className="h-16 w-16 bg-primary rounded-full shadow-2xl shadow-primary/20 flex items-center justify-center text-on-primary active:scale-90 transition-transform hover:rotate-12">
+          <FileUp size={28} />
+        </button>
+      </motion.div>
+    </div>
+  );
+}

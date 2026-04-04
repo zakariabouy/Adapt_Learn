@@ -1,0 +1,89 @@
+from typing import List, Dict, Optional, Any
+from pydantic import BaseModel, EmailStr, Field
+from enum import Enum
+from datetime import datetime
+from uuid import UUID
+
+class Role(str, Enum):
+    student = "student"
+    teacher = "teacher"
+    admin = "admin"
+
+class EngagementState(str, Enum):
+    ENGAGED = "engaged"
+    NEUTRAL = "neutral"
+    DISTRACTED = "distracted"
+    BORED = "bored"
+    FRUSTRATED = "frustrated"
+
+# --- Authentication ---
+class UserBase(BaseModel):
+    email: EmailStr
+    role: Role
+
+class UserCreate(UserBase):
+    password: str
+
+class User(UserBase):
+    id: UUID
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class TokenData(BaseModel):
+    email: Optional[str] = None
+    role: Optional[str] = None
+
+# --- Learner Model ---
+class LearnerModel(BaseModel):
+    student_id: str
+    disabilities: List[str] = []
+    severity: Dict[str, float] = {}
+    preferred_font: str = "Arial"
+    font_size: int = 16
+    line_spacing: float = 1.5
+    color_theme: str = "light"
+    preferred_modality: str = "text"
+    reading_speed_wpm: int = 200
+    chunk_size: int = 100
+    current_engagement_score: float = 1.0
+    current_frustration_level: float = 0.0
+    ability_estimate: float = 0.0  # IRT theta
+    mastery_by_topic: Dict[str, float] = {}
+
+# --- Telemetry & Commands ---
+class TelemetryEvent(BaseModel):
+    studentId: str
+    timestamp: int
+    scrollVelocity: float
+    scrollProgress: float
+    clickCount: int
+    tabFocused: bool
+    timeOnPage: int
+    event_type: str
+    responseLatency: Optional[int] = None
+
+class AdaptationCommand(BaseModel):
+    action: str
+    data: Optional[Dict[str, Any]] = None
+    reason: Optional[str] = None
+
+# --- Content ---
+class ContentItemBase(BaseModel):
+    title: str
+    original_text: str
+    subject: Optional[str] = None
+    grade_level: Optional[int] = None
+
+class ContentItem(ContentItemBase):
+    id: UUID
+    teacher_id: UUID
+    created_at: datetime
+
+    class Config:
+        from_attributes = True

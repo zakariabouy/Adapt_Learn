@@ -1,0 +1,30 @@
+# FastAPI & Servers
+fastapi==0.111.0
+uvicorn==0.30.1
+python-multipart==0.0.9
+
+# AI & Orchestration
+langgraph==0.1.1
+langchain==0.2.1
+langchain-anthropic==0.1.11
+langchain-openai==0.1.7
+
+# Databases
+asyncpg==0.29.0
+sqlalchemy==2.0.30
+redis==5.0.4
+
+# Security
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+
+# Text Processing & Tools
+textstat==0.7.3
+reportlab==4.1.0
+apscheduler==3.10.4
+elevenlabs==1.3.0
+scipy==1.13.0
+
+# Environment
+python-dotenv==1.0.1
+pydantic[email]==2.7.1

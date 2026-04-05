@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
+import { API_URL } from '@/lib/api';
 import { 
   Bell, Settings, ChevronLeft, ChevronRight, Brain, 
   BookOpen, Headphones, Eye, Play, CheckCircle, 
@@ -20,9 +21,6 @@ export default function Workspace() {
   const [contentTitle, setContentTitle] = useState('Loading Lesson...');
   const router = useRouter();
 
-  // Hardcoded for MVP, would normally come from URL/Library
-  const SAMPLE_CONTENT_ID = '00000000-0000-0000-0000-000000000000'; 
-
   useEffect(() => {
     const init = async () => {
       const token = localStorage.getItem('token');
@@ -31,29 +29,36 @@ export default function Workspace() {
         return;
       }
       try {
-        const userRes = await axios.get('http://localhost:8000/auth/me', {
+        const userRes = await axios.get(`${API_URL}/auth/me`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         const sid = userRes.data.id;
         setStudentId(sid);
 
-        // Fetch first available content if not hardcoded
-        const listRes = await axios.get('http://localhost:8000/content/list', {
+        // Fetch first available content
+        const listRes = await axios.get(`${API_URL}/content/list`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        
-        const contentId = listRes.data.length > 0 ? listRes.data[0].id : SAMPLE_CONTENT_ID;
-        if (listRes.data.length > 0) setContentTitle(listRes.data[0].title);
 
-        const workspaceRes = await axios.get(`http://localhost:8000/student/workspace/${contentId}`, {
+        if (listRes.data.length === 0) {
+          setContentTitle('No Content Available');
+          setChunks(['No lessons have been uploaded yet. Ask your teacher to upload content, then refresh this page.']);
+          return;
+        }
+
+        const contentId = listRes.data[0].id;
+        setContentTitle(listRes.data[0].title);
+
+        const workspaceRes = await axios.get(`${API_URL}/student/workspace/${contentId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        
+
         setChunks(workspaceRes.data.chunks);
         setCssConfig(workspaceRes.data.css_config);
       } catch (error) {
         console.error('Failed to initialize workspace', error);
-        // If content not found, we might show a placeholder
+        setContentTitle('Error');
+        setChunks(['Failed to load content. Please try refreshing the page.']);
       }
     };
     init();
@@ -183,7 +188,7 @@ function ReadingZone({ chunks, currentChunk, setCurrentChunk, cssConfig, title }
       </div>
       <footer className="w-full flex flex-col items-center gap-4 text-center py-8 mt-auto">
         <div className="font-headline text-[10px] uppercase tracking-widest text-[#c7c4d8]/50">
-            © 2024 Luminous Cognition. Designed for deep focus.
+            © 2026 AdaptLearn. Inclusive education for all.
         </div>
       </footer>
     </section>

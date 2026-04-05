@@ -8,7 +8,12 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # JWT Settings
-SECRET_KEY = os.getenv("SECRET_KEY", "yoursupersecretkeyhere")
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY or SECRET_KEY == "yoursupersecretkeyhere" or SECRET_KEY == "CHANGE_ME_GENERATE_A_REAL_SECRET":
+    import warnings
+    warnings.warn("SECRET_KEY is not set or is using a default value. Generate one with: openssl rand -hex 32", stacklevel=2)
+    if os.getenv("ENVIRONMENT") == "production":
+        raise RuntimeError("SECRET_KEY must be set to a secure value in production.")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 1440))
 

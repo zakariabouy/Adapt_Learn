@@ -18,10 +18,11 @@ import {
   FileText
 } from 'lucide-react';
 import axios from 'axios';
+import { API_URL } from '@/lib/api';
 import { useRouter } from 'next/navigation';
 
 const springTransition = {
-  type: 'spring',
+  type: 'spring' as const,
   stiffness: 120,
   damping: 14,
 };
@@ -40,7 +41,7 @@ export default function TeacherDashboard() {
       }
       try {
         // Mocking student list for now as backend roles/lists are being wired
-        // const res = await axios.get('http://localhost:8000/teacher/students', {
+        // const res = await axios.get('${API_URL}/teacher/students', {
         //   headers: { Authorization: `Bearer ${token}` }
         // });
         // setStudents(res.data);
@@ -60,9 +61,23 @@ export default function TeacherDashboard() {
     fetchData();
   }, [router]);
 
-  const handleDownloadIEP = (studentId: string) => {
+  const handleDownloadIEP = async (studentId: string) => {
     const token = localStorage.getItem('token');
-    window.open(`http://localhost:8000/teacher/reports/${studentId}?token=${token}`, '_blank');
+    try {
+      const res = await axios.get(`${API_URL}/teacher/reports/${studentId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        responseType: 'blob',
+      });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `IEP_${studentId}.pdf`;
+      link.click();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to download IEP report', error);
+      alert('IEP report is not available yet.');
+    }
   };
 
   const handleLogout = () => {
@@ -228,7 +243,7 @@ export default function TeacherDashboard() {
 
         <footer className="mt-20 pt-12 border-t border-outline-variant/10 text-center">
           <p className="font-label text-xs uppercase tracking-widest text-on-surface-variant/50">
-            © 2024 Luminous Cognition. Designed for deep focus.
+            © 2026 AdaptLearn. Inclusive education for all.
           </p>
         </footer>
       </main>

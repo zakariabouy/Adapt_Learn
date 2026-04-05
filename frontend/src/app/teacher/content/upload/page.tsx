@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
+import { API_URL } from '@/lib/api';
 import { useRouter } from 'next/navigation';
 
 export default function ContentUpload() {
@@ -41,7 +42,7 @@ export default function ContentUpload() {
     formData.append('file', file);
 
     try {
-      await axios.post('http://localhost:8000/content/upload', formData, {
+      await axios.post(`${API_URL}/content/upload`, formData, {
         headers: { 
             'Content-Type': 'multipart/form-data',
             'Authorization': `Bearer ${token}`
@@ -119,13 +120,13 @@ export default function ContentUpload() {
 
               <AnimatePresence>
                 {status === 'success' && (
-                  <motion.div initial={{ opacity: 0, h: 0 }} animate={{ opacity: 1, h: 'auto' }} className="p-4 bg-green-400/10 border border-green-400/30 rounded-xl flex items-center gap-3 text-green-400">
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="p-4 bg-green-400/10 border border-green-400/30 rounded-xl flex items-center gap-3 text-green-400">
                     <CheckCircle size={20} />
                     <span className="font-bold">Content ingested successfully!</span>
                   </motion.div>
                 )}
                 {status === 'error' && (
-                  <motion.div initial={{ opacity: 0, h: 0 }} animate={{ opacity: 1, h: 'auto' }} className="p-4 bg-red-400/10 border border-red-400/30 rounded-xl flex items-center gap-3 text-red-400">
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="p-4 bg-red-400/10 border border-red-400/30 rounded-xl flex items-center gap-3 text-red-400">
                     <AlertCircle size={20} />
                     <span className="font-bold">{errorMessage}</span>
                   </motion.div>
@@ -155,7 +156,7 @@ export default function ContentUpload() {
       </main>
       
       <footer className="w-[calc(100%-16rem)] ml-64 flex flex-col items-center gap-4 text-center py-12 border-t border-outline-variant/10">
-        <p className="font-label text-xs uppercase tracking-widest text-on-surface-variant/50">© 2024 Luminous Cognition. Designed for deep focus.</p>
+        <p className="font-label text-xs uppercase tracking-widest text-on-surface-variant/50">© 2026 AdaptLearn. Inclusive education for all.</p>
       </footer>
     </div>
   );

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
+import { API_URL } from '@/lib/api';
 import { 
   BookOpen, Zap, Calculator, MoreHorizontal, 
   ArrowLeft, ArrowRight, Lightbulb, Check,
@@ -44,7 +45,7 @@ export default function Onboarding() {
         return;
       }
       try {
-        const response = await axios.get('http://localhost:8000/auth/me', {
+        const response = await axios.get(`${API_URL}/auth/me`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         setStudentId(response.data.id);
@@ -90,7 +91,7 @@ export default function Onboarding() {
         mastery_by_topic: {}
       };
 
-      await axios.post('http://localhost:8000/student/profile', learnerModel, {
+      await axios.post(`${API_URL}/student/profile`, learnerModel, {
         headers: { Authorization: `Bearer ${token}` }
       });
       router.push('/student/workspace');
@@ -358,7 +359,7 @@ export default function Onboarding() {
 
       <footer className="fixed bottom-0 w-full py-8 text-center z-50 pointer-events-none">
         <p className="text-on-surface-variant/50 text-[10px] font-label uppercase tracking-[0.2em]">
-          © 2024 Luminous Cognition. Designed for deep focus.
+          © 2026 AdaptLearn. Inclusive education for all.
         </p>
       </footer>
     </div>

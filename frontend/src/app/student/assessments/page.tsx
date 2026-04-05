@@ -120,7 +120,7 @@ export default function Assessment() {
   }
 
   const q = questions[currentQuestion];
-  const springConfig = { type: 'spring', stiffness: 120, damping: 14 };
+  const springConfig = { type: 'spring' as const, stiffness: 120, damping: 14 };
 
   return (
     <div className="min-h-screen bg-[#0e0e10] text-[#e5e1e4] font-body selection:bg-[#c4c0ff]/30 overflow-hidden flex flex-col items-center justify-center relative">
@@ -242,7 +242,7 @@ export default function Assessment() {
 
       <footer className="w-full py-8 mt-auto flex flex-col items-center gap-4 text-center z-10">
         <p className="font-headline text-[10px] uppercase tracking-widest text-[#c7c4d8]/40">
-          © 2024 LUMINOUS COGNITION. DESIGNED FOR DEEP FOCUS.
+          © 2026 ADAPTLEARN. INCLUSIVE EDUCATION FOR ALL.
         </p>
       </footer>
     </div>

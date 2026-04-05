@@ -2,14 +2,13 @@
 
 import { useForm } from 'react-hook-form';
 import axios from 'axios';
+import { API_URL } from '@/lib/api';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Brain, AtSign, Lock, GraduationCap, Presentation } from 'lucide-react';
-import { useState } from 'react';
+import { Brain, AtSign, Lock } from 'lucide-react';
 
 export default function Login() {
   const { register, handleSubmit, formState: { errors } } = useForm();
-  const [role, setRole] = useState<'student' | 'teacher'>('student');
   const router = useRouter();
 
   const onSubmit = async (data: any) => {
@@ -18,7 +17,7 @@ export default function Login() {
       params.append('username', data.email);
       params.append('password', data.password);
 
-      const response = await axios.post('http://localhost:8000/auth/login', params, {
+      const response = await axios.post(`${API_URL}/auth/login`, params, {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded'
         }
@@ -28,7 +27,7 @@ export default function Login() {
         localStorage.setItem('token', response.data.access_token);
         
         // Fetch user info to get the role
-        const userRes = await axios.get('http://localhost:8000/auth/me', {
+        const userRes = await axios.get(`${API_URL}/auth/me`, {
           headers: { Authorization: `Bearer ${response.data.access_token}` }
         });
 
@@ -118,31 +117,6 @@ export default function Login() {
               </button>
             </form>
 
-            {/* Role Selectors */}
-            <div className="pt-4 flex flex-col items-center space-y-6">
-              <div className="flex items-center gap-3 w-full">
-                <div className="h-[1px] flex-grow bg-outline-variant/10"></div>
-                <span className="text-[10px] font-label font-bold text-on-surface-variant/50 uppercase tracking-widest">Select Portal</span>
-                <div className="h-[1px] flex-grow bg-outline-variant/10"></div>
-              </div>
-              <div className="flex gap-3">
-                <button 
-                  onClick={() => setRole('student')}
-                  className={`px-5 py-2 ${role === 'student' ? 'bg-primary/20 border-primary/30 text-primary' : 'bg-surface-container/50 border-outline-variant/10 text-on-surface-variant'} hover:bg-surface-container-high border rounded-full text-sm font-label transition-colors flex items-center gap-2`}
-                >
-                  <GraduationCap className="w-4 h-4" />
-                  Log in as Student
-                </button>
-                <button 
-                  onClick={() => setRole('teacher')}
-                  className={`px-5 py-2 ${role === 'teacher' ? 'bg-primary/20 border-primary/30 text-primary' : 'bg-surface-container/50 border-outline-variant/10 text-on-surface-variant'} hover:bg-surface-container-high border rounded-full text-sm font-label transition-colors flex items-center gap-2`}
-                >
-                  <Presentation className="w-4 h-4" />
-                  Log in as Teacher
-                </button>
-              </div>
-            </div>
-            
             <p className="text-center text-sm text-on-surface-variant">
                 Don't have an account? <Link href="/auth/register" className="text-primary hover:underline">Register here</Link>
             </p>
@@ -152,7 +126,7 @@ export default function Login() {
         {/* Footer Credits */}
         <footer className="mt-12 text-center space-y-4">
           <p className="text-[10px] font-label font-medium text-on-surface-variant/40 uppercase tracking-[0.2em]">
-            © 2024 Luminous Cognition. Designed for deep focus.
+            © 2026 AdaptLearn. Inclusive education for all.
           </p>
           <div className="flex justify-center gap-6">
             <a href="#" className="text-[10px] font-label font-bold text-on-surface-variant/30 hover:text-primary transition-colors uppercase tracking-widest">Privacy Policy</a>

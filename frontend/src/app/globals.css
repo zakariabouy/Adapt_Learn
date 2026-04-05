@@ -2,30 +2,71 @@
 @import "tailwindcss";
 
 @theme {
-  --color-surface: #121214;
-  --color-surface-dim: #131315;
-  --color-surface-bright: #3b3a3d;
-  --color-surface-container: #201f21;
-  --color-surface-container-low: #1b1b1d;
-  --color-surface-container-high: #2a2a2c;
-  --color-surface-container-highest: #353437;
-  --color-surface-container-lowest: #0e0e10;
+  --color-surface: var(--surface);
+  --color-on-surface: var(--on-surface);
+  --color-surface-container: var(--surface-container);
+  --color-surface-container-low: var(--surface-container-low);
+  --color-surface-container-high: var(--surface-container-high);
+  --color-surface-container-highest: var(--surface-container-highest);
+  --color-surface-container-lowest: var(--surface-container-lowest);
+  
   --color-primary: #c4c0ff;
   --color-on-primary: #2000a4;
-  --color-primary-container: #3700cb;
-  --color-on-primary-container: #e5e1ff;
   --color-secondary: #43e5b1;
   --color-on-secondary: #003822;
   --color-outline-variant: #464555;
-  --color-on-surface: #e5e1e4;
   --color-on-surface-variant: #c7c4d8;
+  
   --font-headline: "Inter", sans-serif;
   --font-body: "Lexend", sans-serif;
   --font-label: "Inter", sans-serif;
 }
 
+:root {
+  /* Default Dark Theme */
+  --surface: #121214;
+  --on-surface: #e5e1e4;
+  --surface-container: #201f21;
+  --surface-container-low: #1b1b1d;
+  --surface-container-high: #2a2a2c;
+  --surface-container-highest: #353437;
+  --surface-container-lowest: #0e0e10;
+}
+
+[data-theme='sepia'] {
+  --surface: #f4ecd8;
+  --on-surface: #433422;
+  --surface-container: #ebe1c9;
+  --surface-container-low: #f0e7d1;
+  --surface-container-high: #e0d6bc;
+  --surface-container-highest: #d5ccb0;
+  --surface-container-lowest: #faf4e6;
+}
+
+[data-theme='light'] {
+  --surface: #fcfcfc;
+  --on-surface: #1b1b1f;
+  --surface-container: #f0f0f3;
+  --surface-container-low: #f6f6f9;
+  --surface-container-high: #eaeaee;
+  --surface-container-highest: #e4e4e8;
+  --surface-container-lowest: #ffffff;
+}
+
+[data-theme='high-contrast'] {
+  --surface: #000000;
+  --on-surface: #ffffff;
+  --surface-container: #1a1a1a;
+  --surface-container-low: #0d0d0d;
+  --surface-container-high: #333333;
+  --surface-container-highest: #4d4d4d;
+  --surface-container-lowest: #000000;
+  
+  --color-primary: #ffff00; /* Neon Yellow for HC */
+  --color-on-primary: #000000;
+}
+
 @layer utilities {
-  .sepia-mode { background-color: #FFFDE7; color: #313032; }
   .glass-effect { backdrop-filter: blur(20px); background-color: rgba(42,42,44,0.7); }
   .glass-card { backdrop-filter: blur(24px); background-color: rgba(32,31,33,0.8); }
   .mac-shadow { box-shadow: 0 50px 100px -20px rgba(0,0,0,0.5); }

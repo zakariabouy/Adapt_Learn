@@ -1,4 +1,5 @@
 import os
+import re
 import json
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
@@ -11,8 +12,13 @@ from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 
-# Initialize Gemini
-llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=os.getenv("GOOGLE_API_KEY"))
+_llm = None
+
+def get_llm():
+    global _llm
+    if _llm is None:
+        _llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=os.getenv("GOOGLE_API_KEY"))
+    return _llm
 
 async def get_student_stats(student_id: UUID) -> Dict[str, Any]:
     """
@@ -109,7 +115,7 @@ async def generate_iep_report(student_id: UUID, teacher_id: UUID) -> Dict[str, A
     """
     
     try:
-        response = await llm.ainvoke([HumanMessage(content=prompt)])
+        response = await get_llm().ainvoke([HumanMessage(content=prompt)])
         markdown_content = response.content
     except Exception as e:
         print(f"Gemini IEP Error: {e}")
@@ -191,12 +197,10 @@ def generate_pdf_report(markdown_text: str, output_path: str, student_name: str)
             elif line.startswith('### '):
                 content.append(Paragraph(line[4:], styles['Heading3']))
             elif line.startswith('- ') or line.startswith('* '):
-                # Simple markdown bold/italic replacement
-                clean_line = line[2:].replace('**', '<b>').replace('**', '</b>')
+                clean_line = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', line[2:])
                 content.append(Paragraph(f"• {clean_line}", bullet_style))
             else:
-                # Simple markdown bold/italic replacement
-                clean_line = line.replace('**', '<b>').replace('**', '</b>')
+                clean_line = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', line)
                 content.append(Paragraph(clean_line, normal_style))
         
         doc.build(content)

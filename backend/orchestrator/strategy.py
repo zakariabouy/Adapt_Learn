@@ -6,6 +6,7 @@ from langchain_core.messages import HumanMessage
 from shared.models import AdaptationCommand, EngagementState, TelemetryEvent, LearnerModel
 from shared.database import get_pool
 from uuid import UUID
+from orchestrator.persistence import SessionStatePersistence
 
 # Initialize Gemini
 llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=os.getenv("GOOGLE_API_KEY"))
@@ -22,6 +23,10 @@ async def get_strategic_command(student_id: str, state: EngagementState, event: 
     )
     profile = json.loads(profile_record["profile_data"]) if profile_record else {}
     
+    # Fetch session history for context
+    session_state = await SessionStatePersistence.get_state(student_id)
+    history = session_state.get("adaptation_history", []) if session_state else []
+    
     prompt = f"""
     You are the Strategy Agent for AdaptLearn, an inclusive education platform.
     A student's engagement has been classified as: {state.value.upper()}
@@ -37,12 +42,15 @@ async def get_strategic_command(student_id: str, state: EngagementState, event: 
     - Disabilities: {profile.get('disabilities', [])}
     - Severity: {profile.get('severity', {})}
     
+    Recent Adaptation History (Last 10 actions):
+    {json.dumps(history, indent=2)}
+    
     Your task:
     Decide on an adaptation action. Options:
     - "simplify_content": If student is frustrated or struggling with complexity.
     - "switch_modality": If student is distracted (audio) or bored (visual).
     - "summarize_chunk": If student is spending too much time on a chunk.
-    - "no_action": If the event is minor.
+    - "no_action": If the event is minor or we just performed this action recently.
     
     Return a JSON object with:
     - "action": The action string.

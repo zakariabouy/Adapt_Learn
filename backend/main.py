@@ -5,15 +5,20 @@ from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 from shared.database import get_pool
 from routers import auth, student, session, content, quiz, teacher
+from orchestrator.scheduler import start_scheduler
 import traceback
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: Initialize the pool
     await get_pool()
+    
+    # Start background scheduler
+    scheduler = start_scheduler()
+    
     yield
     # Shutdown: Close the pool
-    # Note: asyncpg pool close might be needed here
+    scheduler.shutdown()
     pass
 
 app = FastAPI(

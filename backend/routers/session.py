@@ -3,11 +3,12 @@ import json
 from typing import Dict
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
 from jose import JWTError, jwt
-from shared.models import TelemetryEvent, AdaptationCommand
+from shared.models import TelemetryEvent, AdaptationCommand, EngagementState
 from shared.security import SECRET_KEY, ALGORITHM
 from shared.database import get_pool
 from agents.monitor.agent import classify_engagement, should_trigger
 from orchestrator.strategy import get_strategic_command
+from orchestrator.persistence import SessionStatePersistence
 
 router = APIRouter(prefix="/session", tags=["Session"])
 
@@ -71,6 +72,11 @@ async def websocket_endpoint(
     await manager.connect(student_id, websocket)
 
     try:
+        # Initial: Try to recover previous session state
+        recovered = await SessionStatePersistence.get_state(student_id)
+        if recovered:
+            print(f"Recovered session for {student_id} with {len(recovered['adaptation_history'])} past commands")
+
         while True:
             data = await websocket.receive_json()
             event = TelemetryEvent(**data)
@@ -82,7 +88,15 @@ async def websocket_endpoint(
             if should_trigger(state):
                 # Build a command using the orchestrator's strategic logic
                 command = await get_strategic_command(student_id, state, event)
-                await manager.send_command(student_id, command)
+                
+                if command.action != "no_action":
+                    # Persist to Redis history
+                    await SessionStatePersistence.add_to_history(student_id, command)
+                    # Send to frontend
+                    await manager.send_command(student_id, command)
+                else:
+                    # Just update the last engagement state in Redis
+                    await SessionStatePersistence.save_state(student_id, state, recovered["adaptation_history"] if recovered else [])
 
     except WebSocketDisconnect:
         pass

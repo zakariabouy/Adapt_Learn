@@ -20,7 +20,7 @@ export default function Workspace() {
   const [currentChunk, setCurrentChunk] = useState(0);
   const [cssConfig, setCssConfig] = useState<any>({});
   const [contentTitle, setContentTitle] = useState('Loading Lesson...');
-  const [isListening, setIsListening] = useState(false);
+  const [theme, setTheme] = useState('dark');
   const [listeningPhase, setListeningPhase] = useState<'idle' | 'synthesizing' | 'playing'>('idle');
   
   const router = useRouter();
@@ -38,6 +38,14 @@ export default function Workspace() {
         });
         const sid = userRes.data.id;
         setStudentId(sid);
+
+        // Fetch learner profile for theme and other settings
+        const profileRes = await axios.get(`${API_URL}/student/profile`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (profileRes.data.color_theme) {
+          setTheme(profileRes.data.color_theme);
+        }
 
         const listRes = await axios.get(`${API_URL}/content/list`, {
           headers: { Authorization: `Bearer ${token}` }
@@ -88,7 +96,7 @@ export default function Workspace() {
   };
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-surface-dim font-label text-on-surface selection:bg-primary/30">
+    <div data-theme={theme} className="flex flex-col h-screen overflow-hidden bg-surface font-label text-on-surface selection:bg-primary/30 transition-colors duration-500">
       <TopNavBar studentId={studentId} onLogout={handleLogout} />
       <main className="flex-1 flex overflow-hidden pt-16">
         <ReadingZone 
@@ -112,14 +120,14 @@ export default function Workspace() {
 
 function TopNavBar({ studentId, onLogout }: { studentId: string | null, onLogout: () => void }) {
   return (
-    <header className="fixed top-0 w-full z-50 flex justify-between items-center px-8 h-16 bg-[#131315]/80 backdrop-blur-xl border-b border-[#464555]/20 shadow-2xl shadow-black/50">
-      <div className="text-lg font-bold tracking-tighter text-[#e5e1e4] flex items-center gap-2 before:content-[''] before:w-3 before:h-3 before:bg-[#FF6B6B] before:rounded-full before:shadow-[16px_0_0_#FFB84D,32px_0_0_#00C896]">
+    <header className="fixed top-0 w-full z-50 flex justify-between items-center px-8 h-16 bg-surface-container/80 backdrop-blur-xl border-b border-outline-variant/20 shadow-2xl">
+      <div className="text-lg font-bold tracking-tighter text-on-surface flex items-center gap-2 before:content-[''] before:w-3 before:h-3 before:bg-[#FF6B6B] before:rounded-full before:shadow-[16px_0_0_#FFB84D,32px_0_0_#00C896]">
         AdaptLearn
       </div>
       <nav className="hidden md:flex gap-8 items-center font-headline font-medium text-sm tracking-tight" aria-label="Main Navigation">
-        <a className="text-[#e5e1e4] border-b-2 border-[#6C63FF] pb-1" href="#">Workspace</a>
-        <a className="text-[#c7c4d8] hover:text-[#e5e1e4] pb-1 transition-all" href="#">Curriculum</a>
-        <a className="text-[#c7c4d8] hover:text-[#e5e1e4] pb-1 transition-all" href="#">Library</a>
+        <a className="text-on-surface border-b-2 border-primary pb-1" href="#">Workspace</a>
+        <a className="text-on-surface-variant hover:text-on-surface pb-1 transition-all" href="#">Curriculum</a>
+        <a className="text-on-surface-variant hover:text-on-surface pb-1 transition-all" href="#">Library</a>
       </nav>
       <div className="flex items-center gap-4">
         <button onClick={onLogout} aria-label="Logout" className="text-on-surface-variant hover:text-red-400 p-2 rounded-full transition-all flex items-center gap-2">
@@ -140,9 +148,9 @@ function ReadingZone({ chunks, currentChunk, setCurrentChunk, cssConfig, title }
   const prevChunk = () => setCurrentChunk((c: number) => Math.max(c - 1, 0));
 
   return (
-    <section className="w-full md:w-[70%] p-6 lg:p-10 flex flex-col items-center bg-surface-dim overflow-y-auto" aria-labelledby="lesson-title">
+    <section className="w-full md:w-[70%] p-6 lg:p-10 flex flex-col items-center bg-surface overflow-y-auto transition-colors duration-500" aria-labelledby="lesson-title">
       <h1 id="lesson-title" className="sr-only">{title}</h1>
-      <div className="w-full max-w-4xl bg-surface-container-high rounded-lg mac-shadow flex flex-col min-h-[80vh] overflow-hidden relative mb-12">
+      <div className="w-full max-w-4xl bg-surface-container-high rounded-lg mac-shadow flex flex-col min-h-[80vh] overflow-hidden relative mb-12 border border-outline-variant/10">
         <div className="h-10 px-4 flex items-center bg-surface-container-highest/50 backdrop-blur-md border-b border-outline-variant/10">
           <div className="flex gap-2" aria-hidden="true">
             <div className="w-3 h-3 rounded-full bg-[#FF6B6B]"></div>
@@ -152,7 +160,7 @@ function ReadingZone({ chunks, currentChunk, setCurrentChunk, cssConfig, title }
           <div className="flex-1 text-center text-xs text-on-surface-variant font-medium opacity-60">Lesson: {title}</div>
         </div>
         
-        <div className="sepia-mode flex-1 p-12 lg:p-20 font-body relative group min-h-[60vh]">
+        <div className="flex-1 p-12 lg:p-20 font-body relative group min-h-[60vh]">
           <div className="space-y-12 leading-relaxed" style={cssConfig} aria-live="polite">
             {chunks.length > 0 ? (
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -190,7 +198,7 @@ function ReadingZone({ chunks, currentChunk, setCurrentChunk, cssConfig, title }
         <div className="h-16 px-10 flex items-center justify-between bg-surface-container-highest/30 backdrop-blur-xl border-t border-outline-variant/10">
           <div className="flex-1 mr-8">
             <div className="flex justify-between text-xs text-on-surface-variant mb-2">
-              <span className="uppercase tracking-widest">Progress</span>
+              <span className="uppercase tracking-widest font-bold">Progress</span>
               <span>Chunk {chunks.length > 0 ? currentChunk + 1 : 0} of {chunks.length}</span>
             </div>
             <div className="h-2 w-full bg-surface-container-low rounded-full overflow-hidden" role="progressbar" aria-valuenow={chunks.length > 0 ? Math.round(((currentChunk + 1) / chunks.length) * 100) : 0} aria-valuemin={0} aria-valuemax={100}>
@@ -211,7 +219,7 @@ function ReadingZone({ chunks, currentChunk, setCurrentChunk, cssConfig, title }
         </div>
       </div>
       <footer className="w-full flex flex-col items-center gap-4 text-center py-8 mt-auto">
-        <div className="font-headline text-[10px] uppercase tracking-widest text-[#c7c4d8]/50">
+        <div className="font-headline text-[10px] uppercase tracking-widest text-on-surface-variant/50">
             © 2026 AdaptLearn. Inclusive education for all.
         </div>
       </footer>

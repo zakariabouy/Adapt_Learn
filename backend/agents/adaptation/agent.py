@@ -8,11 +8,20 @@ from langchain_core.messages import HumanMessage
 from elevenlabs.client import ElevenLabs
 from elevenlabs import save
 
-# Initialize Gemini
-llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=os.getenv("GOOGLE_API_KEY"))
+_llm = None
+_eleven_client = None
 
-# Initialize ElevenLabs
-eleven_client = ElevenLabs(api_key=os.getenv("ELEVENLABS_API_KEY"))
+def get_llm():
+    global _llm
+    if _llm is None:
+        _llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=os.getenv("GOOGLE_API_KEY"))
+    return _llm
+
+def get_eleven_client():
+    global _eleven_client
+    if _eleven_client is None:
+        _eleven_client = ElevenLabs(api_key=os.getenv("ELEVENLABS_API_KEY"))
+    return _eleven_client
 
 async def chunk_content(text: str, chunk_size: int) -> List[str]:
     """

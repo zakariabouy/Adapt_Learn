@@ -87,3 +87,32 @@ class ContentItem(ContentItemBase):
 
     class Config:
         from_attributes = True
+
+# --- Quiz / IRT ---
+class QuizOption(BaseModel):
+    id: str
+    label: str
+
+class QuizQuestion(BaseModel):
+    id: str
+    text: str
+    options: List[QuizOption]
+    hint: Optional[str] = None
+    difficulty: float = 0.0
+    topic: str = ""
+
+class QuizAnswerRequest(BaseModel):
+    question_id: str
+    selected_option: str
+    content_id: str
+
+class QuizAnswerResponse(BaseModel):
+    is_correct: bool
+    correct_id: str
+    explanation: Optional[str] = None
+    new_ability: float
+    next_question: Optional[QuizQuestion] = None
+    quiz_complete: bool = False
+    score: int = 0
+    total_questions: int = 0
+

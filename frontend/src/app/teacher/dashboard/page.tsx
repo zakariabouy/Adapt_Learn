@@ -38,18 +38,32 @@ export default function TeacherDashboard() {
         return;
       }
       try {
-        // Mocking student list for now as backend roles/lists are being wired
-        // const res = await axios.get('${API_URL}/teacher/students', {
-        //   headers: { Authorization: `Bearer ${token}` }
-        // });
-        // setStudents(res.data);
+        const res = await axios.get(`${API_URL}/teacher/students`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
         
-        setStudents([
-            { id: 'DS', name: 'Dylan S.', lastActive: '2m ago', risk: 'High', modules: '4/12', dotColor: 'bg-red-400 shadow-[0_0_12px_rgba(241,97,97,0.5)]', riskColor: 'text-red-400' },
-            { id: 'SK', name: 'Sarah K.', lastActive: '15m ago', risk: 'Low', modules: '11/12', dotColor: 'bg-green-400', riskColor: 'text-green-400' },
-            { id: 'MV', name: 'Marcus V.', lastActive: '1h ago', risk: 'Med', modules: '7/12', dotColor: 'bg-primary', riskColor: 'text-primary' },
-            { id: 'ER', name: 'Elena R.', lastActive: '5m ago', risk: 'Low', modules: '9/12', dotColor: 'bg-green-400', riskColor: 'text-green-400' },
-        ]);
+        const formatted = res.data.map((s: any) => {
+          let dotColor = 'bg-green-400';
+          let riskColor = 'text-green-400';
+          if (s.riskLevel === 'high') {
+            dotColor = 'bg-red-400 shadow-[0_0_12px_rgba(241,97,97,0.5)]';
+            riskColor = 'text-red-400';
+          } else if (s.riskLevel === 'medium') {
+            dotColor = 'bg-primary';
+            riskColor = 'text-primary';
+          }
+
+          return {
+            ...s,
+            displayId: s.name.substring(0, 2).toUpperCase(),
+            dotColor,
+            riskColor,
+            risk: s.riskLevel.charAt(0).toUpperCase() + s.riskLevel.slice(1),
+            modules: `${s.modulesCompleted} modules`
+          };
+        });
+        
+        setStudents(formatted);
         setLoading(false);
       } catch (error) {
         console.error('Failed to fetch teacher data', error);
@@ -198,7 +212,7 @@ export default function TeacherDashboard() {
 
               <div className="flex items-center gap-4 mb-6">
                 <div className="h-12 w-12 rounded-full bg-primary/20 flex items-center justify-center font-headline font-bold text-lg text-primary">
-                  {student.id}
+                  {student.displayId}
                 </div>
                 <div>
                   <h3 className="font-headline font-bold text-on-surface group-hover:text-primary transition-colors">

@@ -8,6 +8,11 @@ import json
 async def seed():
     pool = await get_pool()
     
+    # Run migrations
+    print("Running migrations...")
+    with open("migrations/002_question_bank.sql", "r") as f:
+        await pool.execute(f.read())
+
     # 1. Seed Teacher
     teacher_id = uuid4()
     teacher_email = "teacher@luminous.edu"
@@ -88,6 +93,99 @@ Photosynthesis is essential for life on Earth as it provides oxygen and food for
         "INSERT INTO content_items (id, teacher_id, title, original_text, subject, grade_level) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT DO NOTHING",
         content_id, teacher_id, title, original_text, "Biology", 5
     )
+
+    # 5. Seed Question Bank for IRT Adaptive Quiz
+    print("Seeding question bank for Photosynthesis...")
+    raw_questions = [
+        # Very Easy (Difficulty: -2.0)
+        {
+            "id": str(uuid4()),
+            "difficulty": -2.0,
+            "text": "What do plants need to make their own food?",
+            "options": json.dumps([
+                {"id": "A", "label": "Sunlight"},
+                {"id": "B", "label": "Rocks"},
+                {"id": "C", "label": "Sand"},
+                {"id": "D", "label": "Wind"}
+            ]),
+            "correct_id": "A",
+            "hint": "Think about what plants reach for.",
+            "explanation": "Plants need sunlight to perform photosynthesis."
+        },
+        # Easy (Difficulty: -1.0)
+        {
+            "id": str(uuid4()),
+            "difficulty": -1.0,
+            "text": "What gas do plants take in from the air during photosynthesis?",
+            "options": json.dumps([
+                {"id": "A", "label": "Oxygen"},
+                {"id": "B", "label": "Carbon Dioxide"},
+                {"id": "C", "label": "Nitrogen"},
+                {"id": "D", "label": "Helium"}
+            ]),
+            "correct_id": "B",
+            "hint": "It's the gas humans breathe out.",
+            "explanation": "Plants take in carbon dioxide and release oxygen."
+        },
+        # Medium (Difficulty: 0.0)
+        {
+            "id": str(uuid4()),
+            "difficulty": 0.0,
+            "text": "What is the green pigment in plants called?",
+            "options": json.dumps([
+                {"id": "A", "label": "Melanin"},
+                {"id": "B", "label": "Chlorophyll"},
+                {"id": "C", "label": "Carotene"},
+                {"id": "D", "label": "Hemoglobin"}
+            ]),
+            "correct_id": "B",
+            "hint": "Starts with 'Chloro-'.",
+            "explanation": "Chlorophyll is the green pigment responsible for capturing sunlight."
+        },
+        # Hard (Difficulty: 1.0)
+        {
+            "id": str(uuid4()),
+            "difficulty": 1.0,
+            "text": "During photosynthesis, water is oxidized. What does this mean?",
+            "options": json.dumps([
+                {"id": "A", "label": "It gains electrons"},
+                {"id": "B", "label": "It loses electrons"},
+                {"id": "C", "label": "It freezes"},
+                {"id": "D", "label": "It changes color"}
+            ]),
+            "correct_id": "B",
+            "hint": "Oxidation is loss.",
+            "explanation": "Oxidation means losing electrons."
+        },
+        # Very Hard (Difficulty: 2.0)
+        {
+            "id": str(uuid4()),
+            "difficulty": 2.0,
+            "text": "What are the exact products of the photosynthesis equation before respiration uses them?",
+            "options": json.dumps([
+                {"id": "A", "label": "Water and Carbon Dioxide"},
+                {"id": "B", "label": "Oxygen and Glucose"},
+                {"id": "C", "label": "ATP and Nitrogen"},
+                {"id": "D", "label": "Heat and Water vapor"}
+            ]),
+            "correct_id": "B",
+            "hint": "Plants make sugar.",
+            "explanation": "The main output is Glucose (sugar) and Oxygen gas."
+        }
+    ]
+
+    for q in raw_questions:
+        try:
+            await pool.execute(
+                """INSERT INTO question_bank 
+                   (id, content_id, subject, topic, difficulty, question_text, options, correct_id, hint, explanation) 
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)""",
+                q["id"], content_id, "Biology", "Photosynthesis", q["difficulty"], 
+                q["text"], q["options"], q["correct_id"], q["hint"], q["explanation"]
+            )
+        except Exception as e:
+            # Avoid crashing if re-seeding and table index complains or dupes
+            print(f"Skipped question {q['text'][:15]}...: {e}")
 
     print("Seeding complete.")
     await pool.close()

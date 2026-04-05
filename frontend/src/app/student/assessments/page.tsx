@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Star, Check, Flag, ArrowRight, Lightbulb, X, RotateCcw } from 'lucide-react';
 import axios from 'axios';
 import { useRouter } from 'next/navigation';
+import { API_URL } from '@/lib/api';
 
 export default function Assessment() {
   const [questions, setQuestions] = useState<any[]>([]);
@@ -12,77 +13,91 @@ export default function Assessment() {
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [score, setScore] = useState(0);
-  const [showResult, setShowResult] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [showResult, setShowResult] = useState(false);
+  const [answeredIds, setAnsweredIds] = useState<string[]>([]);
+  const [explanation, setExplanation] = useState<string | null>(null);
   const router = useRouter();
 
   // Mock content_id for now
   const CONTENT_ID = '00000000-0000-0000-0000-000000000000';
 
   useEffect(() => {
-    const fetchQuiz = async () => {
-      const token = localStorage.getItem('token');
-      try {
-        // Backend doesn't have this yet, so we mock it for Phase 3 visual demo
-        // const res = await axios.get(`http://localhost:8000/student/quiz/${CONTENT_ID}`, {
-        //   headers: { Authorization: `Bearer ${token}` }
-        // });
-        // setQuestions(res.data);
-        
-        // Mock data matching the design
-        setQuestions([
-          {
-            id: 'q1',
-            text: 'Which planet is closest to the sun?',
-            options: [
-              { id: 'A', label: 'Mercury' },
-              { id: 'B', label: 'Venus' },
-              { id: 'C', label: 'Earth' },
-              { id: 'D', label: 'Mars' },
-            ],
-            correctId: 'A',
-            hint: 'Think about the order of planets relative to the Sun\'s core.'
-          },
-          {
-            id: 'q2',
-            text: 'What is the largest planet in our solar system?',
-            options: [
-              { id: 'A', label: 'Saturn' },
-              { id: 'B', label: 'Jupiter' },
-              { id: 'C', label: 'Neptune' },
-              { id: 'D', label: 'Uranus' },
-            ],
-            correctId: 'B',
-            hint: 'It has a Great Red Spot.'
-          }
-        ]);
-        setLoading(false);
-      } catch (error) {
-        console.error('Failed to fetch quiz', error);
-        setLoading(false);
-      }
-    };
-    fetchQuiz();
+    fetchNextQuestion([]); // Initial fetch
   }, []);
+
+  const fetchNextQuestion = async (answeredArray: string[]) => {
+    const token = localStorage.getItem('token');
+    try {
+      setLoading(true);
+      const answeredParam = answeredArray.join(',');
+      const res = await axios.get(`${API_URL}/student/quiz/${CONTENT_ID}/next?answered=${answeredParam}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      // Replace the current active question (questions array will just hold 1 question at a time)
+      setQuestions([res.data]);
+      setCurrentQuestion(0);
+      setSelectedOption(null);
+      setIsCorrect(null);
+      setExplanation(null);
+      setLoading(false);
+    } catch (error: any) {
+      console.error('Failed to fetch quiz', error);
+      if (error.response?.status === 404 && error.response?.data?.detail === "No more questions available for this module.") {
+          // If no more questions, trigger result screen
+          setShowResult(true);
+      }
+      setLoading(false);
+    }
+  };
 
   const handleAnswer = async () => {
     if (!selectedOption) return;
 
-    const q = questions[currentQuestion];
-    const correct = selectedOption === q.correctId;
-    setIsCorrect(correct);
+    const q = questions[0]; // We always just have 1 active question in the array
+    const token = localStorage.getItem('token');
+    const answeredParam = answeredIds.join(',');
 
-    if (correct) setScore(s => s + 1);
+    try {
+      const res = await axios.post(
+        `${API_URL}/student/quiz/answer?answered=${answeredParam}`, 
+        {
+          question_id: q.id,
+          selected_option: selectedOption,
+          content_id: CONTENT_ID
+        }, 
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
 
-    setTimeout(() => {
-      if (currentQuestion < questions.length - 1) {
-        setCurrentQuestion(c => c + 1);
-        setSelectedOption(null);
-        setIsCorrect(null);
-      } else {
-        setShowResult(true);
-      }
-    }, 1500);
+      const responseData = res.data;
+      setIsCorrect(responseData.is_correct);
+      setExplanation(responseData.explanation);
+      
+      const newAnsweredIds = [...answeredIds, q.id];
+      setAnsweredIds(newAnsweredIds);
+      setScore(responseData.score);
+
+      // Wait 3.5 seconds to read the explanation before moving on
+      setTimeout(() => {
+        if (responseData.quiz_complete) {
+          setShowResult(true);
+        } else if (responseData.next_question) {
+          setQuestions([responseData.next_question]);
+          setIsCorrect(null);
+          setSelectedOption(null);
+          setExplanation(null);
+        } else {
+          // Fallback if no next question returned
+          fetchNextQuestion(newAnsweredIds);
+        }
+      }, 3500);
+
+    } catch (error) {
+       console.error("Failed to submit answer", error);
+       alert("Error submitting answer.");
+    }
   };
 
   if (loading) return <div className="min-h-screen bg-[#0e0e10] flex items-center justify-center text-primary">Loading Assessment...</div>;
@@ -149,10 +164,10 @@ export default function Assessment() {
               <div className="h-1.5 w-48 bg-[#201f21] rounded-full overflow-hidden">
                 <motion.div 
                   className="h-full bg-[#c4c0ff]"
-                  animate={{ width: `${((currentQuestion + 1) / questions.length) * 100}%` }}
+                  animate={{ width: `${Math.min(100, Math.max(0, (answeredIds.length / 5) * 100))}%` }}
                 ></motion.div>
               </div>
-              <span className="font-headline text-xs text-[#c7c4d8]">Question {currentQuestion + 1} of {questions.length}</span>
+              <span className="font-headline text-xs text-[#c7c4d8]">Question {answeredIds.length + 1}</span>
             </div>
           </div>
           <div className="flex items-center gap-2 px-4 py-2 bg-[#201f21] rounded-full shadow-[inset_0_1px_0_0_rgba(70,69,85,0.2)]">
@@ -170,7 +185,10 @@ export default function Assessment() {
           <div className="flex flex-col gap-8 max-w-2xl pt-4 md:pt-0">
             <div className="flex items-center gap-3">
               <span className="px-3 py-1 bg-[#c4c0ff]/10 text-[#e3dfff] font-headline text-[10px] font-bold tracking-widest uppercase rounded-full border border-[#c4c0ff]/20">
-                Conceptual
+                {q.topic || 'Subject'}
+              </span>
+              <span className="px-3 py-1 bg-surface-container-high text-on-surface-variant font-headline text-[10px] font-bold tracking-widest uppercase rounded-full border border-[#464555]/20">
+                Difficulty: {q.difficulty.toFixed(1)} θ
               </span>
             </div>
             
@@ -234,10 +252,20 @@ export default function Assessment() {
           </div>
         </motion.div>
 
-        <div className="mt-8 flex items-center justify-center gap-3 text-[#c7c4d8]/60 text-sm">
-          <Lightbulb className="w-4 h-4 animate-pulse text-[#c4c0ff]" />
-          <p>Tip: {q.hint}</p>
-        </div>
+        {explanation ? (
+             <motion.div 
+               initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+               className={`mt-6 p-4 rounded-xl border ${isCorrect ? 'bg-[#01c896]/10 border-[#01c896]/20 text-[#01c896]' : 'bg-[#f16161]/10 border-[#f16161]/20 text-[#f16161]'} flex items-start gap-3 text-sm`}
+             >
+                <div className="mt-1">{isCorrect ? <Check size={16} /> : <X size={16} />}</div>
+                <p><strong>{isCorrect ? 'Correct!' : 'Incorrect.'}</strong> {explanation}</p>
+             </motion.div>
+        ) : (
+             <div className="mt-8 flex items-center justify-center gap-3 text-[#c7c4d8]/60 text-sm">
+                <Lightbulb className="w-4 h-4 animate-pulse text-[#c4c0ff]" />
+                <p>Tip: {q.hint}</p>
+             </div>
+        )}
       </main>
 
       <footer className="w-full py-8 mt-auto flex flex-col items-center gap-4 text-center z-10">

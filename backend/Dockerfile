@@ -26,5 +26,5 @@ COPY . .
 EXPOSE 8000
 
 # Command to run the application
-# Use 0.0.0.0 to allow external connections (from Render/Railway)
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Shell form so $PORT is expanded at runtime (Render injects PORT dynamically)
+CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}

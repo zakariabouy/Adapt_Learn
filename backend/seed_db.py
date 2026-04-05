@@ -25,39 +25,58 @@ async def seed():
             with open(m, "r") as f:
                 await pool.execute(f.read())
 
-    # 1. Seed Teacher
-    teacher_id = uuid4()
-    teacher_email = "teacher@enset.edu"
     hashed_password = get_password_hash("password123")
-    
+
+    # 1. Seed Teacher
+    teacher_email = "teacher@enset.edu"
     print(f"Seeding teacher: {teacher_email}")
     await pool.execute(
         "INSERT INTO users (id, email, role, hashed_password, name) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (email) DO NOTHING",
-        teacher_id, teacher_email, "teacher", hashed_password, "Mme. Fatima"
+        uuid4(), teacher_email, "teacher", hashed_password, "Mme. Fatima"
     )
-    
-    row = await pool.fetchrow("SELECT id FROM users WHERE email = $1", teacher_email)
-    teacher_id = row['id']
+    teacher_id = (await pool.fetchrow("SELECT id FROM users WHERE email = $1", teacher_email))["id"]
 
     # 2. Seed Students (Grades 2, 4, 5)
-    students = [
-        {"name": "Lina", "email": "lina@student.com", "grade": 2, "tags": ["visual_learner", "needs_repetition"]},
-        {"name": "Omar", "email": "omar@student.com", "grade": 4, "tags": ["short_attention", "gamification"]},
-        {"name": "Yassine", "email": "yassine@student.com", "grade": 5, "tags": ["slow_reader", "audio_learner"]}
+    students_cfg = [
+        {
+            "name": "Lina",
+            "email": "lina@student.com",
+            "grade": 2,
+            "tags": ["visual_learner", "needs_repetition"],
+            "xp": 50, "level": 1, "streak": 1,
+            "ability": -0.3,
+        },
+        {
+            "name": "Omar",
+            "email": "omar@student.com",
+            "grade": 4,
+            "tags": ["short_attention", "gamification"],
+            "xp": 320, "level": 3, "streak": 5,
+            "ability": 0.8,
+        },
+        {
+            "name": "Yassine",
+            "email": "yassine@student.com",
+            "grade": 5,
+            "tags": ["slow_reader", "audio_learner"],
+            "xp": 180, "level": 2, "streak": 2,
+            "ability": 0.2,
+        },
     ]
 
-    for s in students:
-        s_id = uuid4()
+    student_ids: dict[str, UUID] = {}
+
+    for s in students_cfg:
         print(f"Seeding student: {s['name']} (Grade {s['grade']})")
         await pool.execute(
-            "INSERT INTO users (id, email, role, hashed_password, name, grade_level) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (email) DO NOTHING",
-            s_id, s["email"], "student", hashed_password, s["name"], s["grade"]
+            "INSERT INTO users (id, email, role, hashed_password, name, grade_level) "
+            "VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (email) DO NOTHING",
+            uuid4(), s["email"], "student", hashed_password, s["name"], s["grade"]
         )
-        
-        row = await pool.fetchrow("SELECT id FROM users WHERE email = $1", s["email"])
-        s_id = row['id']
+        s_id = (await pool.fetchrow("SELECT id FROM users WHERE email = $1", s["email"]))["id"]
+        student_ids[s["name"]] = s_id
 
-        # Seed Learner Profile
+        # Learner Profile
         learner_model = {
             "student_id": str(s_id),
             "learning_tags": s["tags"],
@@ -67,24 +86,53 @@ async def seed():
             "line_spacing": 1.5,
             "color_theme": "light",
             "preferred_modality": "audio" if "audio_learner" in s["tags"] else "visual",
-            "reading_speed_wpm": 100,
-            "chunk_size": 300,
+            "reading_speed_wpm": 80 if "slow_reader" in s["tags"] else 120,
+            "chunk_size": 250 if "short_attention" in s["tags"] else 350,
             "current_engagement_score": 1.0,
             "current_frustration_level": 0.0,
-            "ability_estimate": 0.0,
-            "mastery_by_topic": {}
+            "ability_estimate": s["ability"],
+            "mastery_by_topic": {},
         }
         await pool.execute(
-            "INSERT INTO learner_profiles (student_id, profile_data) VALUES ($1, $2) ON CONFLICT (student_id) DO UPDATE SET profile_data = $2",
+            "INSERT INTO learner_profiles (student_id, profile_data) VALUES ($1, $2) "
+            "ON CONFLICT (student_id) DO UPDATE SET profile_data = $2",
             s_id, json.dumps(learner_model)
         )
 
-        # Initialize Gamification
+        # Gamification — set initial badges based on XP
+        initial_badges = ["explorer_1"]
+        if s["xp"] >= 100:
+            initial_badges.append("smarty_100")
+        if s["xp"] >= 300:
+            initial_badges.append("streak_3")
+        if s["xp"] >= 500:
+            initial_badges.append("quiz_ace")
+
         await pool.execute(
-            """INSERT INTO student_gamification 
-               (student_id, current_xp, current_level, current_streak) 
-               VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING""",
-            s_id, 150 if s["name"] == "Omar" else 50, 2 if s["name"] == "Omar" else 1, 3 if s["name"] == "Omar" else 1
+            """INSERT INTO student_gamification
+               (student_id, current_xp, current_level, current_streak, max_streak, badges_unlocked, last_activity_date)
+               VALUES ($1, $2, $3, $4, $5, $6, $7)
+               ON CONFLICT (student_id) DO UPDATE SET
+                   current_xp = $2, current_level = $3, current_streak = $4,
+                   max_streak = $5, badges_unlocked = $6, last_activity_date = $7""",
+            s_id, s["xp"], s["level"], s["streak"], s["streak"],
+            json.dumps(initial_badges),
+            datetime.date.today() - datetime.timedelta(days=1)
+        )
+
+        # XP log entries for demo history
+        await pool.execute(
+            "INSERT INTO xp_logs (student_id, xp_amount, reason) VALUES ($1, $2, $3)",
+            s_id, s["xp"], "seed_initial"
+        )
+
+        # Grade history (current school year)
+        await pool.execute(
+            """INSERT INTO grade_history (student_id, grade_level, school_year, started_at)
+               VALUES ($1, $2, $3, $4)
+               ON CONFLICT (student_id, grade_level, school_year) DO NOTHING""",
+            s_id, s["grade"], "2025-2026",
+            datetime.datetime(2025, 9, 1, tzinfo=datetime.timezone.utc)
         )
 
         # Link to Teacher
@@ -93,31 +141,102 @@ async def seed():
             teacher_id, s_id
         )
 
-    # 3. Seed Content Items (Kid-friendly)
-    content_items = [
+    # 3. Seed Content Items
+    content_items_cfg = [
         {
-            "id": str(uuid4()),
             "title": "The Magic of Plants",
             "subject": "Science",
             "grade": 2,
-            "text": "Plants are amazing! They need water and sun to grow. They give us oxygen to breathe."
+            "text": (
+                "Plants are amazing living things! They need three things to grow: water, sunlight, and soil. "
+                "Roots drink water from the ground. Leaves use sunlight to make food. This is called photosynthesis. "
+                "Plants give us oxygen to breathe. Without plants, we could not live! "
+                "Some plants give us fruits and vegetables to eat. Trees give us wood and shade. "
+                "Next time you see a plant, say thank you!"
+            ),
         },
         {
-            "id": str(uuid4()),
             "title": "Adventures in Geometry",
             "subject": "Math",
             "grade": 4,
-            "text": "Shapes are everywhere! A square has four sides. A triangle has three. Can you find them in your room?"
-        }
+            "text": (
+                "Shapes are all around us! A triangle has 3 sides and 3 corners. "
+                "A square has 4 equal sides. A rectangle has 4 sides but only opposite sides are equal. "
+                "A circle has no corners — it is perfectly round. "
+                "The perimeter of a shape is the total length around it. "
+                "The area tells us how much space a shape covers. "
+                "For a square with sides of 4 cm, the perimeter = 4 × 4 = 16 cm and the area = 4 × 4 = 16 cm²."
+            ),
+        },
+        {
+            "title": "The Water Cycle",
+            "subject": "Science",
+            "grade": 5,
+            "text": (
+                "Water is always moving! The water cycle has four main steps: evaporation, condensation, "
+                "precipitation, and collection. "
+                "Evaporation: the sun heats water in rivers and oceans, turning it into water vapor that rises up. "
+                "Condensation: high in the sky, water vapor cools and forms clouds. "
+                "Precipitation: when clouds get heavy, water falls as rain or snow. "
+                "Collection: water flows back into rivers, lakes, and oceans, and the cycle begins again!"
+            ),
+        },
     ]
 
-    for item in content_items:
+    content_ids: list[UUID] = []
+    for item in content_items_cfg:
+        cid = uuid4()
         await pool.execute(
-            "INSERT INTO content_items (id, teacher_id, title, original_text, subject, grade_level) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT DO NOTHING",
-            UUID(item["id"]), teacher_id, item["title"], item["text"], item["subject"], item["grade"]
+            "INSERT INTO content_items (id, teacher_id, title, original_text, subject, grade_level) "
+            "VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT DO NOTHING",
+            cid, teacher_id, item["title"], item["text"], item["subject"], item["grade"]
+        )
+        fetched = await pool.fetchrow("SELECT id FROM content_items WHERE title = $1 AND teacher_id = $2", item["title"], teacher_id)
+        content_ids.append(fetched["id"])
+
+    # 4. Seed demo sessions + assessments (for growth charts & stats)
+    print("Seeding demo sessions and assessments...")
+    demo_sessions = [
+        # (student_name, content_index, days_ago, theta_before, theta_after, score)
+        ("Lina",    0, 10, -0.5, -0.3, 0.65),
+        ("Lina",    0,  5, -0.3, -0.1, 0.72),
+        ("Omar",    1, 14,  0.5,  0.7, 0.80),
+        ("Omar",    1,  7,  0.7,  0.9, 0.85),
+        ("Omar",    1,  2,  0.9,  1.1, 0.90),
+        ("Yassine", 2, 12,  0.0,  0.2, 0.70),
+        ("Yassine", 2,  6,  0.2,  0.4, 0.75),
+    ]
+
+    for student_name, c_idx, days_ago, t_before, t_after, score in demo_sessions:
+        s_id = student_ids[student_name]
+        if c_idx >= len(content_ids):
+            continue
+        c_id = content_ids[c_idx]
+        session_time = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=days_ago)
+        session_id = uuid4()
+
+        await pool.execute(
+            """INSERT INTO sessions (id, student_id, content_id, started_at, ended_at, telemetry_summary)
+               VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT DO NOTHING""",
+            session_id, s_id, c_id,
+            session_time,
+            session_time + datetime.timedelta(minutes=20),
+            json.dumps({
+                "engagement_score": score,
+                "current_frustration_level": round(1.0 - score, 2),
+            })
         )
 
-    print("Seeding complete.")
+        await pool.execute(
+            """INSERT INTO assessments (session_id, student_id, questions, responses, score, theta_before, theta_after)
+               VALUES ($1, $2, $3, $4, $5, $6, $7)""",
+            session_id, s_id,
+            json.dumps([{"text": "Demo question", "type": "mcq"}]),
+            json.dumps([{"answer": "A", "correct": True}]),
+            score, t_before, t_after
+        )
+
+    print("Seeding complete!")
     await pool.close()
 
 if __name__ == "__main__":

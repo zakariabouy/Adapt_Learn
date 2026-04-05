@@ -15,5 +15,13 @@ CREATE TABLE IF NOT EXISTS grade_history (
     UNIQUE(student_id, grade_level, school_year)
 );
 
--- Update existing content_items to ensure grade_level is within 1-6
-ALTER TABLE content_items ADD CONSTRAINT content_items_grade_check CHECK (grade_level >= 1 AND grade_level <= 6);
+-- Update existing content_items to ensure grade_level is within 1-6 (idempotent)
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'content_items_grade_check'
+    ) THEN
+        ALTER TABLE content_items ADD CONSTRAINT content_items_grade_check
+            CHECK (grade_level >= 1 AND grade_level <= 6);
+    END IF;
+END $$;

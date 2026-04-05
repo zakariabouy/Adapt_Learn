@@ -49,37 +49,39 @@ async def get_teacher_students(current_teacher = Depends(get_current_teacher)):
     
     students = await pool.fetch(
         """
-        SELECT u.id, u.email, lp.profile_data, 
+        SELECT u.id, u.name, u.email, u.grade_level, lp.profile_data,
                (SELECT MAX(started_at) FROM sessions WHERE student_id = u.id) as last_active,
                (SELECT COUNT(DISTINCT content_id) FROM sessions WHERE student_id = u.id AND ended_at IS NOT NULL) as modules_completed
         FROM users u
         JOIN teacher_student_link tsl ON u.id = tsl.student_id
         LEFT JOIN learner_profiles lp ON u.id = lp.student_id
         WHERE tsl.teacher_id = $1 AND u.role = 'student'
+        ORDER BY u.grade_level, u.name
         """,
         current_teacher["id"]
     )
-    
+
     result = []
     for s in students:
         profile = json.loads(s["profile_data"]) if s["profile_data"] else {}
         ability = profile.get("ability_estimate", 0.0)
-        
-        # Risk level calculation based on ability
+
         risk_level = "low"
         if ability < -1.5:
             risk_level = "high"
         elif ability < -0.5:
             risk_level = "medium"
-            
+
         result.append({
             "id": s["id"],
-            "name": s["email"].split("@")[0].capitalize(),
+            "name": s["name"] or s["email"].split("@")[0].capitalize(),
             "email": s["email"],
+            "grade_level": s["grade_level"],
+            "learning_tags": profile.get("learning_tags", []),
             "lastActive": s["last_active"].isoformat() if s["last_active"] else "Never",
             "riskLevel": risk_level,
             "modulesCompleted": s["modules_completed"] or 0,
-            "ability": round(ability, 2)
+            "ability": round(ability, 2),
         })
         
     return result

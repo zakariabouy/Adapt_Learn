@@ -79,3 +79,4 @@ CREATE TABLE IF NOT EXISTS iep_reports (
     generated_at TIMESTAMPTZ DEFAULT NOW(),
     week TEXT                                 -- e.g., "2026-W14"
 );
+ALTER TABLE users ADD COLUMN IF NOT EXISTS name VARCHAR(255);

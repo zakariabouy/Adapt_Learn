@@ -69,44 +69,44 @@ async def get_adapted_workspace(
         )
         
         if cached:
+            title_row = await pool.fetchrow("SELECT title FROM content_items WHERE id = $1", content_id)
             return {
                 "content_id": content_id,
+                "title": title_row["title"] if title_row else None,
                 "chunks": json.loads(cached["adapted_text"]),
                 "css_config": await transform_font(profile),
                 "cached": True
             }
 
     # 3. If not cached, generate adaptation
-    content_item = await pool.fetchrow("SELECT original_text FROM content_items WHERE id = $1", content_id)
+    content_item = await pool.fetchrow("SELECT title, original_text FROM content_items WHERE id = $1", content_id)
     if not content_item:
         raise HTTPException(status_code=404, detail="Content not found")
-    
+
     original_text = content_item["original_text"]
-    
+    title = content_item["title"]
+
     # Simplify/Adapt using Orchestrator
     adapted_text = await adapt_content(profile, original_text)
-    
+
     # Chunking
     chunks = await chunk_content(adapted_text, profile.chunk_size or 500)
-    
+
     # CSS Config
     css_config = await transform_font(profile)
-    
-    # 4. Store in cache
-    # First delete existing if force_refresh was true to avoid unique constraint violations
-    if force_refresh:
-        await pool.execute(
-            "DELETE FROM adapted_content WHERE content_id = $1 AND student_id = $2 AND md5(adaptation_config::text) = md5($3)",
-            content_id, current_user["id"], config_str
-        )
 
+    # 4. Upsert cache (avoids duplicate key errors on repeat loads)
     await pool.execute(
-        "INSERT INTO adapted_content (content_id, student_id, adaptation_config, adapted_text) VALUES ($1, $2, $3, $4)",
+        """INSERT INTO adapted_content (content_id, student_id, adaptation_config, adapted_text)
+           VALUES ($1, $2, $3, $4)
+           ON CONFLICT (content_id, student_id, md5(adaptation_config::text))
+           DO UPDATE SET adapted_text = EXCLUDED.adapted_text""",
         content_id, current_user["id"], config_str, json.dumps(chunks)
     )
-    
+
     return {
         "content_id": content_id,
+        "title": title,
         "chunks": chunks,
         "css_config": css_config,
         "cached": False

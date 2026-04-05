@@ -66,181 +66,72 @@ async def seed():
         student_id, json.dumps(learner_model)
     )
 
-    # 4. Seed Content Item
-    content_id = "00000000-0000-0000-0000-000000000000"
-    # Use 00000000-0000-0000-0000-000000000000 as a consistent ID for testing if needed
-    # but the frontend fetches first available, so any UUID works.
+    # 4. Seed Content Items
+    content_id_1 = "00000000-0000-0000-0000-000000000000"
+    content_id_2 = str(uuid4()) # Math module
     
-    title = "Photosynthesis for Beginners"
-    original_text = """
+    title_1 = "Photosynthesis for Beginners"
+    original_text_1 = """
 # Photosynthesis
-
-Photosynthesis is the process by which green plants and some other organisms use sunlight to synthesize foods with the help of chlorophyll pigments. 
-
-In this process, plants take in carbon dioxide (CO2) and water (H2O) from the air and soil. Within the plant cell, the water is oxidized, meaning it loses electrons, while the carbon dioxide is reduced, meaning it gains electrons. This transforms the water into oxygen and the carbon dioxide into glucose. 
-
-The plant then releases the oxygen back into the atmosphere and stores energy within the glucose molecules.
-
-## The Role of Chlorophyll
-Chlorophyll is a pigment found in the chloroplasts of plants. It is responsible for absorbing light energy from the sun. This energy is then used to convert CO2 and water into glucose.
-
-## Summary
-Photosynthesis is essential for life on Earth as it provides oxygen and food for almost all living organisms.
+Photosynthesis is the process by which green plants use sunlight to synthesize foods from carbon dioxide and water.
+In this process, plants take in carbon dioxide (CO2) and water (H2O) from the air and soil. 
+The plant then releases oxygen back into the atmosphere and stores energy within glucose molecules.
     """
     
-    print(f"Seeding content item: {title}")
+    title_2 = "Introduction to Algebra"
+    original_text_2 = """
+# Introduction to Algebra
+Algebra is a branch of mathematics dealing with symbols and the rules for manipulating those symbols. 
+In its simplest form, algebra involves using letters (like x or y) to represent unknown numbers in equations.
+
+## Solving for X
+If you have the equation x + 5 = 10, the goal is to find what x is. By subtracting 5 from both sides, you find that x = 5.
+
+## Basic Rules
+1. Whatever you do to one side of the equation, you must do to the other.
+2. Variables can represent any number.
+    """
+    
+    print(f"Seeding content item: {title_1}")
     await pool.execute(
         "INSERT INTO content_items (id, teacher_id, title, original_text, subject, grade_level) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT DO NOTHING",
-        content_id, teacher_id, title, original_text, "Biology", 5
+        content_id_1, teacher_id, title_1, original_text_1, "Biology", 5
+    )
+
+    print(f"Seeding content item: {title_2}")
+    await pool.execute(
+        "INSERT INTO content_items (id, teacher_id, title, original_text, subject, grade_level) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT DO NOTHING",
+        content_id_2, teacher_id, title_2, original_text_2, "Mathematics", 6
     )
 
     # 5. Seed Question Bank for IRT Adaptive Quiz
-    print("Seeding question bank for Photosynthesis...")
+    print("Seeding question bank...")
     raw_questions = [
-        # Very Easy (Difficulty: -2.0)
+        # Photosynthesis (Partial list)
         {
-            "id": str(uuid4()),
-            "difficulty": -2.0,
-            "text": "What do plants need to make their own food?",
-            "options": json.dumps([
-                {"id": "A", "label": "Sunlight"},
-                {"id": "B", "label": "Rocks"},
-                {"id": "C", "label": "Sand"},
-                {"id": "D", "label": "Wind"}
-            ]),
-            "correct_id": "A",
-            "hint": "Think about what plants reach for.",
-            "explanation": "Plants need sunlight to perform photosynthesis."
+            "id": str(uuid4()), "content_id": content_id_1, "subject": "Biology", "topic": "Photosynthesis",
+            "difficulty": -2.0, "text": "What do plants need to make their own food?",
+            "options": json.dumps([{"id": "A", "label": "Sunlight"}, {"id": "B", "label": "Rocks"}, {"id": "C", "label": "Sand"}, {"id": "D", "label": "Wind"}]),
+            "correct_id": "A", "hint": "Think about what plants reach for.", "explanation": "Plants need sunlight for photosynthesis."
+        },
+        # Algebra (Dyscalculia support demo)
+        {
+            "id": str(uuid4()), "content_id": content_id_2, "subject": "Mathematics", "topic": "Algebra",
+            "difficulty": -1.5, "text": "In the equation x + 2 = 5, what is x?",
+            "options": json.dumps([{"id": "A", "label": "1"}, {"id": "B", "label": "2"}, {"id": "C", "label": "3"}, {"id": "D", "label": "7"}]),
+            "correct_id": "C", "hint": "What plus 2 equals 5?", "explanation": "Subtract 2 from both sides: 5 - 2 = 3."
         },
         {
-            "id": str(uuid4()),
-            "difficulty": -2.2,
-            "text": "What color are most plants?",
-            "options": json.dumps([
-                {"id": "A", "label": "Blue"},
-                {"id": "B", "label": "Red"},
-                {"id": "C", "label": "Green"},
-                {"id": "D", "label": "Purple"}
-            ]),
-            "correct_id": "C",
-            "hint": "Think of grass and leaves.",
-            "explanation": "Most plants are green due to chlorophyll."
-        },
-        # Easy (Difficulty: -1.0)
-        {
-            "id": str(uuid4()),
-            "difficulty": -1.0,
-            "text": "What gas do plants take in from the air during photosynthesis?",
-            "options": json.dumps([
-                {"id": "A", "label": "Oxygen"},
-                {"id": "B", "label": "Carbon Dioxide"},
-                {"id": "C", "label": "Nitrogen"},
-                {"id": "D", "label": "Helium"}
-            ]),
-            "correct_id": "B",
-            "hint": "It's the gas humans breathe out.",
-            "explanation": "Plants take in carbon dioxide and release oxygen."
+            "id": str(uuid4()), "content_id": content_id_2, "subject": "Mathematics", "topic": "Algebra",
+            "difficulty": 0.0, "text": "What does 'x' usually represent in an algebra equation?",
+            "options": json.dumps([{"id": "A", "label": "An unknown number"}, {"id": "B", "label": "The multiplication sign"}, {"id": "C", "label": "An error"}, {"id": "D", "label": "Always zero"}]),
+            "correct_id": "A", "hint": "It's a placeholder.", "explanation": "Variables like x represent unknown values we want to find."
         },
         {
-            "id": str(uuid4()),
-            "difficulty": -0.8,
-            "text": "Which part of the plant usually performs most photosynthesis?",
-            "options": json.dumps([
-                {"id": "A", "label": "Roots"},
-                {"id": "B", "label": "Stem"},
-                {"id": "C", "label": "Leaves"},
-                {"id": "D", "label": "Flowers"}
-            ]),
-            "correct_id": "C",
-            "hint": "They are flat and green.",
-            "explanation": "Leaves have the most surface area and chloroplasts for sunlight capture."
-        },
-        # Medium (Difficulty: 0.0)
-        {
-            "id": str(uuid4()),
-            "difficulty": 0.0,
-            "text": "What is the green pigment in plants called?",
-            "options": json.dumps([
-                {"id": "A", "label": "Melanin"},
-                {"id": "B", "label": "Chlorophyll"},
-                {"id": "C", "label": "Carotene"},
-                {"id": "D", "label": "Hemoglobin"}
-            ]),
-            "correct_id": "B",
-            "hint": "Starts with 'Chloro-'.",
-            "explanation": "Chlorophyll is the green pigment responsible for capturing sunlight."
-        },
-        {
-            "id": str(uuid4()),
-            "difficulty": 0.2,
-            "text": "What is the main sugar produced during photosynthesis?",
-            "options": json.dumps([
-                {"id": "A", "label": "Lactose"},
-                {"id": "B", "label": "Fructose"},
-                {"id": "C", "label": "Glucose"},
-                {"id": "D", "label": "Sucrose"}
-            ]),
-            "correct_id": "C",
-            "hint": "A simple 6-carbon sugar.",
-            "explanation": "Glucose is the primary energy source created by plants."
-        },
-        # Hard (Difficulty: 1.0)
-        {
-            "id": str(uuid4()),
-            "difficulty": 1.0,
-            "text": "During photosynthesis, water is oxidized. What does this mean?",
-            "options": json.dumps([
-                {"id": "A", "label": "It gains electrons"},
-                {"id": "B", "label": "It loses electrons"},
-                {"id": "C", "label": "It freezes"},
-                {"id": "D", "label": "It changes color"}
-            ]),
-            "correct_id": "B",
-            "hint": "Oxidation is loss.",
-            "explanation": "Oxidation means losing electrons."
-        },
-        {
-            "id": str(uuid4()),
-            "difficulty": 1.2,
-            "text": "Where specifically inside a plant cell does photosynthesis occur?",
-            "options": json.dumps([
-                {"id": "A", "label": "Mitochondria"},
-                {"id": "B", "label": "Nucleus"},
-                {"id": "C", "label": "Chloroplasts"},
-                {"id": "D", "label": "Vacuole"}
-            ]),
-            "correct_id": "C",
-            "hint": "Green organelles.",
-            "explanation": "Chloroplasts contain the machinery for photosynthesis."
-        },
-        # Very Hard (Difficulty: 2.0)
-        {
-            "id": str(uuid4()),
-            "difficulty": 2.0,
-            "text": "What are the exact products of the photosynthesis equation before respiration uses them?",
-            "options": json.dumps([
-                {"id": "A", "label": "Water and Carbon Dioxide"},
-                {"id": "B", "label": "Oxygen and Glucose"},
-                {"id": "C", "label": "ATP and Nitrogen"},
-                {"id": "D", "label": "Heat and Water vapor"}
-            ]),
-            "correct_id": "B",
-            "hint": "Plants make sugar.",
-            "explanation": "The main output is Glucose (sugar) and Oxygen gas."
-        },
-        {
-            "id": str(uuid4()),
-            "difficulty": 2.5,
-            "text": "Which of these is the correct chemical formula for Glucose?",
-            "options": json.dumps([
-                {"id": "A", "label": "H2O"},
-                {"id": "B", "label": "CO2"},
-                {"id": "C", "label": "C6H12O6"},
-                {"id": "D", "label": "NaCl"}
-            ]),
-            "correct_id": "C",
-            "hint": "6 carbons, 12 hydrogens, 6 oxygens.",
-            "explanation": "C6H12O6 is the chemical structure of glucose."
+            "id": str(uuid4()), "content_id": content_id_2, "subject": "Mathematics", "topic": "Algebra",
+            "difficulty": 1.5, "text": "If 2x = 10, what is x?",
+            "options": json.dumps([{"id": "A", "label": "2"}, {"id": "B", "label": "5"}, {"id": "C", "label": "8"}, {"id": "D", "label": "20"}]),
+            "correct_id": "B", "hint": "Divide 10 by 2.", "explanation": "Divide both sides by 2: 10 / 2 = 5."
         }
     ]
 

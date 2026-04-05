@@ -3,8 +3,15 @@ from shared.database import get_pool
 from routers.auth import get_current_user
 from uuid import uuid4
 import datetime
+import json
+import os
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.messages import HumanMessage
 
 router = APIRouter(prefix="/content", tags=["Content"])
+
+# Initialize Gemini
+llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=os.getenv("GOOGLE_API_KEY"))
 
 @router.post("/upload")
 async def upload_content(file: UploadFile = File(...), current_user = Depends(get_current_user)):
@@ -19,15 +26,88 @@ async def upload_content(file: UploadFile = File(...), current_user = Depends(ge
     content = await file.read()
     text_content = content.decode("utf-8")
     
+    # --- AI Analysis Phase ---
+    prompt = f"""
+    Analyze the following educational content and extract metadata.
+    Content:
+    {text_content[:2000]}
+    
+    Tasks:
+    1. Identify the subject (e.g., Biology, Math, History).
+    2. Estimate the target grade level (integer).
+    3. Generate 5 IRT-calibrated quiz questions. 
+       - Each question needs a difficulty (theta) between -3.0 and 3.0.
+       - Each question needs 4 options (A, B, C, D) and a correct_id.
+       - Include a helpful hint and a clear explanation.
+    
+    Return a JSON object with:
+    {{
+      "subject": "string",
+      "grade_level": int,
+      "topic": "string",
+      "questions": [
+        {{
+          "text": "string",
+          "options": [{{"id": "A", "label": "..."}}, ...],
+          "correct_id": "A",
+          "difficulty": float,
+          "hint": "string",
+          "explanation": "string"
+        }}
+      ]
+    }}
+    """
+    
+    try:
+        response = await llm.ainvoke([HumanMessage(content=prompt)])
+        # Clean potential markdown backticks
+        raw_json = response.content.strip()
+        if "```json" in raw_json:
+            raw_json = raw_json.split("```json")[1].split("```")[0].strip()
+        elif "```" in raw_json:
+            raw_json = raw_json.split("```")[1].split("```")[0].strip()
+            
+        ai_data = json.loads(raw_json)
+    except Exception as e:
+        print(f"AI Content Parsing Error: {e}")
+        ai_data = {
+            "subject": "General",
+            "grade_level": 5,
+            "topic": file.filename,
+            "questions": []
+        }
+
     pool = await get_pool()
     content_id = uuid4()
     
+    # 1. Save Content Item
     await pool.execute(
-        "INSERT INTO content_items (id, title, original_text, teacher_id, created_at) VALUES ($1, $2, $3, $4, $5)",
-        content_id, file.filename, text_content, current_user["id"], datetime.datetime.now()
+        "INSERT INTO content_items (id, title, original_text, teacher_id, created_at, subject, grade_level) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+        content_id, file.filename, text_content, current_user["id"], datetime.datetime.now(),
+        ai_data.get("subject"), ai_data.get("grade_level")
     )
     
-    return {"id": content_id, "title": file.filename, "status": "uploaded"}
+    # 2. Seed Question Bank
+    for q in ai_data.get("questions", []):
+        try:
+            await pool.execute(
+                """INSERT INTO question_bank 
+                   (id, content_id, subject, topic, difficulty, question_text, options, correct_id, hint, explanation) 
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)""",
+                str(uuid4()), content_id, ai_data.get("subject"), ai_data.get("topic"), 
+                q["difficulty"], q["text"], json.dumps(q["options"]), q["correct_id"], 
+                q["hint"], q["explanation"]
+            )
+        except Exception as e:
+            print(f"Failed to seed AI question: {e}")
+    
+    return {
+        "id": content_id, 
+        "title": file.filename, 
+        "subject": ai_data.get("subject"),
+        "questions_generated": len(ai_data.get("questions", [])),
+        "status": "processed"
+    }
 
 @router.get("/list")
 async def list_content(current_user = Depends(get_current_user)):

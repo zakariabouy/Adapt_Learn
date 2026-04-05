@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { API_URL } from '@/lib/api';
@@ -13,6 +13,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAdaptation } from '@/hooks/useAdaptation';
 import { useTelemetry } from '@/hooks/useTelemetry';
 import GodModePanel from '@/components/workspace/GodModePanel';
+import AccessibilityController from '@/components/workspace/AccessibilityController';
 import { CssConfig } from '@/types/models';
 
 export default function Workspace() {
@@ -23,8 +24,25 @@ export default function Workspace() {
   const [contentTitle, setContentTitle] = useState('Loading Lesson...');
   const [theme, setTheme] = useState('dark');
   const [listeningPhase, setListeningPhase] = useState<'idle' | 'synthesizing' | 'playing'>('idle');
+  const [announcement, setAnnouncement] = useState('');
   
   const router = useRouter();
+
+  const nextChunk = useCallback(() => {
+    setCurrentChunk((c) => {
+      const next = Math.min(c + 1, chunks.length - 1);
+      if (next !== c) setAnnouncement(`Showing chunk ${next + 1} of ${chunks.length}`);
+      return next;
+    });
+  }, [chunks.length]);
+
+  const prevChunk = useCallback(() => {
+    setCurrentChunk((c) => {
+      const prev = Math.max(c - 1, 0);
+      if (prev !== c) setAnnouncement(`Back to chunk ${prev + 1}`);
+      return prev;
+    });
+  }, []);
 
   useEffect(() => {
     const init = async () => {
@@ -40,13 +58,10 @@ export default function Workspace() {
         const sid = userRes.data.id;
         setStudentId(sid);
 
-        // Fetch learner profile for theme and other settings
         const profileRes = await axios.get(`${API_URL}/student/profile`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        if (profileRes.data.color_theme) {
-          setTheme(profileRes.data.color_theme);
-        }
+        if (profileRes.data.color_theme) setTheme(profileRes.data.color_theme);
 
         const listRes = await axios.get(`${API_URL}/content/list`, {
           headers: { Authorization: `Bearer ${token}` }
@@ -54,7 +69,7 @@ export default function Workspace() {
 
         if (listRes.data.length === 0) {
           setContentTitle('No Content Available');
-          setChunks(['No lessons have been uploaded yet. Ask your teacher to upload content, then refresh this page.']);
+          setChunks(['No lessons have been uploaded yet.']);
           return;
         }
 
@@ -69,8 +84,6 @@ export default function Workspace() {
         setCssConfig(workspaceRes.data.css_config);
       } catch (error) {
         console.error('Failed to initialize workspace', error);
-        setContentTitle('Error');
-        setChunks(['Failed to load content. Please try refreshing the page.']);
       }
     };
     init();
@@ -79,36 +92,36 @@ export default function Workspace() {
   const { isConnected, lastCommand, sendTelemetry } = useAdaptation(studentId);
   useTelemetry(sendTelemetry);
 
-  // React to adaptation commands from the orchestrator
+  const toggleListen = useCallback(() => {
+    setListeningPhase((prev) => {
+      if (prev === 'idle') {
+        setAnnouncement('AI is synthesizing speech. Please wait.');
+        setTimeout(() => {
+            setListeningPhase('playing');
+            setAnnouncement('Now playing neural audio for this chunk.');
+        }, 2500);
+        return 'synthesizing';
+      }
+      setAnnouncement('Audio paused.');
+      return 'idle';
+    });
+  }, []);
+
   useEffect(() => {
     if (!lastCommand) return;
+    setAnnouncement(`Neural trigger detected: ${lastCommand.reason || lastCommand.action}`);
+    
     if (lastCommand.action === 'switch_modality') {
       const modality = (lastCommand.data as any)?.modality ?? 'audio';
       if (modality === 'audio' && listeningPhase === 'idle') {
-        setListeningPhase('synthesizing');
-        setTimeout(() => setListeningPhase('playing'), 2500);
-      } else if (modality === 'text') {
-        setListeningPhase('idle');
+        toggleListen();
       }
     }
-    if (lastCommand.action === 'simplify_content' || lastCommand.action === 'summarize_chunk') {
-      // Reset to read mode so the refreshed content is visible
-      setListeningPhase('idle');
-    }
-  }, [lastCommand]);
+  }, [lastCommand, toggleListen, listeningPhase]);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
     router.push('/auth/login');
-  };
-
-  const toggleListen = () => {
-    if (listeningPhase === 'idle') {
-      setListeningPhase('synthesizing');
-      setTimeout(() => setListeningPhase('playing'), 2500);
-    } else {
-      setListeningPhase('idle');
-    }
   };
 
   return (
@@ -118,7 +131,8 @@ export default function Workspace() {
         <ReadingZone 
           chunks={chunks} 
           currentChunk={currentChunk} 
-          setCurrentChunk={setCurrentChunk} 
+          nextChunk={nextChunk}
+          prevChunk={prevChunk}
           cssConfig={cssConfig}
           title={contentTitle}
         />
@@ -129,7 +143,15 @@ export default function Workspace() {
           onToggleListen={toggleListen}
         />
       </main>
+      
       <GodModePanel sendTelemetry={sendTelemetry} />
+      
+      <AccessibilityController 
+        onNext={nextChunk} 
+        onPrev={prevChunk} 
+        onToggleListen={toggleListen} 
+        announcement={announcement}
+      />
     </div>
   );
 }
@@ -159,16 +181,14 @@ function TopNavBar({ studentId, onLogout }: { studentId: string | null, onLogout
   );
 }
 
-function ReadingZone({ chunks, currentChunk, setCurrentChunk, cssConfig, title }: {
+function ReadingZone({ chunks, currentChunk, nextChunk, prevChunk, cssConfig, title }: {
   chunks: string[];
   currentChunk: number;
-  setCurrentChunk: (fn: (c: number) => number) => void;
+  nextChunk: () => void;
+  prevChunk: () => void;
   cssConfig: CssConfig;
   title: string;
 }) {
-  const nextChunk = () => setCurrentChunk((c: number) => Math.min(c + 1, chunks.length - 1));
-  const prevChunk = () => setCurrentChunk((c: number) => Math.max(c - 1, 0));
-
   return (
     <section className="w-full md:w-[70%] p-6 lg:p-10 flex flex-col items-center bg-surface overflow-y-auto transition-colors duration-500" aria-labelledby="lesson-title">
       <h1 id="lesson-title" className="sr-only">{title}</h1>
@@ -200,7 +220,7 @@ function ReadingZone({ chunks, currentChunk, setCurrentChunk, cssConfig, title }
                 onClick={prevChunk}
                 disabled={currentChunk === 0}
                 aria-label="Previous Chunk"
-                className="w-12 h-12 lg:w-16 lg:h-16 rounded-full glass-effect border border-white/10 flex items-center justify-center text-primary disabled:opacity-20 active:scale-90 transition-all shadow-xl hover:bg-white/10"
+                className="w-12 h-12 lg:w-16 lg:h-16 rounded-full glass-effect border border-white/10 flex items-center justify-center text-primary disabled:opacity-20 active:scale-90 transition-all shadow-xl hover:bg-white/10 focus:ring-2 focus:ring-primary focus:outline-none"
             >
               <ChevronLeft size={32} />
             </button>
@@ -210,7 +230,7 @@ function ReadingZone({ chunks, currentChunk, setCurrentChunk, cssConfig, title }
                 onClick={nextChunk}
                 disabled={currentChunk === chunks.length - 1}
                 aria-label="Next Chunk"
-                className="w-12 h-12 lg:w-16 lg:h-16 rounded-full glass-effect border border-white/10 flex items-center justify-center text-primary disabled:opacity-20 active:scale-90 transition-all shadow-xl hover:bg-white/10"
+                className="w-12 h-12 lg:w-16 lg:h-16 rounded-full glass-effect border border-white/10 flex items-center justify-center text-primary disabled:opacity-20 active:scale-90 transition-all shadow-xl hover:bg-white/10 focus:ring-2 focus:ring-primary focus:outline-none"
             >
               <ChevronRight size={32} />
             </button>
@@ -277,7 +297,7 @@ function AdaptationHUD({ isConnected, lastCommand, listeningPhase, onToggleListe
         <button 
           aria-label="Reading Mode"
           aria-pressed={listeningPhase === 'idle'}
-          className={`flex-1 py-3 px-2 flex flex-col items-center gap-1 rounded-lg transition-all ${listeningPhase === 'idle' ? 'text-primary bg-primary/10' : 'text-on-surface-variant hover:bg-white/5'}`} 
+          className={`flex-1 py-3 px-2 flex flex-col items-center gap-1 rounded-lg transition-all ${listeningPhase === 'idle' ? 'text-primary bg-primary/10' : 'text-on-surface-variant hover:bg-white/5'} focus:ring-2 focus:ring-inset focus:ring-primary outline-none`} 
           onClick={() => listeningPhase !== 'idle' && onToggleListen()}
         >
           <BookOpen size={20} />
@@ -286,13 +306,13 @@ function AdaptationHUD({ isConnected, lastCommand, listeningPhase, onToggleListe
         <button 
           aria-label="Listen Mode"
           aria-pressed={listeningPhase !== 'idle'}
-          className={`flex-1 py-3 px-2 flex flex-col items-center gap-1 rounded-lg transition-all ${listeningPhase !== 'idle' ? 'text-primary bg-primary/10 font-bold' : 'text-on-surface-variant hover:bg-white/5'}`} 
+          className={`flex-1 py-3 px-2 flex flex-col items-center gap-1 rounded-lg transition-all ${listeningPhase !== 'idle' ? 'text-primary bg-primary/10 font-bold' : 'text-on-surface-variant hover:bg-white/5'} focus:ring-2 focus:ring-inset focus:ring-primary outline-none`} 
           onClick={onToggleListen}
         >
           <Headphones size={20} />
           <span className="text-[10px] uppercase font-bold tracking-widest">Listen</span>
         </button>
-        <button aria-label="Visual Mode" className="flex-1 py-3 px-2 flex flex-col items-center gap-1 rounded-lg text-on-surface-variant hover:bg-white/5 transition-all">
+        <button aria-label="Visual Mode" className="flex-1 py-3 px-2 flex flex-col items-center gap-1 rounded-lg text-on-surface-variant hover:bg-white/5 transition-all focus:ring-2 focus:ring-inset focus:ring-primary outline-none">
           <Eye size={20} />
           <span className="text-[10px] uppercase font-bold tracking-widest">Visual</span>
         </button>
@@ -308,7 +328,7 @@ function AdaptationHUD({ isConnected, lastCommand, listeningPhase, onToggleListe
               <button 
                 onClick={onToggleListen} 
                 aria-label="Start audio synthesis"
-                className="px-6 py-2 bg-primary text-on-primary rounded-full font-bold text-xs uppercase tracking-widest hover:scale-105 transition-all"
+                className="px-6 py-2 bg-primary text-on-primary rounded-full font-bold text-xs uppercase tracking-widest hover:scale-105 transition-all focus:ring-4 focus:ring-primary/20 outline-none"
               >
                 Start Audio
               </button>
@@ -343,7 +363,7 @@ function AdaptationHUD({ isConnected, lastCommand, listeningPhase, onToggleListe
               <button 
                 onClick={onToggleListen} 
                 aria-label="Pause audio"
-                className="w-16 h-16 bg-secondary text-on-secondary rounded-full flex items-center justify-center shadow-xl mb-6"
+                className="w-16 h-16 bg-secondary text-on-secondary rounded-full flex items-center justify-center shadow-xl mb-6 focus:ring-4 focus:ring-secondary/20 outline-none"
               >
                 <Pause size={28} fill="currentColor" />
               </button>
@@ -375,7 +395,7 @@ function AdaptationHUD({ isConnected, lastCommand, listeningPhase, onToggleListe
           <Sparkles size={18} className="text-primary" />
           <span className="text-xs font-semibold text-primary">Summarize this chunk?</span>
         </div>
-        <button className="text-primary p-1 rounded-lg transition-colors" aria-label="Run summary action"><Zap size={18} fill="currentColor" /></button>
+        <button className="text-primary p-1 rounded-lg transition-colors focus:ring-2 focus:ring-primary outline-none" aria-label="Run summary action"><Zap size={18} fill="currentColor" /></button>
       </div>
     </aside>
   );

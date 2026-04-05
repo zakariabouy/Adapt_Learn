@@ -112,6 +112,20 @@ Photosynthesis is essential for life on Earth as it provides oxygen and food for
             "hint": "Think about what plants reach for.",
             "explanation": "Plants need sunlight to perform photosynthesis."
         },
+        {
+            "id": str(uuid4()),
+            "difficulty": -2.2,
+            "text": "What color are most plants?",
+            "options": json.dumps([
+                {"id": "A", "label": "Blue"},
+                {"id": "B", "label": "Red"},
+                {"id": "C", "label": "Green"},
+                {"id": "D", "label": "Purple"}
+            ]),
+            "correct_id": "C",
+            "hint": "Think of grass and leaves.",
+            "explanation": "Most plants are green due to chlorophyll."
+        },
         # Easy (Difficulty: -1.0)
         {
             "id": str(uuid4()),
@@ -126,6 +140,20 @@ Photosynthesis is essential for life on Earth as it provides oxygen and food for
             "correct_id": "B",
             "hint": "It's the gas humans breathe out.",
             "explanation": "Plants take in carbon dioxide and release oxygen."
+        },
+        {
+            "id": str(uuid4()),
+            "difficulty": -0.8,
+            "text": "Which part of the plant usually performs most photosynthesis?",
+            "options": json.dumps([
+                {"id": "A", "label": "Roots"},
+                {"id": "B", "label": "Stem"},
+                {"id": "C", "label": "Leaves"},
+                {"id": "D", "label": "Flowers"}
+            ]),
+            "correct_id": "C",
+            "hint": "They are flat and green.",
+            "explanation": "Leaves have the most surface area and chloroplasts for sunlight capture."
         },
         # Medium (Difficulty: 0.0)
         {
@@ -142,6 +170,20 @@ Photosynthesis is essential for life on Earth as it provides oxygen and food for
             "hint": "Starts with 'Chloro-'.",
             "explanation": "Chlorophyll is the green pigment responsible for capturing sunlight."
         },
+        {
+            "id": str(uuid4()),
+            "difficulty": 0.2,
+            "text": "What is the main sugar produced during photosynthesis?",
+            "options": json.dumps([
+                {"id": "A", "label": "Lactose"},
+                {"id": "B", "label": "Fructose"},
+                {"id": "C", "label": "Glucose"},
+                {"id": "D", "label": "Sucrose"}
+            ]),
+            "correct_id": "C",
+            "hint": "A simple 6-carbon sugar.",
+            "explanation": "Glucose is the primary energy source created by plants."
+        },
         # Hard (Difficulty: 1.0)
         {
             "id": str(uuid4()),
@@ -157,6 +199,20 @@ Photosynthesis is essential for life on Earth as it provides oxygen and food for
             "hint": "Oxidation is loss.",
             "explanation": "Oxidation means losing electrons."
         },
+        {
+            "id": str(uuid4()),
+            "difficulty": 1.2,
+            "text": "Where specifically inside a plant cell does photosynthesis occur?",
+            "options": json.dumps([
+                {"id": "A", "label": "Mitochondria"},
+                {"id": "B", "label": "Nucleus"},
+                {"id": "C", "label": "Chloroplasts"},
+                {"id": "D", "label": "Vacuole"}
+            ]),
+            "correct_id": "C",
+            "hint": "Green organelles.",
+            "explanation": "Chloroplasts contain the machinery for photosynthesis."
+        },
         # Very Hard (Difficulty: 2.0)
         {
             "id": str(uuid4()),
@@ -171,6 +227,20 @@ Photosynthesis is essential for life on Earth as it provides oxygen and food for
             "correct_id": "B",
             "hint": "Plants make sugar.",
             "explanation": "The main output is Glucose (sugar) and Oxygen gas."
+        },
+        {
+            "id": str(uuid4()),
+            "difficulty": 2.5,
+            "text": "Which of these is the correct chemical formula for Glucose?",
+            "options": json.dumps([
+                {"id": "A", "label": "H2O"},
+                {"id": "B", "label": "CO2"},
+                {"id": "C", "label": "C6H12O6"},
+                {"id": "D", "label": "NaCl"}
+            ]),
+            "correct_id": "C",
+            "hint": "6 carbons, 12 hydrogens, 6 oxygens.",
+            "explanation": "C6H12O6 is the chemical structure of glucose."
         }
     ]
 
@@ -186,6 +256,13 @@ Photosynthesis is essential for life on Earth as it provides oxygen and food for
         except Exception as e:
             # Avoid crashing if re-seeding and table index complains or dupes
             print(f"Skipped question {q['text'][:15]}...: {e}")
+
+    # 6. Seed Teacher-Student Link
+    print(f"Linking teacher {teacher_id} to student {student_id}")
+    await pool.execute(
+        "INSERT INTO teacher_student_link (teacher_id, student_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+        teacher_id, student_id
+    )
 
     print("Seeding complete.")
     await pool.close()

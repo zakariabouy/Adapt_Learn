@@ -3,6 +3,16 @@ import textstat
 from typing import List
 from shared.models import LearnerModel
 import os
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.messages import HumanMessage
+from elevenlabs.client import ElevenLabs
+from elevenlabs import save
+
+# Initialize Gemini
+llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=os.getenv("GOOGLE_API_KEY"))
+
+# Initialize ElevenLabs
+eleven_client = ElevenLabs(api_key=os.getenv("ELEVENLABS_API_KEY"))
 
 async def chunk_content(text: str, chunk_size: int) -> List[str]:
     """
@@ -34,15 +44,36 @@ async def readability_score(text: str) -> float:
 
 async def simplify_text(text: str, profile: LearnerModel) -> str:
     """
-    Mock async function for simplifying text based on the user's reading disability.
-    In a real scenario, this would call Claude Haiku.
+    Calls Gemini 1.5 Flash to simplify text based on the student's profile (disabilities, severity).
     """
-    # Simulate simplification
     severity_dyslexia = profile.severity.get('dyslexia', 0.0)
-    if severity_dyslexia > 0.5:
-        # Simplified mock
-        return f"[SIMPLIFIED FOR {severity_dyslexia} DYSLEXIA]: {text[:100]}... (AI Summary here)"
-    return text
+    severity_adhd = profile.severity.get('adhd', 0.0)
+    
+    if severity_dyslexia < 0.3 and severity_adhd < 0.3:
+        return text # No simplification needed
+        
+    prompt = f"""
+    You are an expert in inclusive education. Simplify the following text for a student with the following profile:
+    - Disabilities: {profile.disabilities}
+    - Dyslexia Severity: {severity_dyslexia}
+    - ADHD Severity: {severity_adhd}
+    
+    Original Text:
+    {text}
+    
+    Tasks:
+    1. Use simpler vocabulary.
+    2. Shorten complex sentences.
+    3. Maintain all key pedagogical points.
+    4. Return ONLY the simplified text.
+    """
+    
+    try:
+        response = await llm.ainvoke([HumanMessage(content=prompt)])
+        return response.content
+    except Exception as e:
+        print(f"Gemini Simplification Error: {e}")
+        return text
 
 async def transform_font(profile: LearnerModel) -> dict:
     """
@@ -62,20 +93,24 @@ async def transform_font(profile: LearnerModel) -> dict:
 
 async def tts_convert(text: str, student_id: str) -> str:
     """
-    Stubbed ElevenLabs TTS call that saves an mp3 file to /tmp/ and returns the path.
+    Calls ElevenLabs TTS to generate speech and saves it to a temporary file.
     """
-    # Mock TTS path
     tmp_dir = "/tmp/adaptlearn"
     os.makedirs(tmp_dir, exist_ok=True)
     file_path = f"{tmp_dir}/{student_id}_tts.mp3"
     
-    # In a real call:
-    # response = await elevenlabs_client.generate(text=text, voice="Nicole")
-    # with open(file_path, 'wb') as f:
-    #     f.write(response)
-    
-    # Writing dummy data for now
-    with open(file_path, 'wb') as f:
-        f.write(b"MOCK MP3 DATA")
+    try:
+        # Generate audio using ElevenLabs
+        audio = eleven_client.generate(
+            text=text,
+            voice="Rachel",
+            model="eleven_multilingual_v2"
+        )
         
-    return file_path
+        # Save audio to file
+        save(audio, file_path)
+        return file_path
+    except Exception as e:
+        print(f"ElevenLabs TTS Error: {e}")
+        # Return a fallback path or empty string if failed
+        return ""

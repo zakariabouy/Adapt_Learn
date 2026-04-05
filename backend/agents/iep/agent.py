@@ -134,50 +134,73 @@ async def generate_iep_report(student_id: UUID, teacher_id: UUID) -> Dict[str, A
     pdf_path = os.path.join("/tmp", pdf_filename)
     os.makedirs("/tmp", exist_ok=True)
     
-    generate_pdf_report(markdown_content, pdf_path, str(student_id))
+    success = generate_pdf_report(markdown_content, pdf_path, str(student_id))
+    if not success:
+        print(f"Warning: PDF generation failed for student {student_id}")
     
     report_id = await pool.fetchval(
         "INSERT INTO iep_reports (student_id, teacher_id, report_data, pdf_url, week) VALUES ($1, $2, $3, $4, $5) RETURNING id",
-        student_id, teacher_id, json.dumps(report_data), pdf_path, week_str
+        student_id, teacher_id, json.dumps(report_data), pdf_path if success else None, week_str
     )
     
     return {
         "id": report_id,
         "markdown": markdown_content,
-        "pdf_path": pdf_path,
+        "pdf_path": pdf_path if success else None,
         "stats": stats
     }
 
-def generate_pdf_report(markdown_text: str, output_path: str, student_name: str):
+def generate_pdf_report(markdown_text: str, output_path: str, student_name: str) -> bool:
     """
     Converts simple markdown/text to a PDF using ReportLab.
+    Returns True if successful, False otherwise.
     """
-    doc = SimpleDocTemplate(output_path, pagesize=letter)
-    styles = getSampleStyleSheet()
-    
-    title_style = styles['Heading1']
-    title_style.alignment = 1 # Center
-    
-    content = []
-    content.append(Paragraph(f"Individualized Education Program (IEP) - Weekly Report", title_style))
-    content.append(Spacer(1, 12))
-    content.append(Paragraph(f"Student ID: {student_name}", styles['Normal']))
-    content.append(Paragraph(f"Date: {datetime.now().strftime('%Y-%m-%d')}", styles['Normal']))
-    content.append(Spacer(1, 12))
-    
-    lines = markdown_text.split('\n')
-    for line in lines:
-        if line.startswith('# '):
-            content.append(Paragraph(line[2:], styles['Heading1']))
-        elif line.startswith('## '):
-            content.append(Paragraph(line[3:], styles['Heading2']))
-        elif line.startswith('### '):
-            content.append(Paragraph(line[4:], styles['Heading3']))
-        elif line.startswith('- ') or line.startswith('* '):
-            content.append(Paragraph(f"• {line[2:]}", styles['Bullet']))
-        elif line.strip():
-            content.append(Paragraph(line, styles['Normal']))
-        else:
-            content.append(Spacer(1, 6))
-            
-    doc.build(content)
+    try:
+        doc = SimpleDocTemplate(output_path, pagesize=letter)
+        styles = getSampleStyleSheet()
+        
+        # Custom styles for better look
+        title_style = styles['Heading1']
+        title_style.alignment = 1 # Center
+        
+        bullet_style = styles['Bullet']
+        bullet_style.leftIndent = 20
+        
+        normal_style = styles['Normal']
+        normal_style.leading = 14
+        
+        content = []
+        content.append(Paragraph(f"Individualized Education Program (IEP)", title_style))
+        content.append(Paragraph(f"Weekly Progress Report", styles['Heading2']))
+        content.append(Spacer(1, 12))
+        content.append(Paragraph(f"<b>Student ID:</b> {student_name}", normal_style))
+        content.append(Paragraph(f"<b>Date:</b> {datetime.now().strftime('%Y-%m-%d')}", normal_style))
+        content.append(Spacer(1, 24))
+        
+        lines = markdown_text.split('\n')
+        for line in lines:
+            line = line.strip()
+            if not line:
+                content.append(Spacer(1, 6))
+                continue
+                
+            if line.startswith('# '):
+                content.append(Paragraph(line[2:], styles['Heading1']))
+            elif line.startswith('## '):
+                content.append(Paragraph(line[3:], styles['Heading2']))
+            elif line.startswith('### '):
+                content.append(Paragraph(line[4:], styles['Heading3']))
+            elif line.startswith('- ') or line.startswith('* '):
+                # Simple markdown bold/italic replacement
+                clean_line = line[2:].replace('**', '<b>').replace('**', '</b>')
+                content.append(Paragraph(f"• {clean_line}", bullet_style))
+            else:
+                # Simple markdown bold/italic replacement
+                clean_line = line.replace('**', '<b>').replace('**', '</b>')
+                content.append(Paragraph(clean_line, normal_style))
+        
+        doc.build(content)
+        return True
+    except Exception as e:
+        print(f"PDF Generation Error: {e}")
+        return False

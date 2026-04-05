@@ -27,7 +27,12 @@ app = FastAPI(
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[FRONTEND_URL, "http://127.0.0.1:3000"],
+    allow_origins=[
+        FRONTEND_URL, 
+        "http://localhost:3000", 
+        "http://127.0.0.1:3000",
+        "https://adaptlearn.vercel.app", # Placeholder - update with yours
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -7,6 +7,7 @@ from shared.models import TelemetryEvent, AdaptationCommand
 from shared.security import SECRET_KEY, ALGORITHM
 from shared.database import get_pool
 from agents.monitor.agent import classify_engagement, should_trigger
+from orchestrator.strategy import get_strategic_command
 
 router = APIRouter(prefix="/session", tags=["Session"])
 
@@ -79,8 +80,8 @@ async def websocket_endpoint(
 
             # If it's a critical state, trigger an adaptation response
             if should_trigger(state):
-                # Build a command based on the engagement state
-                command = build_adaptation_command(state)
+                # Build a command using the orchestrator's strategic logic
+                command = await get_strategic_command(student_id, state, event)
                 await manager.send_command(student_id, command)
 
     except WebSocketDisconnect:
@@ -89,38 +90,3 @@ async def websocket_endpoint(
         print(f"WebSocket error for {student_id}: {e}")
     finally:
         manager.disconnect(student_id)
-
-
-def build_adaptation_command(state) -> AdaptationCommand:
-    """Map engagement states to concrete adaptation commands.
-
-    In Phase 4 this will be replaced by the LangGraph orchestrator's
-    plan_node output. For now we use deterministic rules so the
-    frontend can react immediately.
-    """
-    from shared.models import EngagementState
-
-    match state:
-        case EngagementState.DISTRACTED:
-            return AdaptationCommand(
-                action="switch_modality",
-                data={"modality": "audio"},
-                reason="Student appears distracted — switching to audio mode",
-            )
-        case EngagementState.FRUSTRATED:
-            return AdaptationCommand(
-                action="simplify_content",
-                data={"reduce_chunk_size": True, "simplify_text": True},
-                reason="Student appears frustrated — simplifying content",
-            )
-        case EngagementState.BORED:
-            return AdaptationCommand(
-                action="switch_modality",
-                data={"modality": "visual"},
-                reason="Student appears bored — switching to visual diagram",
-            )
-        case _:
-            return AdaptationCommand(
-                action="no_action",
-                reason="No intervention needed",
-            )

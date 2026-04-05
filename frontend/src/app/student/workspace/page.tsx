@@ -116,20 +116,20 @@ function TopNavBar({ studentId, onLogout }: { studentId: string | null, onLogout
       <div className="text-lg font-bold tracking-tighter text-[#e5e1e4] flex items-center gap-2 before:content-[''] before:w-3 before:h-3 before:bg-[#FF6B6B] before:rounded-full before:shadow-[16px_0_0_#FFB84D,32px_0_0_#00C896]">
         AdaptLearn
       </div>
-      <nav className="hidden md:flex gap-8 items-center font-headline font-medium text-sm tracking-tight">
+      <nav className="hidden md:flex gap-8 items-center font-headline font-medium text-sm tracking-tight" aria-label="Main Navigation">
         <a className="text-[#e5e1e4] border-b-2 border-[#6C63FF] pb-1" href="#">Workspace</a>
         <a className="text-[#c7c4d8] hover:text-[#e5e1e4] pb-1 transition-all" href="#">Curriculum</a>
         <a className="text-[#c7c4d8] hover:text-[#e5e1e4] pb-1 transition-all" href="#">Library</a>
       </nav>
       <div className="flex items-center gap-4">
-        <button onClick={onLogout} className="text-on-surface-variant hover:text-red-400 p-2 rounded-full transition-all flex items-center gap-2">
+        <button onClick={onLogout} aria-label="Logout" className="text-on-surface-variant hover:text-red-400 p-2 rounded-full transition-all flex items-center gap-2">
             <span className="text-[10px] uppercase font-bold tracking-widest">Logout</span>
             <LogOut size={18} />
         </button>
         <div className="text-[10px] font-bold text-on-surface-variant/40 uppercase tracking-widest hidden lg:block">
             SID: {studentId?.substring(0, 8)}
         </div>
-        <img alt="Avatar" className="w-8 h-8 rounded-full border border-outline-variant object-cover" src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=100&q=80" />
+        <img alt="User Avatar" className="w-8 h-8 rounded-full border border-outline-variant object-cover" src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=100&q=80" />
       </div>
     </header>
   );
@@ -140,10 +140,11 @@ function ReadingZone({ chunks, currentChunk, setCurrentChunk, cssConfig, title }
   const prevChunk = () => setCurrentChunk((c: number) => Math.max(c - 1, 0));
 
   return (
-    <section className="w-full md:w-[70%] p-6 lg:p-10 flex flex-col items-center bg-surface-dim overflow-y-auto">
+    <section className="w-full md:w-[70%] p-6 lg:p-10 flex flex-col items-center bg-surface-dim overflow-y-auto" aria-labelledby="lesson-title">
+      <h1 id="lesson-title" className="sr-only">{title}</h1>
       <div className="w-full max-w-4xl bg-surface-container-high rounded-lg mac-shadow flex flex-col min-h-[80vh] overflow-hidden relative mb-12">
         <div className="h-10 px-4 flex items-center bg-surface-container-highest/50 backdrop-blur-md border-b border-outline-variant/10">
-          <div className="flex gap-2">
+          <div className="flex gap-2" aria-hidden="true">
             <div className="w-3 h-3 rounded-full bg-[#FF6B6B]"></div>
             <div className="w-3 h-3 rounded-full bg-[#FFB84D]"></div>
             <div className="w-3 h-3 rounded-full bg-[#00C896]"></div>
@@ -152,7 +153,7 @@ function ReadingZone({ chunks, currentChunk, setCurrentChunk, cssConfig, title }
         </div>
         
         <div className="sepia-mode flex-1 p-12 lg:p-20 font-body relative group min-h-[60vh]">
-          <div className="space-y-12 leading-relaxed" style={cssConfig}>
+          <div className="space-y-12 leading-relaxed" style={cssConfig} aria-live="polite">
             {chunks.length > 0 ? (
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
                     {chunks[currentChunk]}
@@ -168,6 +169,7 @@ function ReadingZone({ chunks, currentChunk, setCurrentChunk, cssConfig, title }
             <button 
                 onClick={prevChunk}
                 disabled={currentChunk === 0}
+                aria-label="Previous Chunk"
                 className="w-12 h-12 lg:w-16 lg:h-16 rounded-full glass-effect border border-white/10 flex items-center justify-center text-primary disabled:opacity-20 active:scale-90 transition-all shadow-xl hover:bg-white/10"
             >
               <ChevronLeft size={32} />
@@ -177,6 +179,7 @@ function ReadingZone({ chunks, currentChunk, setCurrentChunk, cssConfig, title }
             <button 
                 onClick={nextChunk}
                 disabled={currentChunk === chunks.length - 1}
+                aria-label="Next Chunk"
                 className="w-12 h-12 lg:w-16 lg:h-16 rounded-full glass-effect border border-white/10 flex items-center justify-center text-primary disabled:opacity-20 active:scale-90 transition-all shadow-xl hover:bg-white/10"
             >
               <ChevronRight size={32} />
@@ -190,7 +193,7 @@ function ReadingZone({ chunks, currentChunk, setCurrentChunk, cssConfig, title }
               <span className="uppercase tracking-widest">Progress</span>
               <span>Chunk {chunks.length > 0 ? currentChunk + 1 : 0} of {chunks.length}</span>
             </div>
-            <div className="h-2 w-full bg-surface-container-low rounded-full overflow-hidden">
+            <div className="h-2 w-full bg-surface-container-low rounded-full overflow-hidden" role="progressbar" aria-valuenow={chunks.length > 0 ? Math.round(((currentChunk + 1) / chunks.length) * 100) : 0} aria-valuemin={0} aria-valuemax={100}>
               <div 
                 className="h-full bg-primary shadow-[0_0_15px_rgba(196,192,255,0.6)] rounded-full transition-all duration-1000"
                 style={{ width: chunks.length > 0 ? `${((currentChunk + 1) / chunks.length) * 100}%` : '0%' }}
@@ -200,6 +203,7 @@ function ReadingZone({ chunks, currentChunk, setCurrentChunk, cssConfig, title }
           <button 
             onClick={nextChunk}
             disabled={currentChunk === chunks.length - 1}
+            aria-label="Load next chunk"
             className="px-6 py-2 bg-primary text-on-primary font-bold rounded-full disabled:opacity-50 active:scale-95 transition-all shadow-lg shadow-primary/20"
           >
             Next Chunk
@@ -217,10 +221,10 @@ function ReadingZone({ chunks, currentChunk, setCurrentChunk, cssConfig, title }
 
 function AdaptationHUD({ isConnected, lastCommand, listeningPhase, onToggleListen }: any) {
   return (
-    <aside className="hidden md:flex flex-col w-[30%] bg-surface-container border-l border-outline-variant/15 p-8 gap-8 overflow-y-auto z-10">
+    <aside className="hidden md:flex flex-col w-[30%] bg-surface-container border-l border-outline-variant/15 p-8 gap-8 overflow-y-auto z-10" aria-label="Adaptation Controls">
       <div className="flex items-center justify-between p-4 bg-surface-container-high rounded-xl border border-outline-variant/10">
         <div className="flex items-center gap-4">
-          <div className="relative flex items-center justify-center">
+          <div className="relative flex items-center justify-center" aria-hidden="true">
             {isConnected && <div className="absolute inset-0 bg-secondary/20 rounded-full animate-ping"></div>}
             <Brain className={`${isConnected ? 'text-secondary' : 'text-on-surface-variant'} relative z-10`} size={28} />
           </div>
@@ -231,19 +235,29 @@ function AdaptationHUD({ isConnected, lastCommand, listeningPhase, onToggleListe
             </div>
           </div>
         </div>
-        <div className={`h-8 w-1 ${isConnected ? 'bg-secondary' : 'bg-outline-variant'} rounded-full opacity-50`}></div>
+        <div className={`h-8 w-1 ${isConnected ? 'bg-secondary' : 'bg-outline-variant'} rounded-full opacity-50`} aria-hidden="true"></div>
       </div>
 
       <div className="flex p-1 bg-surface-container-lowest rounded-xl border border-outline-variant/5">
-        <button className={`flex-1 py-3 px-2 flex flex-col items-center gap-1 rounded-lg transition-all ${listeningPhase === 'idle' ? 'text-primary bg-primary/10' : 'text-on-surface-variant hover:bg-white/5'}`} onClick={() => listeningPhase !== 'idle' && onToggleListen()}>
+        <button 
+          aria-label="Reading Mode"
+          aria-pressed={listeningPhase === 'idle'}
+          className={`flex-1 py-3 px-2 flex flex-col items-center gap-1 rounded-lg transition-all ${listeningPhase === 'idle' ? 'text-primary bg-primary/10' : 'text-on-surface-variant hover:bg-white/5'}`} 
+          onClick={() => listeningPhase !== 'idle' && onToggleListen()}
+        >
           <BookOpen size={20} />
           <span className="text-[10px] uppercase font-bold tracking-widest">Read</span>
         </button>
-        <button className={`flex-1 py-3 px-2 flex flex-col items-center gap-1 rounded-lg transition-all ${listeningPhase !== 'idle' ? 'text-primary bg-primary/10 font-bold' : 'text-on-surface-variant hover:bg-white/5'}`} onClick={onToggleListen}>
+        <button 
+          aria-label="Listen Mode"
+          aria-pressed={listeningPhase !== 'idle'}
+          className={`flex-1 py-3 px-2 flex flex-col items-center gap-1 rounded-lg transition-all ${listeningPhase !== 'idle' ? 'text-primary bg-primary/10 font-bold' : 'text-on-surface-variant hover:bg-white/5'}`} 
+          onClick={onToggleListen}
+        >
           <Headphones size={20} />
           <span className="text-[10px] uppercase font-bold tracking-widest">Listen</span>
         </button>
-        <button className="flex-1 py-3 px-2 flex flex-col items-center gap-1 rounded-lg text-on-surface-variant hover:bg-white/5 transition-all">
+        <button aria-label="Visual Mode" className="flex-1 py-3 px-2 flex flex-col items-center gap-1 rounded-lg text-on-surface-variant hover:bg-white/5 transition-all">
           <Eye size={20} />
           <span className="text-[10px] uppercase font-bold tracking-widest">Visual</span>
         </button>
@@ -256,14 +270,18 @@ function AdaptationHUD({ isConnected, lastCommand, listeningPhase, onToggleListe
               <div className="w-24 h-24 rounded-full bg-primary/5 flex items-center justify-center border border-primary/10 mb-6">
                 <Headphones size={40} className="text-on-surface-variant/20" />
               </div>
-              <button onClick={onToggleListen} className="px-6 py-2 bg-primary text-on-primary rounded-full font-bold text-xs uppercase tracking-widest hover:scale-105 transition-all">
+              <button 
+                onClick={onToggleListen} 
+                aria-label="Start audio synthesis"
+                className="px-6 py-2 bg-primary text-on-primary rounded-full font-bold text-xs uppercase tracking-widest hover:scale-105 transition-all"
+              >
                 Start Audio
               </button>
             </motion.div>
           )}
 
           {listeningPhase === 'synthesizing' && (
-            <motion.div key="synthesizing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center w-full">
+            <motion.div key="synthesizing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center w-full" aria-busy="true" aria-live="assertive">
               <Loader2 size={48} className="text-primary animate-spin mb-6" />
               <div className="text-center">
                 <div className="text-on-surface font-bold mb-1 uppercase tracking-widest text-xs">AI Synthesizing</div>
@@ -277,7 +295,7 @@ function AdaptationHUD({ isConnected, lastCommand, listeningPhase, onToggleListe
 
           {listeningPhase === 'playing' && (
             <motion.div key="playing" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center w-full">
-              <div className="flex items-end gap-1 mb-8 h-12">
+              <div className="flex items-end gap-1 mb-8 h-12" aria-hidden="true">
                 {[...Array(12)].map((_, i) => (
                   <motion.div 
                     key={i} 
@@ -287,12 +305,16 @@ function AdaptationHUD({ isConnected, lastCommand, listeningPhase, onToggleListe
                   />
                 ))}
               </div>
-              <button onClick={onToggleListen} className="w-16 h-16 bg-secondary text-on-secondary rounded-full flex items-center justify-center shadow-xl mb-6">
+              <button 
+                onClick={onToggleListen} 
+                aria-label="Pause audio"
+                className="w-16 h-16 bg-secondary text-on-secondary rounded-full flex items-center justify-center shadow-xl mb-6"
+              >
                 <Pause size={28} fill="currentColor" />
               </button>
               <div className="text-center">
                 <div className="text-on-surface font-bold mb-1 uppercase tracking-widest text-xs">Now Reading</div>
-                <div className="text-secondary text-[10px] font-bold">Nicole (Neural Voice) • 0:42</div>
+                <div className="text-secondary text-[10px] font-bold">Rachel (Neural Voice) • 0:42</div>
               </div>
             </motion.div>
           )}
@@ -301,7 +323,7 @@ function AdaptationHUD({ isConnected, lastCommand, listeningPhase, onToggleListe
 
       <div className="space-y-4">
         <div className="text-[10px] uppercase font-bold tracking-widest text-on-surface-variant px-1">Active AI Command</div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2" aria-live="polite">
             {lastCommand ? (
                 <div className="flex items-center gap-2 py-2 px-4 bg-primary/10 rounded-full border border-primary/30 text-xs font-bold text-primary animate-pulse">
                     {lastCommand.action}
@@ -313,12 +335,12 @@ function AdaptationHUD({ isConnected, lastCommand, listeningPhase, onToggleListe
         </div>
       </div>
 
-      <div className="mt-auto p-4 bg-primary/5 rounded-xl border border-primary/20 flex items-center justify-between cursor-pointer hover:bg-primary/10 transition-colors">
+      <div className="mt-auto p-4 bg-primary/5 rounded-xl border border-primary/20 flex items-center justify-between cursor-pointer hover:bg-primary/10 transition-colors" role="button" aria-label="Summarize this chunk">
         <div className="flex items-center gap-3">
           <Sparkles size={18} className="text-primary" />
           <span className="text-xs font-semibold text-primary">Summarize this chunk?</span>
         </div>
-        <button className="text-primary p-1 rounded-lg transition-colors"><Zap size={18} fill="currentColor" /></button>
+        <button className="text-primary p-1 rounded-lg transition-colors" aria-label="Run summary action"><Zap size={18} fill="currentColor" /></button>
       </div>
     </aside>
   );

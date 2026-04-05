@@ -22,16 +22,18 @@ async def get_current_teacher(current_user = Depends(get_current_user)):
 async def get_teacher_students(current_teacher = Depends(get_current_teacher)):
     pool = await get_pool()
     
-    # Returning all students as no teacher-student mapping exists in schema yet
+    # Returning only students linked to this teacher
     students = await pool.fetch(
         """
         SELECT u.id, u.email, lp.profile_data, 
                (SELECT MAX(started_at) FROM sessions WHERE student_id = u.id) as last_active,
                (SELECT COUNT(DISTINCT content_id) FROM sessions WHERE student_id = u.id AND ended_at IS NOT NULL) as modules_completed
         FROM users u
+        JOIN teacher_student_link tsl ON u.id = tsl.student_id
         LEFT JOIN learner_profiles lp ON u.id = lp.student_id
-        WHERE u.role = 'student'
-        """
+        WHERE tsl.teacher_id = $1 AND u.role = 'student'
+        """,
+        current_teacher["id"]
     )
     
     result = []

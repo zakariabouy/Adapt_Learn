@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 from shared.database import get_pool
-from routers import auth, student, session, content
+from routers import auth, student, session, content, admin
 import traceback
 
 @asynccontextmanager
@@ -47,6 +47,7 @@ app.include_router(auth.router)
 app.include_router(student.router)
 app.include_router(session.router)
 app.include_router(content.router)
+app.include_router(admin.router)
 
 @app.get("/health")
 async def health_check():

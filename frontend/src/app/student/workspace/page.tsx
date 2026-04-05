@@ -6,9 +6,10 @@ import axios from 'axios';
 import { API_URL } from '@/lib/api';
 import { 
   ChevronLeft, ChevronRight, Brain, 
-  BookOpen, Headphones, Eye, Play, 
-  Sparkles, Zap, LogOut
+  BookOpen, Headphones, Eye, Play, Pause,
+  Sparkles, Zap, LogOut, Loader2
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAdaptation } from '@/hooks/useAdaptation';
 import { useTelemetry } from '@/hooks/useTelemetry';
 import GodModePanel from '@/components/workspace/GodModePanel';
@@ -19,6 +20,9 @@ export default function Workspace() {
   const [currentChunk, setCurrentChunk] = useState(0);
   const [cssConfig, setCssConfig] = useState<any>({});
   const [contentTitle, setContentTitle] = useState('Loading Lesson...');
+  const [isListening, setIsListening] = useState(false);
+  const [listeningPhase, setListeningPhase] = useState<'idle' | 'synthesizing' | 'playing'>('idle');
+  
   const router = useRouter();
 
   useEffect(() => {
@@ -35,7 +39,6 @@ export default function Workspace() {
         const sid = userRes.data.id;
         setStudentId(sid);
 
-        // Fetch first available content
         const listRes = await axios.get(`${API_URL}/content/list`, {
           headers: { Authorization: `Bearer ${token}` }
         });
@@ -72,6 +75,18 @@ export default function Workspace() {
     router.push('/auth/login');
   };
 
+  const toggleListen = () => {
+    if (listeningPhase === 'idle') {
+      setListeningPhase('synthesizing');
+      // Fake synthesis latency
+      setTimeout(() => {
+        setListeningPhase('playing');
+      }, 2500);
+    } else {
+      setListeningPhase('idle');
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-surface-dim font-label text-on-surface selection:bg-primary/30">
       <TopNavBar studentId={studentId} onLogout={handleLogout} />
@@ -83,7 +98,12 @@ export default function Workspace() {
           cssConfig={cssConfig}
           title={contentTitle}
         />
-        <AdaptationHUD isConnected={isConnected} lastCommand={lastCommand} />
+        <AdaptationHUD 
+          isConnected={isConnected} 
+          lastCommand={lastCommand} 
+          listeningPhase={listeningPhase}
+          onToggleListen={toggleListen}
+        />
       </main>
       <GodModePanel sendTelemetry={sendTelemetry} />
     </div>
@@ -195,7 +215,7 @@ function ReadingZone({ chunks, currentChunk, setCurrentChunk, cssConfig, title }
   );
 }
 
-function AdaptationHUD({ isConnected, lastCommand }: any) {
+function AdaptationHUD({ isConnected, lastCommand, listeningPhase, onToggleListen }: any) {
   return (
     <aside className="hidden md:flex flex-col w-[30%] bg-surface-container border-l border-outline-variant/15 p-8 gap-8 overflow-y-auto z-10">
       <div className="flex items-center justify-between p-4 bg-surface-container-high rounded-xl border border-outline-variant/10">
@@ -215,11 +235,11 @@ function AdaptationHUD({ isConnected, lastCommand }: any) {
       </div>
 
       <div className="flex p-1 bg-surface-container-lowest rounded-xl border border-outline-variant/5">
-        <button className="flex-1 py-3 px-2 flex flex-col items-center gap-1 rounded-lg text-primary bg-primary/10 transition-all">
+        <button className={`flex-1 py-3 px-2 flex flex-col items-center gap-1 rounded-lg transition-all ${listeningPhase === 'idle' ? 'text-primary bg-primary/10' : 'text-on-surface-variant hover:bg-white/5'}`} onClick={() => listeningPhase !== 'idle' && onToggleListen()}>
           <BookOpen size={20} />
           <span className="text-[10px] uppercase font-bold tracking-widest">Read</span>
         </button>
-        <button className="flex-1 py-3 px-2 flex flex-col items-center gap-1 rounded-lg text-on-surface-variant hover:bg-white/5 transition-all">
+        <button className={`flex-1 py-3 px-2 flex flex-col items-center gap-1 rounded-lg transition-all ${listeningPhase !== 'idle' ? 'text-primary bg-primary/10 font-bold' : 'text-on-surface-variant hover:bg-white/5'}`} onClick={onToggleListen}>
           <Headphones size={20} />
           <span className="text-[10px] uppercase font-bold tracking-widest">Listen</span>
         </button>
@@ -229,20 +249,54 @@ function AdaptationHUD({ isConnected, lastCommand }: any) {
         </button>
       </div>
 
-      <div className="p-6 bg-surface-container-high rounded-xl flex flex-col items-center border border-outline-variant/10">
-        <div className="relative w-40 h-40 mb-6 flex items-center justify-center">
-          <svg className="absolute inset-0 w-full h-full -rotate-90">
-            <circle className="text-surface-container-lowest" cx="80" cy="80" fill="transparent" r="74" stroke="currentColor" strokeWidth="4"></circle>
-            <circle className="text-primary transition-all duration-500" cx="80" cy="80" fill="transparent" r="74" stroke="currentColor" strokeDasharray="465" strokeDashoffset="465" strokeWidth="4"></circle>
-          </svg>
-          <button className="w-20 h-20 bg-primary/20 text-primary rounded-full flex items-center justify-center border border-primary/30 hover:scale-105 active:scale-95 transition-all cursor-not-allowed">
-            <Play size={32} fill="currentColor" className="ml-1" />
-          </button>
-        </div>
-        <div className="text-center">
-          <div className="text-on-surface font-semibold mb-1">Narration Stopped</div>
-          <div className="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest">Modality: Text Primary</div>
-        </div>
+      <div className="p-6 bg-surface-container-high rounded-xl flex flex-col items-center border border-outline-variant/10 min-h-[280px] justify-center">
+        <AnimatePresence mode="wait">
+          {listeningPhase === 'idle' && (
+            <motion.div key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center">
+              <div className="w-24 h-24 rounded-full bg-primary/5 flex items-center justify-center border border-primary/10 mb-6">
+                <Headphones size={40} className="text-on-surface-variant/20" />
+              </div>
+              <button onClick={onToggleListen} className="px-6 py-2 bg-primary text-on-primary rounded-full font-bold text-xs uppercase tracking-widest hover:scale-105 transition-all">
+                Start Audio
+              </button>
+            </motion.div>
+          )}
+
+          {listeningPhase === 'synthesizing' && (
+            <motion.div key="synthesizing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center w-full">
+              <Loader2 size={48} className="text-primary animate-spin mb-6" />
+              <div className="text-center">
+                <div className="text-on-surface font-bold mb-1 uppercase tracking-widest text-xs">AI Synthesizing</div>
+                <div className="text-on-surface-variant text-[10px]">Generating natural speech...</div>
+              </div>
+              <div className="w-full bg-surface-container-lowest h-1 rounded-full mt-8 overflow-hidden">
+                <motion.div initial={{ width: 0 }} animate={{ width: '100%' }} transition={{ duration: 2.5 }} className="h-full bg-primary" />
+              </div>
+            </motion.div>
+          )}
+
+          {listeningPhase === 'playing' && (
+            <motion.div key="playing" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center w-full">
+              <div className="flex items-end gap-1 mb-8 h-12">
+                {[...Array(12)].map((_, i) => (
+                  <motion.div 
+                    key={i} 
+                    animate={{ height: [10, Math.random() * 40 + 10, 10] }} 
+                    transition={{ repeat: Infinity, duration: 0.5 + Math.random(), ease: "easeInOut" }} 
+                    className="w-1.5 bg-secondary rounded-full" 
+                  />
+                ))}
+              </div>
+              <button onClick={onToggleListen} className="w-16 h-16 bg-secondary text-on-secondary rounded-full flex items-center justify-center shadow-xl mb-6">
+                <Pause size={28} fill="currentColor" />
+              </button>
+              <div className="text-center">
+                <div className="text-on-surface font-bold mb-1 uppercase tracking-widest text-xs">Now Reading</div>
+                <div className="text-secondary text-[10px] font-bold">Nicole (Neural Voice) • 0:42</div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       <div className="space-y-4">

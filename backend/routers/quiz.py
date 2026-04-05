@@ -5,6 +5,7 @@ from shared.models import LearnerModel, QuizQuestion, QuizAnswerRequest, QuizAns
 from routers.auth import get_current_user
 from agents.profile.agent import get_student_profile, update_student_profile
 from agents.feedback.agent import get_next_question, calculate_new_ability
+from routers.gamification import _apply_xp
 from shared.database import get_pool
 from uuid import UUID
 
@@ -120,15 +121,16 @@ async def submit_quiz_answer(
         
     score = current_score + (1 if is_correct else 0)
     
-    # 4. If quiz is complete, persist to assessments table
+    # 4. If quiz is complete, persist to assessments + award XP
+    xp_result = None
     if quiz_complete:
+        total_answered = len(answered_ids)
+        final_score = score / total_answered if total_answered > 0 else 0.0
+
         try:
-            total_answered = len(answered_ids)
-            final_score = score / total_answered if total_answered > 0 else 0.0
-            
             await pool.execute(
                 """
-                INSERT INTO assessments 
+                INSERT INTO assessments
                     (student_id, questions, responses, score, theta_before, theta_after)
                 VALUES ($1, $2, $3, $4, $5, $6)
                 """,
@@ -137,12 +139,23 @@ async def submit_quiz_answer(
                 json.dumps(prior_responses),
                 final_score,
                 theta_before,
-                new_ability
+                new_ability,
             )
         except Exception as e:
-            logger.error(f"Failed to persist assessment for user {current_user['id']}: {e}")
+            logger.error("Failed to persist assessment for user %s: %s", current_user["id"], e)
+
+        # Award XP: 10 base + up to 40 bonus based on score (perfect = 50 XP)
+        xp_earned = 10 + round(final_score * 40)
+        reason = "quiz_perfect" if final_score >= 1.0 else "quiz_complete"
+        try:
+            async with pool.acquire() as conn:
+                async with conn.transaction():
+                    xp_result = await _apply_xp(conn, UUID(current_user["id"]), xp_earned, reason)
+            xp_result["xp_earned"] = xp_earned
+        except Exception as e:
+            logger.error("Failed to award XP for user %s: %s", current_user["id"], e)
     
-    return QuizAnswerResponse(
+    response = QuizAnswerResponse(
         is_correct=is_correct,
         correct_id=correct_id,
         explanation=explanation,
@@ -151,5 +164,11 @@ async def submit_quiz_answer(
         quiz_complete=quiz_complete,
         score=score,
         total_questions=5,
-        responses_json=json.dumps(prior_responses)
+        responses_json=json.dumps(prior_responses),
     )
+
+    # Attach XP info so the frontend can show a reward animation
+    result = response.model_dump()
+    if xp_result:
+        result["gamification"] = xp_result
+    return result

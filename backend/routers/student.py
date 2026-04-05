@@ -1,11 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
+from typing import Optional
 from shared.models import LearnerModel, User
 from routers.auth import get_current_user
-from agents.profile.agent import get_student_profile, update_student_profile
+from agents.profile.agent import get_student_profile, update_student_profile, generate_profile_summary
+from agents.profile.game_profiler import process_game_result, get_available_games
 from agents.adaptation.agent import chunk_content, transform_font, tts_convert, summarize_text, generate_visual_aid
 from orchestrator.graph import adapt_content
+from routers.gamification import _apply_xp
 from shared.database import get_pool
 from uuid import UUID
 from pathlib import Path
@@ -195,3 +198,140 @@ async def generate_audio(request: TTSRequest, current_user = Depends(get_current
         filename=f"adaptlearn_{student_id[:8]}.mp3",
         headers={"Cache-Control": "no-store"}
     )
+
+
+# ---------------------------------------------------------------------------
+# Phase 3: Game Profiler, Profile Summary, Content Discovery
+# ---------------------------------------------------------------------------
+
+class GameResultRequest(BaseModel):
+    game_type: str
+    raw_score: float
+    max_score: float
+    time_spent_seconds: float
+    max_time_seconds: float = 120.0
+
+
+# XP awarded per game type (encourages variety)
+_GAME_XP: dict = {
+    "memory_cards": 20,
+    "speed_tap": 15,
+    "story_listen": 20,
+    "pattern_match": 15,
+    "reading_race": 25,
+    "puzzle_solve": 20,
+    "drag_and_sort": 15,
+    "quiz": 10,
+}
+
+
+@router.post("/game-result")
+async def submit_game_result(
+    request: GameResultRequest,
+    current_user=Depends(get_current_user),
+):
+    """
+    Processes a completed game/interactive activity.
+    Updates the student's learning profile tags via the Game Profiler agent,
+    then awards XP proportional to their score.
+    """
+    if current_user["role"] != "student":
+        raise HTTPException(status_code=403, detail="Only students submit game results")
+
+    student_id: UUID = current_user["id"]
+
+    # 1. Run game profiler — updates learning tags in learner_profiles
+    profiler_result = await process_game_result(
+        student_id=student_id,
+        game_type=request.game_type,
+        raw_score=request.raw_score,
+        max_score=request.max_score,
+        time_spent_seconds=request.time_spent_seconds,
+        max_time_seconds=request.max_time_seconds,
+    )
+
+    # 2. Award XP (base per game type, scaled by normalised score)
+    base_xp = _GAME_XP.get(request.game_type, 10)
+    normalised = profiler_result.get("score_normalized", 0.5)
+    xp_earned = max(5, round(base_xp * (0.5 + normalised * 0.5)))  # at least 5 XP
+
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            xp_result = await _apply_xp(
+                conn,
+                student_id,
+                xp_earned,
+                f"game_{request.game_type}",
+            )
+
+    return {
+        **profiler_result,
+        "xp_earned": xp_earned,
+        "gamification": xp_result,
+    }
+
+
+@router.get("/games")
+async def list_available_games(current_user=Depends(get_current_user)):
+    """Returns all available game types and the learning tags they measure."""
+    return get_available_games()
+
+
+@router.get("/profile-summary")
+async def get_profile_summary(current_user=Depends(get_current_user)):
+    """
+    Returns a kid-friendly profile description powered by Gemini.
+    e.g. "You're a Visual Explorer! Your superpower is..."
+    """
+    if current_user["role"] != "student":
+        raise HTTPException(status_code=403, detail="Only students have a profile summary")
+    return await generate_profile_summary(current_user["id"])
+
+
+@router.get("/content")
+async def list_content(
+    subject: Optional[str] = None,
+    current_user=Depends(get_current_user),
+):
+    """
+    Returns content items available to this student (filtered by their grade level).
+    Optionally filter by subject.
+    """
+    pool = await get_pool()
+
+    # Get student's grade level
+    grade_row = await pool.fetchrow(
+        "SELECT grade_level FROM users WHERE id = $1",
+        current_user["id"],
+    )
+    grade_level = grade_row["grade_level"] if grade_row else None
+
+    query = """
+        SELECT ci.id, ci.title, ci.subject, ci.grade_level, ci.created_at,
+               u.name AS teacher_name
+        FROM content_items ci
+        JOIN users u ON ci.teacher_id = u.id
+        JOIN teacher_student_link tsl ON ci.teacher_id = tsl.teacher_id
+        WHERE tsl.student_id = $1
+    """
+    params = [current_user["id"]]
+
+    if subject:
+        query += " AND ci.subject ILIKE $2"
+        params.append(f"%{subject}%")
+
+    query += " ORDER BY ci.created_at DESC"
+
+    rows = await pool.fetch(query, *params)
+    return [
+        {
+            "id": r["id"],
+            "title": r["title"],
+            "subject": r["subject"],
+            "grade_level": r["grade_level"],
+            "teacher_name": r["teacher_name"],
+            "created_at": r["created_at"].isoformat(),
+        }
+        for r in rows
+    ]

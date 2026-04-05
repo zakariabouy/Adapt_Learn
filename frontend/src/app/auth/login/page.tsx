@@ -13,14 +13,9 @@ export default function Login() {
 
   const onSubmit = async (data: any) => {
     try {
-      const params = new URLSearchParams();
-      params.append('username', data.email);
-      params.append('password', data.password);
-
-      const response = await axios.post(`${API_URL}/auth/login`, params, {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded'
-        }
+      const response = await axios.post(`${API_URL}/auth/login`, {
+        email: data.email,
+        password: data.password,
       });
 
       if (response.data.access_token) {

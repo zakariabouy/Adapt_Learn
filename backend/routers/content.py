@@ -34,3 +34,19 @@ async def list_content(current_user = Depends(get_current_user)):
     pool = await get_pool()
     rows = await pool.fetch("SELECT id, title, subject, grade_level FROM content_items ORDER BY created_at DESC")
     return [dict(row) for row in rows]
+
+@router.get("/teacher/dashboard/stats")
+async def get_teacher_stats(current_user = Depends(get_current_user)):
+    if current_user["role"] != "teacher":
+        raise HTTPException(status_code=403, detail="Forbidden")
+    
+    pool = await get_pool()
+    student_count = await pool.fetchval("SELECT COUNT(*) FROM users WHERE role = 'student'")
+    content_count = await pool.fetchval("SELECT COUNT(*) FROM content_items WHERE teacher_id = $1", current_user["id"])
+    
+    return {
+        "student_count": student_count,
+        "content_count": content_count,
+        "active_sessions": 5, # Mock for now
+        "risk_alerts": 2 # Mock for now
+    }

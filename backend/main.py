@@ -1,9 +1,11 @@
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 from shared.database import get_pool
 from routers import auth, student, session, content
+import traceback
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -17,18 +19,28 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="AdaptLearn API", 
     version="0.1.0",
-    lifespan=lifespan
+    lifespan=lifespan,
+    debug=True
 )
 
 # CORS Configuration
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[FRONTEND_URL],
+    allow_origins=[FRONTEND_URL, "http://127.0.0.1:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Global exception handler — expose errors during development
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    traceback.print_exc()
+    return JSONResponse(
+        status_code=500,
+        content={"detail": str(exc), "type": type(exc).__name__}
+    )
 
 # Include Routers
 app.include_router(auth.router)

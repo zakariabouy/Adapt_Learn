@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
+from pydantic import BaseModel
 from shared.models import UserCreate, User, Token, TokenData, Role
 from shared.security import get_password_hash, verify_password, create_access_token, SECRET_KEY, ALGORITHM
 from shared.database import get_pool
@@ -53,16 +54,23 @@ async def register(user_in: UserCreate):
     
     return dict(new_user)
 
+# JSON-based login model (replaces OAuth2PasswordRequestForm which has multipart bugs)
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
 @router.post("/login", response_model=Token)
-async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+async def login(login_data: LoginRequest):
     pool = await get_pool()
-    user = await pool.fetchrow("SELECT id, email, role, hashed_password FROM users WHERE email = $1", form_data.username)
+    user = await pool.fetchrow(
+        "SELECT id, email, role, hashed_password FROM users WHERE email = $1", 
+        login_data.email
+    )
     
-    if not user or not verify_password(form_data.password, user["hashed_password"]):
+    if not user or not verify_password(login_data.password, user["hashed_password"]):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
         )
     
     access_token = create_access_token(data={"sub": user["email"], "role": user["role"]})
@@ -71,3 +79,4 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
 @router.get("/me", response_model=User)
 async def read_users_me(current_user = Depends(get_current_user)):
     return dict(current_user)
+

@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from shared.models import LearnerModel, User
 from routers.auth import get_current_user
 from agents.profile.agent import get_student_profile, update_student_profile
-from agents.adaptation.agent import chunk_content, simplify_text, transform_font
+from agents.adaptation.agent import chunk_content, transform_font
+from orchestrator.graph import adapt_content
 from shared.database import get_pool
 from uuid import UUID
 import json
@@ -66,8 +67,8 @@ async def get_adapted_workspace(content_id: UUID, current_user = Depends(get_cur
     
     original_text = content_item["original_text"]
     
-    # Simplify if needed
-    adapted_text = await simplify_text(original_text, profile)
+    # Simplify/Adapt using Orchestrator
+    adapted_text = await adapt_content(profile, original_text)
     
     # Chunking
     chunks = await chunk_content(adapted_text, profile.chunk_size or 500)

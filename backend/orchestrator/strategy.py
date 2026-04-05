@@ -6,6 +6,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage
 from shared.models import AdaptationCommand, EngagementState, TelemetryEvent, LearnerModel
 from shared.database import get_pool
+from shared.log_store import orchestrator_logs
 from uuid import UUID
 
 logger = logging.getLogger(__name__)
@@ -138,15 +139,26 @@ unless the student's state has significantly changed):
             content = content.split("```")[1].split("```")[0].strip()
             
         decision = json.loads(content)
-        return AdaptationCommand(
+        command = AdaptationCommand(
             action=decision.get("action", "no_action"),
             reason=decision.get("reason", "Strategically decided via AI"),
             data=decision.get("data", {})
         )
+        orchestrator_logs.add_log(
+            node="strategy_agent",
+            message=f"[{state.value.upper()}] → {command.action}: {command.reason}",
+            state_update={"student_id": student_id, "action": command.action, "data": command.data}
+        )
+        return command
     except Exception as e:
         logger.warning("Strategic command AI failed, using deterministic fallback: %s", e)
-        # Fallback to deterministic rules if AI fails
-        return fallback_command(state)
+        command = fallback_command(state)
+        orchestrator_logs.add_log(
+            node="strategy_agent_fallback",
+            message=f"[{state.value.upper()}] fallback → {command.action} (err: {e})",
+            state_update={"student_id": student_id, "action": command.action}
+        )
+        return command
 
 def fallback_command(state: EngagementState) -> AdaptationCommand:
     match state:

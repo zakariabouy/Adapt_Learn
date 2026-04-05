@@ -42,6 +42,7 @@ async def get_quiz_question(
 async def submit_quiz_answer(
     request: QuizAnswerRequest,
     answered: str = Query(default=""),
+    current_score: int = Query(default=0),
     current_user = Depends(get_current_user)
 ):
     """
@@ -98,8 +99,7 @@ async def submit_quiz_answer(
         quiz_complete = True
         next_q = None
         
-    # For demo score, passing back how many answered so far
-    score = len([1 for _ in range(len(answered_ids))]) if is_correct else 0 # Simplified
+    score = current_score + (1 if is_correct else 0)
     
     return QuizAnswerResponse(
         is_correct=is_correct,

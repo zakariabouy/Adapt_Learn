@@ -1,4 +1,5 @@
-y.env
+.env
+*.env
 .gemini/
 __pycache__/
 *.pyc

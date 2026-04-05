@@ -1,5 +1,7 @@
 import asyncio
 import json
+import logging
+import time
 from typing import Dict
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
 from jose import JWTError, jwt
@@ -10,7 +12,10 @@ from agents.monitor.agent import classify_engagement, should_trigger
 from orchestrator.strategy import get_strategic_command
 from orchestrator.persistence import SessionStatePersistence
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/session", tags=["Session"])
+
+ADAPTATION_COOLDOWN_SECONDS = 10.0
 
 
 class ConnectionManager:
@@ -18,6 +23,7 @@ class ConnectionManager:
 
     def __init__(self):
         self.active_connections: Dict[str, WebSocket] = {}
+        self._last_trigger: Dict[str, float] = {}
 
     async def connect(self, student_id: str, websocket: WebSocket):
         await websocket.accept()
@@ -25,6 +31,15 @@ class ConnectionManager:
 
     def disconnect(self, student_id: str):
         self.active_connections.pop(student_id, None)
+        self._last_trigger.pop(student_id, None)
+
+    def can_trigger(self, student_id: str) -> bool:
+        """Returns True and records the time if the cooldown has elapsed."""
+        now = time.monotonic()
+        if now - self._last_trigger.get(student_id, 0.0) >= ADAPTATION_COOLDOWN_SECONDS:
+            self._last_trigger[student_id] = now
+            return True
+        return False
 
     async def send_command(self, student_id: str, command: AdaptationCommand):
         ws = self.active_connections.get(student_id)
@@ -84,9 +99,9 @@ async def websocket_endpoint(
             # Classify engagement
             state = classify_engagement(event)
 
-            # If it's a critical state, trigger an adaptation response
-            if should_trigger(state):
-                # Build a command using the orchestrator's strategic logic
+            # If it's a critical state, trigger an adaptation response (rate-limited)
+            if should_trigger(state) and manager.can_trigger(student_id):
+                logger.info("Adaptation triggered for student %s — state: %s", student_id, state.value)
                 command = await get_strategic_command(student_id, state, event)
                 
                 if command.action != "no_action":
@@ -101,6 +116,6 @@ async def websocket_endpoint(
     except WebSocketDisconnect:
         pass
     except Exception as e:
-        print(f"WebSocket error for {student_id}: {e}")
+        logger.exception("WebSocket error for student %s: %s", student_id, e)
     finally:
         manager.disconnect(student_id)

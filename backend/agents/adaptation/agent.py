@@ -1,5 +1,8 @@
 import re
+import logging
+import tempfile
 import textstat
+from pathlib import Path
 from typing import List
 from shared.models import LearnerModel
 import os
@@ -7,6 +10,8 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage
 from elevenlabs.client import ElevenLabs
 from elevenlabs import save
+
+logger = logging.getLogger(__name__)
 
 _llm = None
 _eleven_client = None
@@ -78,10 +83,10 @@ async def simplify_text(text: str, profile: LearnerModel) -> str:
     """
     
     try:
-        response = await llm.ainvoke([HumanMessage(content=prompt)])
+        response = await get_llm().ainvoke([HumanMessage(content=prompt)])
         return response.content
     except Exception as e:
-        print(f"Gemini Simplification Error: {e}")
+        logger.warning("Gemini simplification failed, returning original text: %s", e)
         return text
 
 async def transform_font(profile: LearnerModel) -> dict:
@@ -104,13 +109,13 @@ async def tts_convert(text: str, student_id: str) -> str:
     """
     Calls ElevenLabs TTS to generate speech and saves it to a temporary file.
     """
-    tmp_dir = "/tmp/adaptlearn"
-    os.makedirs(tmp_dir, exist_ok=True)
-    file_path = f"{tmp_dir}/{student_id}_tts.mp3"
+    tmp_dir = Path(tempfile.gettempdir()) / "adaptlearn"
+    tmp_dir.mkdir(parents=True, exist_ok=True)
+    file_path = str(tmp_dir / f"{student_id}_tts.mp3")
     
     try:
         # Generate audio using ElevenLabs
-        audio = eleven_client.generate(
+        audio = get_eleven_client().generate(
             text=text,
             voice="Rachel",
             model="eleven_multilingual_v2"
@@ -120,6 +125,6 @@ async def tts_convert(text: str, student_id: str) -> str:
         save(audio, file_path)
         return file_path
     except Exception as e:
-        print(f"ElevenLabs TTS Error: {e}")
+        logger.warning("ElevenLabs TTS failed for student %s: %s", student_id, e)
         # Return a fallback path or empty string if failed
         return ""

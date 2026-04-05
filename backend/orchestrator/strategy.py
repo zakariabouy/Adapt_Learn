@@ -1,5 +1,6 @@
 import os
 import json
+import logging
 from typing import Optional
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage
@@ -7,6 +8,8 @@ from shared.models import AdaptationCommand, EngagementState, TelemetryEvent, Le
 from shared.database import get_pool
 from uuid import UUID
 from orchestrator.persistence import SessionStatePersistence
+
+logger = logging.getLogger(__name__)
 
 # Initialize Gemini
 llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=os.getenv("GOOGLE_API_KEY"))
@@ -74,7 +77,7 @@ async def get_strategic_command(student_id: str, state: EngagementState, event: 
             data=decision.get("data", {})
         )
     except Exception as e:
-        print(f"Strategic Command Error: {e}")
+        logger.warning("Strategic command AI failed, using deterministic fallback: %s", e)
         # Fallback to deterministic rules if AI fails
         return fallback_command(state)
 

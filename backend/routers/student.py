@@ -22,8 +22,13 @@ async def get_profile(current_user = Depends(get_current_user)):
 async def update_profile(profile: LearnerModel, current_user = Depends(get_current_user)):
     if str(profile.student_id) != str(current_user["id"]):
         raise HTTPException(status_code=403, detail="Not authorized to update this profile")
-    
+
     updated_profile = await update_student_profile(current_user["id"], profile)
+
+    # Invalidate adapted content cache so next workspace load re-generates with new profile
+    pool = await get_pool()
+    await pool.execute("DELETE FROM adapted_content WHERE student_id = $1", current_user["id"])
+
     return updated_profile
 
 @router.get("/workspace/{content_id}")

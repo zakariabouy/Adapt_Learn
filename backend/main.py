@@ -1,12 +1,19 @@
 import os
+import logging
+import traceback
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 from shared.database import get_pool
-from routers import auth, student, session, content, quiz, teacher
+from routers import auth, student, session, content, quiz, teacher, admin
 from orchestrator.scheduler import start_scheduler
-import traceback
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -28,16 +35,13 @@ app = FastAPI(
     debug=True
 )
 
-# CORS Configuration
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+# CORS Configuration — set ALLOWED_ORIGINS as comma-separated list in env
+_raw_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
+ALLOWED_ORIGINS = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        FRONTEND_URL, 
-        "http://localhost:3000", 
-        "http://127.0.0.1:3000",
-        "https://adaptlearn.vercel.app", # Placeholder - update with yours
-    ],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -47,11 +51,13 @@ app.add_middleware(
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     traceback.print_exc()
+    origin = request.headers.get("origin", ALLOWED_ORIGINS[0])
+    allowed_origin = origin if origin in ALLOWED_ORIGINS else ALLOWED_ORIGINS[0]
     return JSONResponse(
         status_code=500,
         content={"detail": str(exc), "type": type(exc).__name__},
         headers={
-            "Access-Control-Allow-Origin": "http://localhost:3000",
+            "Access-Control-Allow-Origin": allowed_origin,
             "Access-Control-Allow-Credentials": "true"
         }
     )
@@ -63,6 +69,7 @@ app.include_router(session.router)
 app.include_router(content.router)
 app.include_router(quiz.router)
 app.include_router(teacher.router)
+app.include_router(admin.router)
 
 @app.get("/health")
 async def health_check():

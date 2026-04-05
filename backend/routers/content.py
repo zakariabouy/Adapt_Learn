@@ -39,14 +39,35 @@ async def list_content(current_user = Depends(get_current_user)):
 async def get_teacher_stats(current_user = Depends(get_current_user)):
     if current_user["role"] != "teacher":
         raise HTTPException(status_code=403, detail="Forbidden")
-    
+
     pool = await get_pool()
-    student_count = await pool.fetchval("SELECT COUNT(*) FROM users WHERE role = 'student'")
-    content_count = await pool.fetchval("SELECT COUNT(*) FROM content_items WHERE teacher_id = $1", current_user["id"])
-    
+
+    student_count = await pool.fetchval(
+        "SELECT COUNT(*) FROM teacher_student_link WHERE teacher_id = $1",
+        current_user["id"]
+    )
+    content_count = await pool.fetchval(
+        "SELECT COUNT(*) FROM content_items WHERE teacher_id = $1",
+        current_user["id"]
+    )
+    # Students with ability < -0.5 are considered at-risk
+    risk_alerts = await pool.fetchval(
+        """
+        SELECT COUNT(*) FROM learner_profiles lp
+        JOIN teacher_student_link tsl ON lp.student_id = tsl.student_id
+        WHERE tsl.teacher_id = $1
+          AND (lp.profile_data->>'ability_estimate')::float < -0.5
+        """,
+        current_user["id"]
+    )
+    # Sessions started in last hour with no end time
+    active_sessions = await pool.fetchval(
+        "SELECT COUNT(*) FROM sessions WHERE started_at > NOW() - INTERVAL '1 hour' AND ended_at IS NULL"
+    )
+
     return {
-        "student_count": student_count,
-        "content_count": content_count,
-        "active_sessions": 5, # Mock for now
-        "risk_alerts": 2 # Mock for now
+        "student_count": student_count or 0,
+        "content_count": content_count or 0,
+        "active_sessions": active_sessions or 0,
+        "risk_alerts": risk_alerts or 0
     }

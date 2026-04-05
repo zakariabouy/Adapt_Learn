@@ -1,4 +1,6 @@
 import os
+import logging
+import textstat
 from typing import Dict, List
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -6,6 +8,8 @@ from orchestrator.state import AgentState
 from shared.models import LearnerModel
 from shared.log_store import orchestrator_logs
 import json
+
+logger = logging.getLogger(__name__)
 
 # Initialize Gemini
 llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=os.getenv("GOOGLE_API_KEY"))
@@ -35,7 +39,7 @@ async def profile_analysis_node(state: AgentState):
         response = await llm.ainvoke([HumanMessage(content=prompt)])
         strategy_info = response.content
     except Exception as e:
-        print(f"Gemini Profile Error: {e}. Falling back to default strategy.")
+        logger.warning("Gemini profile analysis failed, using default strategy: %s", e)
         strategy_info = '{"strategy": "Default readability enhancement", "simplification_level": 0.5}'
     
     orchestrator_logs.add_log("profile_analysis", "Strategy decision finalized", {"strategy": strategy_info})
@@ -76,7 +80,7 @@ async def content_adaptation_node(state: AgentState):
         response = await llm.ainvoke([HumanMessage(content=prompt)])
         adapted_text = response.content
     except Exception as e:
-        print(f"Gemini API Error: {e}. Falling back to original text.")
+        logger.warning("Gemini content adaptation failed, returning original text: %s", e)
         adapted_text = raw_text
         
     # Memory Trimming Logic: Every 12 entries in history, summarize
@@ -97,19 +101,43 @@ async def content_adaptation_node(state: AgentState):
 
 async def validation_node(state: AgentState):
     """
-    Checks accessibility standards (reading level, chunk size).
+    Validates adapted content against WCAG-inspired accessibility rules:
+    - Flesch-Kincaid grade level should not exceed the student's target
+    - Content length should not exceed 3x the configured chunk_size
     """
     adapted = state["adapted_content"]
     profile = state["learner_model"]
-    
-    orchestrator_logs.add_log("validation", "Validating accessibility standards")
-    
-    # Heuristic check: length vs attention span
-    # In a full ReAct loop, if this fails, it would loop back to adaptation
-    
-    orchestrator_logs.add_log("validation", "Content verified successfully", {"status": "END"})
+
+    orchestrator_logs.add_log("validation", "Running WCAG accessibility checks")
+
+    # Determine max acceptable grade level based on disabilities
+    has_reading_disability = any(d in profile.disabilities for d in ["dyslexia", "adhd", "dyscalculia"])
+    max_grade_level = 6.0 if has_reading_disability else 9.0
+
+    grade_level = textstat.flesch_kincaid_grade(adapted)
+    max_chunk = (profile.chunk_size or 500) * 3
+
+    issues = []
+    if grade_level > max_grade_level:
+        issues.append(f"readability grade {grade_level:.1f} > target {max_grade_level}")
+    if len(adapted) > max_chunk:
+        issues.append(f"content length {len(adapted)} chars > 3× chunk_size {profile.chunk_size or 500}")
+
+    if issues:
+        logger.warning("WCAG validation warnings for student %s: %s", profile.student_id, "; ".join(issues))
+        orchestrator_logs.add_log(
+            "validation",
+            f"WCAG warnings detected: {'; '.join(issues)}",
+            {"grade_level": round(grade_level, 1), "issues": issues}
+        )
+    else:
+        orchestrator_logs.add_log(
+            "validation",
+            "Content verified — WCAG checks passed",
+            {"grade_level": round(grade_level, 1), "content_length": len(adapted)}
+        )
 
     return {
-        "adaptation_history": ["Validation complete: Content meets accessibility standards."],
+        "adaptation_history": [f"Validation: grade={grade_level:.1f}, issues={issues or 'none'}"],
         "current_step": "end"
     }

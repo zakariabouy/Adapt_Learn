@@ -1,6 +1,7 @@
 import os
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import FileResponse
+from pydantic import BaseModel, EmailStr
 from shared.models import User, Role
 from routers.auth import get_current_user
 from shared.database import get_pool
@@ -8,6 +9,10 @@ from agents.iep.agent import generate_iep_report
 from uuid import UUID
 import json
 from datetime import datetime, timedelta
+
+
+class LinkStudentRequest(BaseModel):
+    student_email: EmailStr
 
 router = APIRouter(prefix="/teacher", tags=["Teacher"])
 
@@ -18,6 +23,24 @@ async def get_current_teacher(current_user = Depends(get_current_user)):
             detail="The user does not have enough privileges",
         )
     return current_user
+
+@router.post("/link-student")
+async def link_student(request: LinkStudentRequest, current_teacher = Depends(get_current_teacher)):
+    """Links a student to the current teacher by student email."""
+    pool = await get_pool()
+    student = await pool.fetchrow(
+        "SELECT id FROM users WHERE email = $1 AND role = 'student'",
+        request.student_email
+    )
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+    await pool.execute(
+        "INSERT INTO teacher_student_link (teacher_id, student_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+        current_teacher["id"], student["id"]
+    )
+    return {"status": "linked", "student_id": str(student["id"])}
+
 
 @router.get("/students")
 async def get_teacher_students(current_teacher = Depends(get_current_teacher)):

@@ -2,18 +2,27 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Zap, AlertTriangle, Coffee, Smile, 
+import {
+  Zap, AlertTriangle, Coffee, Smile,
   Terminal, Activity, ShieldAlert, Cpu,
   ChevronRight, X
 } from 'lucide-react';
+import { API_URL } from '@/lib/api';
 
 interface GodModePanelProps {
   sendTelemetry: (payload: any) => void;
 }
 
+interface OrchestratorLog {
+  timestamp: string;
+  node: string;
+  message: string;
+  state_update: Record<string, any>;
+}
+
 export default function GodModePanel({ sendTelemetry }: GodModePanelProps) {
   const [isVisible, setIsVisible] = useState(false);
+  const [lastLog, setLastLog] = useState<OrchestratorLog | null>(null);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -24,6 +33,25 @@ export default function GodModePanel({ sendTelemetry }: GodModePanelProps) {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
+
+  // Poll orchestrator logs while the panel is open
+  useEffect(() => {
+    if (!isVisible) return;
+    const fetchLogs = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      try {
+        const res = await fetch(`${API_URL}/admin/orchestrator-logs`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const logs: OrchestratorLog[] = await res.json();
+        if (logs.length > 0) setLastLog(logs[0]);
+      } catch {}
+    };
+    fetchLogs();
+    const interval = setInterval(fetchLogs, 3000);
+    return () => clearInterval(interval);
+  }, [isVisible]);
 
   const scenarios = [
     { 
@@ -136,11 +164,25 @@ export default function GodModePanel({ sendTelemetry }: GodModePanelProps) {
             <div className="p-3 rounded-xl bg-surface-container-highest/30 border border-outline-variant/10">
               <div className="flex items-center gap-3 mb-2">
                 <Cpu size={14} className="text-primary" />
-                <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Memory Context</span>
+                <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Last Orchestrator Event</span>
               </div>
-              <div className="text-[10px] font-mono text-on-surface-variant/60 leading-relaxed overflow-hidden whitespace-nowrap text-ellipsis">
-                STATE: monitoring_telemetry | TURNS: 12/20 | CACHE: hit
-              </div>
+              {lastLog ? (
+                <>
+                  <div className="text-[10px] font-mono text-primary/80 font-bold truncate">
+                    [{lastLog.node}]
+                  </div>
+                  <div className="text-[10px] font-mono text-on-surface-variant/60 leading-relaxed overflow-hidden whitespace-nowrap text-ellipsis">
+                    {lastLog.message}
+                  </div>
+                  <div className="text-[9px] text-on-surface-variant/30 mt-1">
+                    {new Date(lastLog.timestamp).toLocaleTimeString()}
+                  </div>
+                </>
+              ) : (
+                <div className="text-[10px] font-mono text-on-surface-variant/40 italic">
+                  No orchestrator events yet
+                </div>
+              )}
             </div>
           </div>
         </div>

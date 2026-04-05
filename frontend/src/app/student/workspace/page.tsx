@@ -13,12 +13,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAdaptation } from '@/hooks/useAdaptation';
 import { useTelemetry } from '@/hooks/useTelemetry';
 import GodModePanel from '@/components/workspace/GodModePanel';
+import { CssConfig } from '@/types/models';
 
 export default function Workspace() {
   const [studentId, setStudentId] = useState<string | null>(null);
   const [chunks, setChunks] = useState<string[]>([]);
   const [currentChunk, setCurrentChunk] = useState(0);
-  const [cssConfig, setCssConfig] = useState<any>({});
+  const [cssConfig, setCssConfig] = useState<CssConfig>({});
   const [contentTitle, setContentTitle] = useState('Loading Lesson...');
   const [theme, setTheme] = useState('dark');
   const [listeningPhase, setListeningPhase] = useState<'idle' | 'synthesizing' | 'playing'>('idle');
@@ -78,6 +79,24 @@ export default function Workspace() {
   const { isConnected, lastCommand, sendTelemetry } = useAdaptation(studentId);
   useTelemetry(sendTelemetry);
 
+  // React to adaptation commands from the orchestrator
+  useEffect(() => {
+    if (!lastCommand) return;
+    if (lastCommand.action === 'switch_modality') {
+      const modality = (lastCommand.data as any)?.modality ?? 'audio';
+      if (modality === 'audio' && listeningPhase === 'idle') {
+        setListeningPhase('synthesizing');
+        setTimeout(() => setListeningPhase('playing'), 2500);
+      } else if (modality === 'text') {
+        setListeningPhase('idle');
+      }
+    }
+    if (lastCommand.action === 'simplify_content' || lastCommand.action === 'summarize_chunk') {
+      // Reset to read mode so the refreshed content is visible
+      setListeningPhase('idle');
+    }
+  }, [lastCommand]);
+
   const handleLogout = () => {
     localStorage.removeItem('token');
     router.push('/auth/login');
@@ -86,10 +105,7 @@ export default function Workspace() {
   const toggleListen = () => {
     if (listeningPhase === 'idle') {
       setListeningPhase('synthesizing');
-      // Fake synthesis latency
-      setTimeout(() => {
-        setListeningPhase('playing');
-      }, 2500);
+      setTimeout(() => setListeningPhase('playing'), 2500);
     } else {
       setListeningPhase('idle');
     }
@@ -143,7 +159,13 @@ function TopNavBar({ studentId, onLogout }: { studentId: string | null, onLogout
   );
 }
 
-function ReadingZone({ chunks, currentChunk, setCurrentChunk, cssConfig, title }: any) {
+function ReadingZone({ chunks, currentChunk, setCurrentChunk, cssConfig, title }: {
+  chunks: string[];
+  currentChunk: number;
+  setCurrentChunk: (fn: (c: number) => number) => void;
+  cssConfig: CssConfig;
+  title: string;
+}) {
   const nextChunk = () => setCurrentChunk((c: number) => Math.min(c + 1, chunks.length - 1));
   const prevChunk = () => setCurrentChunk((c: number) => Math.max(c - 1, 0));
 
@@ -227,7 +249,12 @@ function ReadingZone({ chunks, currentChunk, setCurrentChunk, cssConfig, title }
   );
 }
 
-function AdaptationHUD({ isConnected, lastCommand, listeningPhase, onToggleListen }: any) {
+function AdaptationHUD({ isConnected, lastCommand, listeningPhase, onToggleListen }: {
+  isConnected: boolean;
+  lastCommand: import('@/types/models').AdaptationCommand | null;
+  listeningPhase: 'idle' | 'synthesizing' | 'playing';
+  onToggleListen: () => void;
+}) {
   return (
     <aside className="hidden md:flex flex-col w-[30%] bg-surface-container border-l border-outline-variant/15 p-8 gap-8 overflow-y-auto z-10" aria-label="Adaptation Controls">
       <div className="flex items-center justify-between p-4 bg-surface-container-high rounded-xl border border-outline-variant/10">

@@ -11,7 +11,13 @@ export interface TelemetryEvent {
 }
 
 export interface AdaptationCommand {
-  action: string;
-  data?: Record<string, any> | null;
+  action: 'simplify_content' | 'switch_modality' | 'summarize_chunk' | 'no_action' | string;
+  data?: Record<string, string | number | boolean> | null;
   reason?: string | null;
+}
+
+export interface CssConfig {
+  fontFamily?: string;
+  fontSize?: string;
+  lineHeight?: string;
 }

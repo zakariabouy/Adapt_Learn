@@ -1,9 +1,14 @@
 import os
 import re
 import json
+import logging
+import tempfile
+from pathlib import Path
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 from uuid import UUID
+
+logger = logging.getLogger(__name__)
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage
 from shared.database import get_pool
@@ -118,7 +123,7 @@ async def generate_iep_report(student_id: UUID, teacher_id: UUID) -> Dict[str, A
         response = await get_llm().ainvoke([HumanMessage(content=prompt)])
         markdown_content = response.content
     except Exception as e:
-        print(f"Gemini IEP Error: {e}")
+        logger.error("Gemini IEP generation failed for student %s: %s", student_id, e)
         markdown_content = "# Error generating IEP Report\n\nCould not reach the AI agent."
 
     # Prepare data for storage
@@ -137,12 +142,13 @@ async def generate_iep_report(student_id: UUID, teacher_id: UUID) -> Dict[str, A
     
     # Create PDF
     pdf_filename = f"IEP_{student_id}_{week_str}.pdf"
-    pdf_path = os.path.join("/tmp", pdf_filename)
-    os.makedirs("/tmp", exist_ok=True)
+    pdf_dir = Path(tempfile.gettempdir()) / "adaptlearn_iep"
+    pdf_dir.mkdir(parents=True, exist_ok=True)
+    pdf_path = str(pdf_dir / pdf_filename)
     
     success = generate_pdf_report(markdown_content, pdf_path, str(student_id))
     if not success:
-        print(f"Warning: PDF generation failed for student {student_id}")
+        logger.warning("PDF generation failed for student %s", student_id)
     
     report_id = await pool.fetchval(
         "INSERT INTO iep_reports (student_id, teacher_id, report_data, pdf_url, week) VALUES ($1, $2, $3, $4, $5) RETURNING id",
@@ -155,6 +161,14 @@ async def generate_iep_report(student_id: UUID, teacher_id: UUID) -> Dict[str, A
         "pdf_path": pdf_path if success else None,
         "stats": stats
     }
+
+def _md_to_html(text: str) -> str:
+    """Converts inline markdown bold/italic to ReportLab HTML tags."""
+    # Replace **bold** → <b>bold</b>
+    text = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', text)
+    # Replace *italic* → <i>italic</i>
+    text = re.sub(r'\*(.+?)\*', r'<i>\1</i>', text)
+    return text
 
 def generate_pdf_report(markdown_text: str, output_path: str, student_name: str) -> bool:
     """
@@ -197,14 +211,14 @@ def generate_pdf_report(markdown_text: str, output_path: str, student_name: str)
             elif line.startswith('### '):
                 content.append(Paragraph(line[4:], styles['Heading3']))
             elif line.startswith('- ') or line.startswith('* '):
-                clean_line = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', line[2:])
+                clean_line = _md_to_html(line[2:])
                 content.append(Paragraph(f"• {clean_line}", bullet_style))
             else:
-                clean_line = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', line)
+                clean_line = _md_to_html(line)
                 content.append(Paragraph(clean_line, normal_style))
         
         doc.build(content)
         return True
     except Exception as e:
-        print(f"PDF Generation Error: {e}")
+        logger.exception("PDF generation error: %s", e)
         return False

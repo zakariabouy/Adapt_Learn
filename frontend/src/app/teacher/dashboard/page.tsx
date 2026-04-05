@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Users, BookOpen, BarChart2, AlertTriangle,
-  Search, FileUp, LogOut, FileText, Activity, Zap, X, TrendingUp
+  Search, FileUp, LogOut, FileText, Activity, Zap, X, TrendingUp, UserPlus
 } from 'lucide-react';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, 
@@ -23,15 +23,12 @@ const springTransition = {
 
 export default function TeacherDashboard() {
   const [students, setStudents] = useState<any[]>([]);
-  const [stats, setStats] = useState<any>({
-    totalStudents: 0,
-    avgEngagement: 0,
-    riskAlerts: 0,
-    performanceTrend: []
-  });
+  const [stats, setStats] = useState({ student_count: 0, content_count: 0, active_sessions: 0, risk_alerts: 0 });
   const [loading, setLoading] = useState(true);
   const [selectedStudent, setSelectedStudent] = useState<any | null>(null);
   const [growthData, setGrowthData] = useState<any[]>([]);
+  const [linkEmail, setLinkEmail] = useState('');
+  const [linkStatus, setLinkStatus] = useState<string | null>(null);
   const router = useRouter();
 
   const fetchData = async () => {
@@ -43,18 +40,29 @@ export default function TeacherDashboard() {
     try {
       const [studentsRes, statsRes] = await Promise.all([
         axios.get(`${API_URL}/teacher/students`, { headers: { Authorization: `Bearer ${token}` } }),
-        axios.get(`${API_URL}/teacher/stats`, { headers: { Authorization: `Bearer ${token}` } })
+        axios.get(`${API_URL}/content/teacher/dashboard/stats`, { headers: { Authorization: `Bearer ${token}` } }),
       ]);
-      
-      const formatted = studentsRes.data.map((s: any) => ({
-        ...s,
-        displayId: s.name.substring(0, 2).toUpperCase(),
-        dotColor: s.riskLevel === 'high' ? 'bg-red-400 shadow-[0_0_12px_rgba(241,97,97,0.5)]' : s.riskLevel === 'medium' ? 'bg-primary' : 'bg-green-400',
-        riskColor: s.riskLevel === 'high' ? 'text-red-400' : s.riskLevel === 'medium' ? 'text-primary' : 'text-green-400',
-        risk: s.riskLevel.charAt(0).toUpperCase() + s.riskLevel.slice(1),
-        modules: `${s.modulesCompleted} modules`
-      }));
-      
+
+      const formatted = studentsRes.data.map((s: any) => {
+        let dotColor = 'bg-green-400';
+        let riskColor = 'text-green-400';
+        if (s.riskLevel === 'high') {
+          dotColor = 'bg-red-400 shadow-[0_0_12px_rgba(241,97,97,0.5)]';
+          riskColor = 'text-red-400';
+        } else if (s.riskLevel === 'medium') {
+          dotColor = 'bg-primary';
+          riskColor = 'text-primary';
+        }
+        return {
+          ...s,
+          displayId: s.name.substring(0, 2).toUpperCase(),
+          dotColor,
+          riskColor,
+          risk: s.riskLevel.charAt(0).toUpperCase() + s.riskLevel.slice(1),
+          modules: `${s.modulesCompleted} modules`
+        };
+      });
+
       setStudents(formatted);
       setStats(statsRes.data);
       setLoading(false);
@@ -64,9 +72,23 @@ export default function TeacherDashboard() {
     }
   };
 
-  useEffect(() => {
-    fetchData();
-  }, [router]);
+  useEffect(() => { fetchData(); }, [router]);
+
+  const handleLinkStudent = async () => {
+    const token = localStorage.getItem('token');
+    if (!token || !linkEmail.trim()) return;
+    try {
+      await axios.post(`${API_URL}/teacher/link-student`, { student_email: linkEmail.trim() }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setLinkStatus('Student linked successfully!');
+      setLinkEmail('');
+      fetchData();
+    } catch (err: any) {
+      setLinkStatus(err.response?.data?.detail || 'Failed to link student.');
+    }
+    setTimeout(() => setLinkStatus(null), 4000);
+  };
 
   const handleStudentClick = async (student: any) => {
     setSelectedStudent(student);
@@ -152,24 +174,24 @@ export default function TeacherDashboard() {
                 <div className="p-2 bg-primary/10 rounded-lg text-primary"><Users size={20}/></div>
                 <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Total Students</span>
               </div>
-              <div className="text-3xl font-black">{stats.totalStudents}</div>
-              <div className="text-xs text-green-400 font-bold mt-1">Cohort Active</div>
+              <div className="text-3xl font-black">{loading ? '—' : stats.student_count}</div>
+              <div className="text-xs text-on-surface-variant/60 font-bold mt-1">{stats.active_sessions} active now</div>
             </div>
             <div className="bg-surface-container-high p-6 rounded-2xl border border-outline-variant/10 shadow-sm">
               <div className="flex items-center gap-4 mb-2">
                 <div className="p-2 bg-secondary/10 rounded-lg text-secondary"><Activity size={20}/></div>
-                <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Avg Engagement</span>
+                <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Content Modules</span>
               </div>
-              <div className="text-3xl font-black">{stats.avgEngagement}%</div>
-              <div className="text-xs text-green-400 font-bold mt-1">High Productivity</div>
+              <div className="text-3xl font-black">{loading ? '—' : stats.content_count}</div>
+              <div className="text-xs text-on-surface-variant/60 font-bold mt-1">Uploaded lessons</div>
             </div>
             <div className="bg-surface-container-high p-6 rounded-2xl border border-outline-variant/10 shadow-sm">
               <div className="flex items-center gap-4 mb-2">
                 <div className="p-2 bg-red-400/10 rounded-lg text-red-400"><AlertTriangle size={20}/></div>
                 <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Risk Alerts</span>
               </div>
-              <div className="text-3xl font-black text-red-400">{stats.riskAlerts}</div>
-              <div className="text-xs text-red-400/60 font-bold mt-1">Needs Attention</div>
+              <div className={`text-3xl font-black ${stats.risk_alerts > 0 ? 'text-red-400' : 'text-green-400'}`}>{loading ? '—' : stats.risk_alerts}</div>
+              <div className="text-xs text-red-400/60 font-bold mt-1">{stats.risk_alerts > 0 ? 'Attention needed' : 'All students on track'}</div>
             </div>
           </div>
 
@@ -219,8 +241,36 @@ export default function TeacherDashboard() {
           </div>
         </div>
 
-        <div className="flex items-center justify-between mb-8">
+        {/* Student Roster */}
+        <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
           <h2 className="text-2xl font-black tracking-tight">Active Learners</h2>
+          <div className="flex gap-3 flex-wrap items-center">
+            <div className="relative">
+              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/40" />
+              <input type="text" placeholder="Filter students..." className="bg-surface-container-lowest border border-outline-variant/10 rounded-full pl-10 pr-4 py-2 text-sm focus:ring-1 focus:ring-primary outline-none transition-all w-52" />
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="email"
+                value={linkEmail}
+                onChange={e => setLinkEmail(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleLinkStudent()}
+                placeholder="student@email.com"
+                className="bg-surface-container-lowest border border-outline-variant/10 rounded-full px-4 py-2 text-sm focus:ring-1 focus:ring-primary outline-none transition-all w-52"
+              />
+              <button
+                onClick={handleLinkStudent}
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-on-primary rounded-full text-xs font-bold uppercase tracking-widest hover:opacity-90 transition-all"
+              >
+                <UserPlus size={14} /> Link
+              </button>
+            </div>
+            {linkStatus && (
+              <span className={`text-xs font-bold px-3 py-1 rounded-full ${linkStatus.includes('success') ? 'bg-green-400/10 text-green-400' : 'bg-red-400/10 text-red-400'}`}>
+                {linkStatus}
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-12">
@@ -249,8 +299,8 @@ export default function TeacherDashboard() {
                 <span className={student.riskColor}>Risk: {student.risk}</span>
                 <span className="text-on-surface-variant opacity-60">{student.modules}</span>
               </div>
-              <button 
-                onClick={(e) => { e.stopPropagation(); downloadIEP(student.id); }} 
+              <button
+                onClick={(e) => { e.stopPropagation(); downloadIEP(student.id); }}
                 className="w-full py-3 bg-surface-container-highest border border-outline-variant/10 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-primary hover:text-on-primary transition-all"
               >
                 <FileText size={14} /> Download IEP

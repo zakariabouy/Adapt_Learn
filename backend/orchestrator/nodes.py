@@ -7,6 +7,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from orchestrator.state import AgentState
 from shared.models import LearnerModel
 from shared.log_store import orchestrator_logs
+from agents.adaptation.agent import simplify_text, summarize_text
 import json
 
 logger = logging.getLogger(__name__)
@@ -51,45 +52,23 @@ async def profile_analysis_node(state: AgentState):
 
 async def content_adaptation_node(state: AgentState):
     """
-    Calls Gemini to rewrite content per strategy.
+    Calls Adaptation Agent to rewrite content per strategy.
     """
     profile = state["learner_model"]
     raw_text = state["raw_content"]
-    history = state["adaptation_history"][-1] # Latest strategy
     
-    orchestrator_logs.add_log("content_adaptation", "Generating adapted content via Gemini Flash", {"strategy_context": history[:100] + "..."})
+    orchestrator_logs.add_log("content_adaptation", "Generating adapted content via Adaptation Agent")
     
-    prompt = f"""
-    You are an expert in inclusive education. Adapt the following text for a student with the following profile:
-    Profile: {profile.disabilities} (Severity: {profile.severity})
-    Strategy: {history}
+    # Use the Adaptation Agent's simplified text logic
+    adapted_text = await simplify_text(raw_text, profile)
     
-    Original Text:
-    {raw_text}
-    
-    Tasks:
-    1. Simplify the vocabulary if necessary.
-    2. Maintain the core pedagogical concepts.
-    3. Ensure the tone is encouraging.
-    4. Keep the output in Markdown format.
-    
-    Adapted Text:
-    """
-    
-    try:
-        response = await llm.ainvoke([HumanMessage(content=prompt)])
-        adapted_text = response.content
-    except Exception as e:
-        logger.warning("Gemini content adaptation failed, returning original text: %s", e)
-        adapted_text = raw_text
-        
     # Memory Trimming Logic: Every 12 entries in history, summarize
-    new_history = [f"Content adapted via Gemini Flash"]
+    new_history = [f"Content adapted for {', '.join(profile.disabilities)}"]
     if len(state["adaptation_history"]) >= 12:
         orchestrator_logs.add_log("memory_trimming", "Context limit reached. Summarizing history.")
-        summary_prompt = f"Summarize the following adaptation history for context retention: {state['adaptation_history']}"
-        summary_res = await llm.ainvoke([HumanMessage(content=summary_prompt)])
-        new_history = [f"HISTORY SUMMARY: {summary_res.content}"]
+        # Use the agent's summarizer for the history too
+        summary = await summarize_text(str(state["adaptation_history"]))
+        new_history = [f"HISTORY SUMMARY: {summary}"]
 
     orchestrator_logs.add_log("content_adaptation", "Adaptation cycle complete")
 

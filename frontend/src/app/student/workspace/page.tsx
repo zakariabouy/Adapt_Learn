@@ -24,17 +24,60 @@ export default function Workspace() {
   const [cssConfig, setCssConfig] = useState<CssConfig>({});
   const [contentTitle, setContentTitle] = useState('Loading Lesson...');
   const [theme, setTheme] = useState('dark');
+  const [preferredModality, setPreferredModality] = useState('text');
   const [listeningPhase, setListeningPhase] = useState<'idle' | 'synthesizing' | 'playing'>('idle');
   const [announcement, setAnnouncement] = useState('');
   const [audioDuration, setAudioDuration] = useState<number>(0);
+  const [chunkSummary, setChunkSummary] = useState<string | null>(null);
+  const [chunkVisual, setChunkVisual] = useState<string | null>(null);
+  const [isSummarizing, setIsSummarizing] = useState(false);
+  const [isGeneratingVisual, setIsGeneratingVisual] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
 
   const router = useRouter();
 
+  const fetchChunkSummary = async () => {
+    if (!contentId || chunks.length === 0) return;
+    setIsSummarizing(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.get(`${API_URL}/student/workspace/${contentId}/summarize/${currentChunk}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setChunkSummary(res.data.summary);
+      setAnnouncement('AI Summary ready.');
+    } catch (err) {
+      console.error('Failed to fetch summary', err);
+    } finally {
+      setIsSummarizing(false);
+    }
+  };
+
+  const fetchChunkVisual = async () => {
+    if (!contentId || chunks.length === 0) return;
+    setIsGeneratingVisual(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.get(`${API_URL}/student/workspace/${contentId}/visual/${currentChunk}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setChunkVisual(res.data.svg);
+      setAnnouncement('AI Visual Aid ready.');
+    } catch (err) {
+      console.error('Failed to fetch visual aid', err);
+    } finally {
+      setIsGeneratingVisual(false);
+    }
+  };
+
   const nextChunk = useCallback(() => {
     setCurrentChunk((c) => {
       const next = Math.min(c + 1, chunks.length - 1);
-      if (next !== c) setAnnouncement(`Showing chunk ${next + 1} of ${chunks.length}`);
+      if (next !== c) {
+          setAnnouncement(`Showing chunk ${next + 1} of ${chunks.length}`);
+          setChunkSummary(null);
+          setChunkVisual(null);
+      }
       return next;
     });
   }, [chunks.length]);
@@ -42,7 +85,11 @@ export default function Workspace() {
   const prevChunk = useCallback(() => {
     setCurrentChunk((c) => {
       const prev = Math.max(c - 1, 0);
-      if (prev !== c) setAnnouncement(`Back to chunk ${prev + 1}`);
+      if (prev !== c) {
+          setAnnouncement(`Back to chunk ${prev + 1}`);
+          setChunkSummary(null);
+          setChunkVisual(null);
+      }
       return prev;
     });
   }, []);
@@ -84,7 +131,9 @@ export default function Workspace() {
         const profileRes = await axios.get(`${API_URL}/student/profile`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        if (profileRes.data.color_theme) setTheme(profileRes.data.color_theme);
+        const profile = profileRes.data;
+        if (profile.color_theme) setTheme(profile.color_theme);
+        if (profile.preferred_modality) setPreferredModality(profile.preferred_modality);
 
         const listRes = await axios.get(`${API_URL}/content/list`, {
           headers: { Authorization: `Bearer ${token}` }
@@ -106,6 +155,11 @@ export default function Workspace() {
 
         setChunks(workspaceRes.data.chunks);
         setCssConfig(workspaceRes.data.css_config);
+
+        // Auto-fetch visual aid if visual learner
+        if (profile.preferred_modality === 'visual') {
+            fetchChunkVisual();
+        }
       } catch (error) {
         console.error('Failed to initialize workspace', error);
       }
@@ -115,6 +169,13 @@ export default function Workspace() {
 
   const { isConnected, lastCommand, sendTelemetry } = useAdaptation(studentId, contentId);
   useTelemetry(sendTelemetry);
+
+  // Auto-fetch visual aid when chunk changes for visual learners
+  useEffect(() => {
+    if (preferredModality === 'visual' && chunks.length > 0) {
+      fetchChunkVisual();
+    }
+  }, [currentChunk, preferredModality, chunks.length]);
 
   const toggleListen = useCallback(async () => {
     if (listeningPhase !== 'idle') {
@@ -219,6 +280,8 @@ export default function Workspace() {
           title={contentTitle}
           contentId={contentId}
           router={router}
+          chunkVisual={chunkVisual}
+          isGeneratingVisual={isGeneratingVisual}
         />
         <AdaptationHUD
           isConnected={isConnected}
@@ -226,6 +289,11 @@ export default function Workspace() {
           listeningPhase={listeningPhase}
           onToggleListen={toggleListen}
           audioDuration={audioDuration}
+          onSummarize={fetchChunkSummary}
+          onGenerateVisual={fetchChunkVisual}
+          isSummarizing={isSummarizing}
+          isGeneratingVisual={isGeneratingVisual}
+          chunkSummary={chunkSummary}
         />
       </main>
       
@@ -266,7 +334,7 @@ function TopNavBar({ studentId, onLogout }: { studentId: string | null, onLogout
   );
 }
 
-function ReadingZone({ chunks, currentChunk, nextChunk, prevChunk, cssConfig, title, contentId, router }: {
+function ReadingZone({ chunks, currentChunk, nextChunk, prevChunk, cssConfig, title, contentId, router, chunkVisual, isGeneratingVisual }: {
   chunks: string[];
   currentChunk: number;
   nextChunk: () => void;
@@ -275,6 +343,8 @@ function ReadingZone({ chunks, currentChunk, nextChunk, prevChunk, cssConfig, ti
   title: string;
   contentId: string;
   router: any;
+  chunkVisual: string | null;
+  isGeneratingVisual: boolean;
 }) {
   return (
     <section className="w-full md:w-[70%] p-6 lg:p-10 flex flex-col items-center bg-surface overflow-y-auto transition-colors duration-500" aria-labelledby="lesson-title">
@@ -291,6 +361,22 @@ function ReadingZone({ chunks, currentChunk, nextChunk, prevChunk, cssConfig, ti
         
         <div className="flex-1 p-12 lg:p-20 font-body relative group min-h-[60vh]">
           <div className="space-y-12 leading-relaxed" style={cssConfig} aria-live="polite">
+            {chunkVisual && (
+              <motion.div 
+                initial={{ opacity: 0, y: -20 }} 
+                animate={{ opacity: 1, y: 0 }}
+                className="w-full max-w-md mx-auto mb-12 p-6 bg-white/5 rounded-2xl border border-white/10"
+                dangerouslySetInnerHTML={{ __html: chunkVisual }}
+              />
+            )}
+            
+            {isGeneratingVisual && (
+              <div className="w-full max-w-md mx-auto mb-12 p-12 bg-white/5 rounded-2xl border border-white/10 flex flex-col items-center gap-4">
+                <Loader2 className="animate-spin text-primary" size={32} />
+                <span className="text-xs font-bold uppercase tracking-widest text-primary/60">Generating Visual Aid...</span>
+              </div>
+            )}
+
             {chunks.length > 0 ? (
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
                     {chunks[currentChunk]}
@@ -365,12 +451,20 @@ function ReadingZone({ chunks, currentChunk, nextChunk, prevChunk, cssConfig, ti
   );
 }
 
-function AdaptationHUD({ isConnected, lastCommand, listeningPhase, onToggleListen, audioDuration }: {
+function AdaptationHUD({ 
+  isConnected, lastCommand, listeningPhase, onToggleListen, audioDuration,
+  onSummarize, onGenerateVisual, isSummarizing, isGeneratingVisual, chunkSummary
+}: {
   isConnected: boolean;
   lastCommand: import('@/types/models').AdaptationCommand | null;
   listeningPhase: 'idle' | 'synthesizing' | 'playing';
   onToggleListen: () => void;
   audioDuration: number;
+  onSummarize: () => void;
+  onGenerateVisual: () => void;
+  isSummarizing: boolean;
+  isGeneratingVisual: boolean;
+  chunkSummary: string | null;
 }) {
   return (
     <aside className="hidden md:flex flex-col w-[30%] bg-surface-container border-l border-outline-variant/15 p-8 gap-8 overflow-y-auto z-10" aria-label="Adaptation Controls">
@@ -410,7 +504,11 @@ function AdaptationHUD({ isConnected, lastCommand, listeningPhase, onToggleListe
           <Headphones size={20} />
           <span className="text-[10px] uppercase font-bold tracking-widest">Listen</span>
         </button>
-        <button aria-label="Visual Mode" className="flex-1 py-3 px-2 flex flex-col items-center gap-1 rounded-lg text-on-surface-variant hover:bg-white/5 transition-all focus:ring-2 focus:ring-inset focus:ring-primary outline-none">
+        <button 
+          aria-label="Visual Mode" 
+          onClick={onGenerateVisual}
+          className={`flex-1 py-3 px-2 flex flex-col items-center gap-1 rounded-lg text-on-surface-variant hover:bg-white/5 transition-all focus:ring-2 focus:ring-inset focus:ring-primary outline-none ${isGeneratingVisual ? 'animate-pulse text-primary' : ''}`}
+        >
           <Eye size={20} />
           <span className="text-[10px] uppercase font-bold tracking-widest">Visual</span>
         </button>
@@ -419,17 +517,30 @@ function AdaptationHUD({ isConnected, lastCommand, listeningPhase, onToggleListe
       <div className="p-6 bg-surface-container-high rounded-xl flex flex-col items-center border border-outline-variant/10 min-h-[280px] justify-center">
         <AnimatePresence mode="wait">
           {listeningPhase === 'idle' && (
-            <motion.div key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center">
-              <div className="w-24 h-24 rounded-full bg-primary/5 flex items-center justify-center border border-primary/10 mb-6">
-                <Headphones size={40} className="text-on-surface-variant/20" />
-              </div>
-              <button 
-                onClick={onToggleListen} 
-                aria-label="Start audio synthesis"
-                className="px-6 py-2 bg-primary text-on-primary rounded-full font-bold text-xs uppercase tracking-widest hover:scale-105 transition-all focus:ring-4 focus:ring-primary/20 outline-none"
-              >
-                Start Audio
-              </button>
+            <motion.div key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center w-full">
+              {chunkSummary ? (
+                <div className="w-full">
+                  <div className="text-[10px] uppercase font-bold tracking-widest text-primary mb-4 flex items-center gap-2">
+                    <Sparkles size={12} /> AI Summary
+                  </div>
+                  <p className="text-sm text-on-surface leading-relaxed italic border-l-2 border-primary/30 pl-4 py-1">
+                    "{chunkSummary}"
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="w-24 h-24 rounded-full bg-primary/5 flex items-center justify-center border border-primary/10 mb-6">
+                    <Headphones size={40} className="text-on-surface-variant/20" />
+                  </div>
+                  <button 
+                    onClick={onToggleListen} 
+                    aria-label="Start audio synthesis"
+                    className="px-6 py-2 bg-primary text-on-primary rounded-full font-bold text-xs uppercase tracking-widest hover:scale-105 transition-all focus:ring-4 focus:ring-primary/20 outline-none"
+                  >
+                    Start Audio
+                  </button>
+                </>
+              )}
             </motion.div>
           )}
 
@@ -490,10 +601,15 @@ function AdaptationHUD({ isConnected, lastCommand, listeningPhase, onToggleListe
         </div>
       </div>
 
-      <div className="mt-auto p-4 bg-primary/5 rounded-xl border border-primary/20 flex items-center justify-between cursor-pointer hover:bg-primary/10 transition-colors" role="button" aria-label="Summarize this chunk">
+      <div 
+        className={`mt-auto p-4 rounded-xl border transition-all flex items-center justify-between cursor-pointer ${isSummarizing ? 'bg-primary/20 border-primary animate-pulse' : 'bg-primary/5 border-primary/20 hover:bg-primary/10'}`} 
+        role="button" 
+        aria-label="Summarize this chunk"
+        onClick={onSummarize}
+      >
         <div className="flex items-center gap-3">
-          <Sparkles size={18} className="text-primary" />
-          <span className="text-xs font-semibold text-primary">Summarize this chunk?</span>
+          <Sparkles size={18} className={isSummarizing ? 'text-primary animate-spin' : 'text-primary'} />
+          <span className="text-xs font-semibold text-primary">{isSummarizing ? 'Thinking...' : 'Summarize this chunk?'}</span>
         </div>
         <button className="text-primary p-1 rounded-lg transition-colors focus:ring-2 focus:ring-primary outline-none" aria-label="Run summary action"><Zap size={18} fill="currentColor" /></button>
       </div>

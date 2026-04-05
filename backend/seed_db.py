@@ -1,6 +1,6 @@
 import asyncio
 import datetime
-from uuid import uuid4
+from uuid import uuid4, UUID
 from shared.database import get_pool
 from shared.security import get_password_hash
 import json
@@ -30,11 +30,10 @@ async def seed():
     
     print(f"Seeding teacher: {teacher_email}")
     await pool.execute(
-        "INSERT INTO users (id, email, role, hashed_password) VALUES ($1, $2, $3, $4) ON CONFLICT (email) DO NOTHING",
-        teacher_id, teacher_email, "teacher", hashed_password
+        "INSERT INTO users (id, email, role, hashed_password, name) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (email) DO NOTHING",
+        teacher_id, teacher_email, "teacher", hashed_password, "Dr. Sarah Luminous"
     )
     
-    # Get actual teacher_id if it existed
     row = await pool.fetchrow("SELECT id FROM users WHERE email = $1", teacher_email)
     teacher_id = row['id']
 
@@ -44,30 +43,33 @@ async def seed():
     
     print(f"Seeding student: {student_email}")
     await pool.execute(
-        "INSERT INTO users (id, email, role, hashed_password) VALUES ($1, $2, $3, $4) ON CONFLICT (email) DO NOTHING",
-        student_id, student_email, "student", hashed_password
+        "INSERT INTO users (id, email, role, hashed_password, name) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (email) DO NOTHING",
+        student_id, student_email, "student", hashed_password, "Adam Learner"
     )
     
-    # Get actual student_id
     row = await pool.fetchrow("SELECT id FROM users WHERE email = $1", student_email)
     student_id = row['id']
 
     # 3. Seed Learner Profile
     learner_model = {
         "student_id": str(student_id),
-        "disabilities": ["dyslexia"],
-        "severity": {"dyslexia": 0.7},
+        "disabilities": ["dyslexia", "adhd"],
+        "severity": {"dyslexia": 0.6, "adhd": 0.4},
         "preferred_font": "OpenDyslexic",
         "font_size": 18,
-        "line_spacing": 2.0,
-        "color_theme": "sepia",
+        "line_spacing": 1.8,
+        "color_theme": "dark",
         "preferred_modality": "text",
-        "reading_speed_wpm": 150,
-        "chunk_size": 300,
+        "reading_speed_wpm": 140,
+        "chunk_size": 400,
         "current_engagement_score": 1.0,
         "current_frustration_level": 0.0,
-        "ability_estimate": 0.0,
-        "mastery_by_topic": {}
+        "ability_estimate": 0.5,
+        "mastery_by_topic": {
+            "Biology": 85.0,
+            "Mathematics": 45.0,
+            "History": 60.0
+        }
     }
     
     print(f"Seeding learner profile for student: {student_id}")
@@ -77,89 +79,96 @@ async def seed():
     )
 
     # 4. Seed Content Items
-    content_id_1 = "00000000-0000-0000-0000-000000000000"
-    content_id_2 = str(uuid4()) # Math module
-    
-    title_1 = "Photosynthesis for Beginners"
-    original_text_1 = """
-# Photosynthesis
-Photosynthesis is the process by which green plants use sunlight to synthesize foods from carbon dioxide and water.
-In this process, plants take in carbon dioxide (CO2) and water (H2O) from the air and soil. 
-The plant then releases oxygen back into the atmosphere and stores energy within glucose molecules.
-    """
-    
-    title_2 = "Introduction to Algebra"
-    original_text_2 = """
-# Introduction to Algebra
-Algebra is a branch of mathematics dealing with symbols and the rules for manipulating those symbols. 
-In its simplest form, algebra involves using letters (like x or y) to represent unknown numbers in equations.
-
-## Solving for X
-If you have the equation x + 5 = 10, the goal is to find what x is. By subtracting 5 from both sides, you find that x = 5.
-
-## Basic Rules
-1. Whatever you do to one side of the equation, you must do to the other.
-2. Variables can represent any number.
-    """
-    
-    print(f"Seeding content item: {title_1}")
-    await pool.execute(
-        "INSERT INTO content_items (id, teacher_id, title, original_text, subject, grade_level) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT DO NOTHING",
-        content_id_1, teacher_id, title_1, original_text_1, "Biology", 5
-    )
-
-    print(f"Seeding content item: {title_2}")
-    await pool.execute(
-        "INSERT INTO content_items (id, teacher_id, title, original_text, subject, grade_level) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT DO NOTHING",
-        content_id_2, teacher_id, title_2, original_text_2, "Mathematics", 6
-    )
-
-    # 5. Seed Question Bank for IRT Adaptive Quiz
-    print("Seeding question bank...")
-    raw_questions = [
-        # Photosynthesis (Partial list)
+    content_items = [
         {
-            "id": str(uuid4()), "content_id": content_id_1, "subject": "Biology", "topic": "Photosynthesis",
-            "difficulty": -2.0, "text": "What do plants need to make their own food?",
-            "options": json.dumps([{"id": "A", "label": "Sunlight"}, {"id": "B", "label": "Rocks"}, {"id": "C", "label": "Sand"}, {"id": "D", "label": "Wind"}]),
-            "correct_id": "A", "hint": "Think about what plants reach for.", "explanation": "Plants need sunlight for photosynthesis."
-        },
-        # Algebra (Dyscalculia support demo)
-        {
-            "id": str(uuid4()), "content_id": content_id_2, "subject": "Mathematics", "topic": "Algebra",
-            "difficulty": -1.5, "text": "In the equation x + 2 = 5, what is x?",
-            "options": json.dumps([{"id": "A", "label": "1"}, {"id": "B", "label": "2"}, {"id": "C", "label": "3"}, {"id": "D", "label": "7"}]),
-            "correct_id": "C", "hint": "What plus 2 equals 5?", "explanation": "Subtract 2 from both sides: 5 - 2 = 3."
+            "id": "00000000-0000-0000-0000-000000000000",
+            "title": "Photosynthesis for Beginners",
+            "subject": "Biology",
+            "grade": 5,
+            "text": """# Photosynthesis
+Photosynthesis is how plants turn sunlight into energy. They use water, carbon dioxide, and light to make sugar (glucose).
+This process happens inside chloroplasts, which contain a green pigment called chlorophyll.
+Plants release oxygen as a byproduct, which humans and animals need to breathe."""
         },
         {
-            "id": str(uuid4()), "content_id": content_id_2, "subject": "Mathematics", "topic": "Algebra",
-            "difficulty": 0.0, "text": "What does 'x' usually represent in an algebra equation?",
-            "options": json.dumps([{"id": "A", "label": "An unknown number"}, {"id": "B", "label": "The multiplication sign"}, {"id": "C", "label": "An error"}, {"id": "D", "label": "Always zero"}]),
-            "correct_id": "A", "hint": "It's a placeholder.", "explanation": "Variables like x represent unknown values we want to find."
+            "id": str(uuid4()),
+            "title": "Algebra: Solving for X",
+            "subject": "Mathematics",
+            "grade": 7,
+            "text": """# Introduction to Algebra
+Algebra uses letters to represent unknown numbers. These letters are called variables.
+When we solve an equation, we want to find the value of the variable.
+Rule: Always do the same thing to both sides of the '=' sign to keep it balanced."""
         },
         {
-            "id": str(uuid4()), "content_id": content_id_2, "subject": "Mathematics", "topic": "Algebra",
-            "difficulty": 1.5, "text": "If 2x = 10, what is x?",
-            "options": json.dumps([{"id": "A", "label": "2"}, {"id": "B", "label": "5"}, {"id": "C", "label": "8"}, {"id": "D", "label": "20"}]),
-            "correct_id": "B", "hint": "Divide 10 by 2.", "explanation": "Divide both sides by 2: 10 / 2 = 5."
+            "id": str(uuid4()),
+            "title": "The French Revolution",
+            "subject": "History",
+            "grade": 9,
+            "text": """# The French Revolution
+The French Revolution began in 1789. It was caused by high taxes and social inequality.
+The people of France overthrew King Louis XVI and established a Republic.
+This era changed the world by spreading ideas of liberty and equality."""
+        },
+        {
+            "id": str(uuid4()),
+            "title": "The Great Gatsby: Themes",
+            "subject": "Literature",
+            "grade": 11,
+            "text": """# The Great Gatsby
+This novel by F. Scott Fitzgerald explores the American Dream in the 1920s.
+It follows Jay Gatsby, a wealthy man who tries to win back his lost love, Daisy.
+Key themes include social class, wealth, and the corruption of dreams."""
         }
     ]
 
-    for q in raw_questions:
+    print("Seeding content items...")
+    for item in content_items:
+        await pool.execute(
+            "INSERT INTO content_items (id, teacher_id, title, original_text, subject, grade_level) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT DO NOTHING",
+            UUID(item["id"]), teacher_id, item["title"], item["text"], item["subject"], item["grade"]
+        )
+
+    # 5. Seed Question Bank
+    print("Seeding question bank...")
+    questions = []
+    
+    # Bio Questions
+    bio_id = UUID("00000000-0000-0000-0000-000000000000")
+    questions.extend([
+        {"cid": bio_id, "sub": "Biology", "top": "Photosynthesis", "diff": -1.5, "txt": "What is the green pigment in plants?", "opts": [{"id":"A","label":"Melanin"},{"id":"B","label":"Chlorophyll"},{"id":"C","label":"Hemoglobin"}], "ans": "B"},
+        {"cid": bio_id, "sub": "Biology", "top": "Photosynthesis", "diff": 0.0, "txt": "What gas do plants release during photosynthesis?", "opts": [{"id":"A","label":"Oxygen"},{"id":"B","label":"Nitrogen"},{"id":"C","label":"Helium"}], "ans": "A"},
+        {"cid": bio_id, "sub": "Biology", "top": "Photosynthesis", "diff": 1.5, "txt": "Where does photosynthesis primarily occur?", "opts": [{"id":"A","label":"Roots"},{"id":"B","label":"Chloroplasts"},{"id":"C","label":"Bark"}], "ans": "B"}
+    ])
+    
+    # Math Questions (Dyscalculia support)
+    math_id = UUID(content_items[1]["id"])
+    questions.extend([
+        {"cid": math_id, "sub": "Mathematics", "top": "Algebra", "diff": -1.0, "txt": "If x + 5 = 10, what is x?", "opts": [{"id":"A","label":"2"},{"id":"B","label":"5"},{"id":"C","label":"15"}], "ans": "B"},
+        {"cid": math_id, "sub": "Mathematics", "top": "Algebra", "diff": 0.5, "txt": "In 3x = 12, what operation do you use to find x?", "opts": [{"id":"A","label":"Addition"},{"id":"B","label":"Division"},{"id":"C","label":"Subtraction"}], "ans": "B"},
+        {"cid": math_id, "sub": "Mathematics", "top": "Algebra", "diff": 2.0, "txt": "Solve for y: 2y - 4 = 6", "opts": [{"id":"A","label":"1"},{"id":"B","label":"5"},{"id":"C","label":"10"}], "ans": "B"}
+    ])
+    
+    # History Questions (ADHD support)
+    hist_id = UUID(content_items[2]["id"])
+    questions.extend([
+        {"cid": hist_id, "sub": "History", "top": "Revolution", "diff": -0.5, "txt": "In what year did the French Revolution begin?", "opts": [{"id":"A","label":"1492"},{"id":"B","label":"1789"},{"id":"C","label":"1914"}], "ans": "B"},
+        {"cid": hist_id, "sub": "History", "top": "Revolution", "diff": 1.0, "txt": "Who was the King of France during the revolution?", "opts": [{"id":"A","label":"Louis XVI"},{"id":"B","label":"Henry VIII"},{"id":"C","label":"Napoleon"}], "ans": "A"}
+    ])
+
+    for q in questions:
         try:
             await pool.execute(
                 """INSERT INTO question_bank 
                    (id, content_id, subject, topic, difficulty, question_text, options, correct_id, hint, explanation) 
                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)""",
-                q["id"], content_id, "Biology", "Photosynthesis", q["difficulty"], 
-                q["text"], q["options"], q["correct_id"], q["hint"], q["explanation"]
+                uuid4(), q["cid"], q["sub"], q["top"], q["diff"], 
+                q["txt"], json.dumps(q["opts"]), q["ans"], "Think about the lesson content.", "Verified correct answer."
             )
-        except Exception as e:
-            # Avoid crashing if re-seeding and table index complains or dupes
-            print(f"Skipped question {q['text'][:15]}...: {e}")
+        except Exception:
+            pass
 
-    # 6. Seed Teacher-Student Link
-    print(f"Linking teacher {teacher_id} to student {student_id}")
+    # 6. Link Teacher-Student
     await pool.execute(
         "INSERT INTO teacher_student_link (teacher_id, student_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
         teacher_id, student_id

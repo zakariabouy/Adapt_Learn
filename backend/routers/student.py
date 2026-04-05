@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from shared.models import LearnerModel, User
 from routers.auth import get_current_user
 from agents.profile.agent import get_student_profile, update_student_profile
-from agents.adaptation.agent import chunk_content, transform_font, tts_convert
+from agents.adaptation.agent import chunk_content, transform_font, tts_convert, summarize_text, generate_visual_aid
 from orchestrator.graph import adapt_content
 from shared.database import get_pool
 from uuid import UUID
@@ -111,6 +111,57 @@ async def get_adapted_workspace(
         "css_config": css_config,
         "cached": False
     }
+
+@router.get("/workspace/{content_id}/summarize/{chunk_index}")
+async def get_chunk_summary(
+    content_id: UUID,
+    chunk_index: int,
+    current_user = Depends(get_current_user)
+):
+    """
+    Returns a one-sentence AI summary for a specific chunk of content.
+    """
+    pool = await get_pool()
+    
+    # Get the latest adapted content for this student
+    row = await pool.fetchrow(
+        "SELECT adapted_text FROM adapted_content WHERE content_id = $1 AND student_id = $2 ORDER BY created_at DESC LIMIT 1",
+        content_id, current_user["id"]
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Adapted content not found")
+        
+    chunks = json.loads(row["adapted_text"])
+    if chunk_index < 0 or chunk_index >= len(chunks):
+        raise HTTPException(status_code=400, detail="Invalid chunk index")
+        
+    summary = await summarize_text(chunks[chunk_index])
+    return {"summary": summary}
+
+@router.get("/workspace/{content_id}/visual/{chunk_index}")
+async def get_chunk_visual(
+    content_id: UUID,
+    chunk_index: int,
+    current_user = Depends(get_current_user)
+):
+    """
+    Generates and returns an SVG visual aid for a specific chunk.
+    """
+    pool = await get_pool()
+    
+    row = await pool.fetchrow(
+        "SELECT adapted_text FROM adapted_content WHERE content_id = $1 AND student_id = $2 ORDER BY created_at DESC LIMIT 1",
+        content_id, current_user["id"]
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Adapted content not found")
+        
+    chunks = json.loads(row["adapted_text"])
+    if chunk_index < 0 or chunk_index >= len(chunks):
+        raise HTTPException(status_code=400, detail="Invalid chunk index")
+        
+    svg_code = await generate_visual_aid(chunks[chunk_index])
+    return {"svg": svg_code}
 
 
 class TTSRequest(BaseModel):

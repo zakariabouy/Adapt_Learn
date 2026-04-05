@@ -58,36 +58,72 @@ async def readability_score(text: str) -> float:
 
 async def simplify_text(text: str, profile: LearnerModel) -> str:
     """
-    Calls Gemini 1.5 Flash to simplify text based on the student's profile (disabilities, severity).
+    Calls Gemini 1.5 Flash to simplify text based on the student's profile.
     """
     severity_dyslexia = profile.severity.get('dyslexia', 0.0)
     severity_adhd = profile.severity.get('adhd', 0.0)
     
-    if severity_dyslexia < 0.3 and severity_adhd < 0.3:
-        return text # No simplification needed
-        
     prompt = f"""
     You are an expert in inclusive education. Simplify the following text for a student with the following profile:
     - Disabilities: {profile.disabilities}
-    - Dyslexia Severity: {severity_dyslexia}
-    - ADHD Severity: {severity_adhd}
+    - Severity: Dyslexia={severity_dyslexia:.1f}, ADHD={severity_adhd:.1f}
     
     Original Text:
     {text}
     
     Tasks:
-    1. Use simpler vocabulary.
-    2. Shorten complex sentences.
-    3. Maintain all key pedagogical points.
-    4. Return ONLY the simplified text.
+    1. Use simpler vocabulary and shorter sentences.
+    2. Maintain core pedagogical concepts.
+    3. Return ONLY the simplified text in Markdown.
     """
     
     try:
         response = await get_llm().ainvoke([HumanMessage(content=prompt)])
         return response.content
     except Exception as e:
-        logger.warning("Gemini simplification failed, returning original text: %s", e)
+        logger.warning("Gemini simplification failed: %s", e)
         return text
+
+async def summarize_text(text: str) -> str:
+    """
+    Returns a one-sentence summary of the text chunk.
+    """
+    prompt = f"Summarize the following text in exactly one clear, encouraging sentence for a student:\n\n{text}"
+    try:
+        response = await get_llm().ainvoke([HumanMessage(content=prompt)])
+        return response.content
+    except Exception as e:
+        logger.warning("Gemini summarization failed: %s", e)
+        return text
+
+async def generate_visual_aid(text: str) -> str:
+    """
+    Generates a simple SVG diagram or illustration representing the text.
+    """
+    prompt = f"""
+    Create a simple, high-contrast SVG illustration that represents the following educational concept:
+    "{text}"
+    
+    Requirements:
+    1. Use a clean, modern style with bold lines.
+    2. Use accessible colors (high contrast).
+    3. The SVG should be responsive (viewBox="0 0 400 400").
+    4. Keep it very simple (icons, basic shapes).
+    5. Return ONLY the SVG code.
+    """
+    try:
+        response = await get_llm().ainvoke([HumanMessage(content=prompt)])
+        content = response.content.strip()
+        if "<svg" in content:
+            # Extract SVG part if Gemini wraps it in markdown
+            if "```" in content:
+                content = content.split("<svg")[1].split("</svg>")[0]
+                content = "<svg" + content + "</svg>"
+            return content
+        return ""
+    except Exception as e:
+        logger.warning("Gemini visual aid generation failed: %s", e)
+        return ""
 
 async def transform_font(profile: LearnerModel) -> dict:
     """

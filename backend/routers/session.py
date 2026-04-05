@@ -72,6 +72,7 @@ async def websocket_endpoint(
     websocket: WebSocket,
     student_id: str,
     token: str = Query(default=None),
+    content_id: str = Query(default=None)
 ):
     # --- Auth gate ---
     if not token:
@@ -85,26 +86,63 @@ async def websocket_endpoint(
 
     # --- Connected ---
     await manager.connect(student_id, websocket)
+    
+    pool = await get_pool()
+    session_id = None
+    
+    # Session Metrics
+    telemetry_events_count: int = 0
+    total_scroll_velocity: float = 0.0
+    total_frustration_score: float = 0.0
+    adaptations_applied: list = []
 
     try:
+        # 1. Initialize DB Session
+        try:
+            session_id = await pool.fetchval(
+                """
+                INSERT INTO sessions (student_id, content_id, started_at)
+                VALUES ($1, $2, NOW())
+                RETURNING id
+                """,
+                UUID(student_id),
+                UUID(content_id) if content_id else None
+            )
+        except Exception as e:
+            logger.error(f"Failed to create DB session for student {student_id}: {e}")
+
         # Initial: Try to recover previous session state
         recovered = await SessionStatePersistence.get_state(student_id)
         if recovered:
-            print(f"Recovered session for {student_id} with {len(recovered['adaptation_history'])} past commands")
+            logger.info(f"Recovered session for {student_id} with {len(recovered['adaptation_history'])} past commands")
 
         while True:
             data = await websocket.receive_json()
             event = TelemetryEvent(**data)
+            
+            # Accumulate Metrics
+            telemetry_events_count += 1
+            total_scroll_velocity += event.scrollVelocity
 
             # Classify engagement
             state = classify_engagement(event)
+            if state == EngagementState.FRUSTRATED:
+                total_frustration_score += 1.0
 
             # If it's a critical state, trigger an adaptation response (rate-limited)
             if should_trigger(state) and manager.can_trigger(student_id):
                 logger.info("Adaptation triggered for student %s — state: %s", student_id, state.value)
-                command = await get_strategic_command(student_id, state, event)
+                
+                # Retrieve session history before calling strategy
+                state_data = await SessionStatePersistence.get_state(student_id)
+                history = state_data.get("adaptation_history", []) if state_data else []
+                
+                command = await get_strategic_command(student_id, state, event, session_history=history)
                 
                 if command.action != "no_action":
+                    # Track applied adaptation
+                    adaptations_applied.append(command.model_dump())
+                    
                     # Persist to Redis history
                     await SessionStatePersistence.add_to_history(student_id, command)
                     # Send to frontend
@@ -119,3 +157,31 @@ async def websocket_endpoint(
         logger.exception("WebSocket error for student %s: %s", student_id, e)
     finally:
         manager.disconnect(student_id)
+        
+        # 2. Finalize DB Session
+        if session_id:
+            try:
+                summary = {
+                    "event_count": telemetry_events_count,
+                    "avg_scroll_velocity": round(
+                        total_scroll_velocity / telemetry_events_count, 2
+                    ) if telemetry_events_count > 0 else 0,
+                    "current_frustration_level": round(
+                        total_frustration_score / telemetry_events_count, 3
+                    ) if telemetry_events_count > 0 else 0,
+                }
+                
+                await pool.execute(
+                    """
+                    UPDATE sessions
+                    SET ended_at = NOW(),
+                        telemetry_summary = $1,
+                        adaptations_applied = $2
+                    WHERE id = $3
+                    """,
+                    json.dumps(summary),
+                    [json.dumps(a) for a in adaptations_applied],
+                    session_id
+                )
+            except Exception as e:
+                logger.error(f"Failed to finalize DB session {session_id} for student {student_id}: {e}")

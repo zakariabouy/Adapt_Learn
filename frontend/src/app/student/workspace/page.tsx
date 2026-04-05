@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { API_URL } from '@/lib/api';
@@ -18,6 +18,7 @@ import { CssConfig } from '@/types/models';
 
 export default function Workspace() {
   const [studentId, setStudentId] = useState<string | null>(null);
+  const [contentId, setContentId] = useState<string>('');
   const [chunks, setChunks] = useState<string[]>([]);
   const [currentChunk, setCurrentChunk] = useState(0);
   const [cssConfig, setCssConfig] = useState<CssConfig>({});
@@ -25,7 +26,9 @@ export default function Workspace() {
   const [theme, setTheme] = useState('dark');
   const [listeningPhase, setListeningPhase] = useState<'idle' | 'synthesizing' | 'playing'>('idle');
   const [announcement, setAnnouncement] = useState('');
-  
+  const [audioDuration, setAudioDuration] = useState<number>(0);
+  const audioRef = useRef<HTMLAudioElement>(null);
+
   const router = useRouter();
 
   const nextChunk = useCallback(() => {
@@ -43,6 +46,26 @@ export default function Workspace() {
       return prev;
     });
   }, []);
+
+  const refetchAdaptedContent = useCallback(async (forced = false) => {
+    if (!contentId) return;
+    const token = localStorage.getItem('token');
+    try {
+      const url = `${API_URL}/student/workspace/${contentId}${forced ? '?force_refresh=true' : ''}`;
+      const res = await axios.get(url, { 
+        headers: { Authorization: `Bearer ${token}` } 
+      });
+      setChunks(res.data.chunks);
+      setCssConfig(res.data.css_config);
+      // Only reset currentChunk if it's a forced refresh from an adaptation
+      if (forced) {
+          setCurrentChunk(0);
+          setAnnouncement('Content has been adapted for better accessibility.');
+      }
+    } catch (err) {
+      console.error('Failed to refetch adapted content', err);
+    }
+  }, [contentId]);
 
   useEffect(() => {
     const init = async () => {
@@ -73,10 +96,11 @@ export default function Workspace() {
           return;
         }
 
-        const contentId = listRes.data[0].id;
+        const cid = listRes.data[0].id;
+        setContentId(cid);
         setContentTitle(listRes.data[0].title);
 
-        const workspaceRes = await axios.get(`${API_URL}/student/workspace/${contentId}`, {
+        const workspaceRes = await axios.get(`${API_URL}/student/workspace/${cid}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
 
@@ -89,35 +113,91 @@ export default function Workspace() {
     init();
   }, [router]);
 
-  const { isConnected, lastCommand, sendTelemetry } = useAdaptation(studentId);
+  const { isConnected, lastCommand, sendTelemetry } = useAdaptation(studentId, contentId);
   useTelemetry(sendTelemetry);
 
-  const toggleListen = useCallback(() => {
-    setListeningPhase((prev) => {
-      if (prev === 'idle') {
-        setAnnouncement('AI is synthesizing speech. Please wait.');
-        setTimeout(() => {
-            setListeningPhase('playing');
-            setAnnouncement('Now playing neural audio for this chunk.');
-        }, 2500);
-        return 'synthesizing';
+  const toggleListen = useCallback(async () => {
+    if (listeningPhase !== 'idle') {
+      // Stop playback
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = '';
       }
+      setListeningPhase('idle');
+      setAudioDuration(0);
       setAnnouncement('Audio paused.');
-      return 'idle';
-    });
-  }, []);
+      return;
+    }
 
+    const currentText = chunks[currentChunk];
+    if (!currentText) return;
+
+    setListeningPhase('synthesizing');
+    setAnnouncement('AI is synthesizing speech. Please wait.');
+
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.post(
+        `${API_URL}/student/audio/generate`,
+        { text: currentText },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          responseType: 'blob',
+          timeout: 30000
+        }
+      );
+
+      const audioBlob = new Blob([res.data], { type: 'audio/mpeg' });
+      const audioUrl = URL.createObjectURL(audioBlob);
+
+      if (audioRef.current) {
+        audioRef.current.src = audioUrl;
+        audioRef.current.onloadedmetadata = () => {
+          setAudioDuration(Math.round(audioRef.current?.duration ?? 0));
+        };
+        audioRef.current.onended = () => {
+          setListeningPhase('idle');
+          setAudioDuration(0);
+          URL.revokeObjectURL(audioUrl);
+        };
+        await audioRef.current.play();
+      }
+      setListeningPhase('playing');
+      setAnnouncement('Now playing neural audio for this chunk.');
+    } catch (err) {
+      console.warn('TTS unavailable, falling back to animation:', err);
+      // Graceful fallback: show "playing" animation without real audio
+      setListeningPhase('playing');
+      setAnnouncement('Now playing neural audio (simulated).');
+      setTimeout(() => {
+          setListeningPhase('idle');
+          setAnnouncement('Audio finished.');
+      }, 8000);
+    }
+  }, [listeningPhase, chunks, currentChunk]);
+
+  // React to adaptation commands from the orchestrator
   useEffect(() => {
     if (!lastCommand) return;
     setAnnouncement(`Neural trigger detected: ${lastCommand.reason || lastCommand.action}`);
-    
+
     if (lastCommand.action === 'switch_modality') {
       const modality = (lastCommand.data as any)?.modality ?? 'audio';
       if (modality === 'audio' && listeningPhase === 'idle') {
         toggleListen();
+      } else if (modality === 'text' && listeningPhase !== 'idle') {
+        toggleListen();
       }
+      return;
     }
-  }, [lastCommand, toggleListen, listeningPhase]);
+
+    if (lastCommand.action === 'simplify_content' || lastCommand.action === 'summarize_chunk') {
+      setListeningPhase('idle');
+      setTimeout(() => {
+        refetchAdaptedContent(true);
+      }, 1200);
+    }
+  }, [lastCommand, refetchAdaptedContent, listeningPhase, toggleListen]);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -126,6 +206,8 @@ export default function Workspace() {
 
   return (
     <div data-theme={theme} className="flex flex-col h-screen overflow-hidden bg-surface font-label text-on-surface selection:bg-primary/30 transition-colors duration-500">
+      {/* Hidden audio element for TTS playback */}
+      <audio ref={audioRef} aria-hidden="true" />
       <TopNavBar studentId={studentId} onLogout={handleLogout} />
       <main className="flex-1 flex overflow-hidden pt-16">
         <ReadingZone 
@@ -135,12 +217,15 @@ export default function Workspace() {
           prevChunk={prevChunk}
           cssConfig={cssConfig}
           title={contentTitle}
+          contentId={contentId}
+          router={router}
         />
-        <AdaptationHUD 
-          isConnected={isConnected} 
-          lastCommand={lastCommand} 
+        <AdaptationHUD
+          isConnected={isConnected}
+          lastCommand={lastCommand}
           listeningPhase={listeningPhase}
           onToggleListen={toggleListen}
+          audioDuration={audioDuration}
         />
       </main>
       
@@ -181,13 +266,15 @@ function TopNavBar({ studentId, onLogout }: { studentId: string | null, onLogout
   );
 }
 
-function ReadingZone({ chunks, currentChunk, nextChunk, prevChunk, cssConfig, title }: {
+function ReadingZone({ chunks, currentChunk, nextChunk, prevChunk, cssConfig, title, contentId, router }: {
   chunks: string[];
   currentChunk: number;
   nextChunk: () => void;
   prevChunk: () => void;
   cssConfig: CssConfig;
   title: string;
+  contentId: string;
+  router: any;
 }) {
   return (
     <section className="w-full md:w-[70%] p-6 lg:p-10 flex flex-col items-center bg-surface overflow-y-auto transition-colors duration-500" aria-labelledby="lesson-title">
@@ -250,14 +337,23 @@ function ReadingZone({ chunks, currentChunk, nextChunk, prevChunk, cssConfig, ti
               ></div>
             </div>
           </div>
-          <button 
-            onClick={nextChunk}
-            disabled={currentChunk === chunks.length - 1}
-            aria-label="Load next chunk"
-            className="px-6 py-2 bg-primary text-on-primary font-bold rounded-full disabled:opacity-50 active:scale-95 transition-all shadow-lg shadow-primary/20"
-          >
-            Next Chunk
-          </button>
+          {currentChunk === chunks.length - 1 && chunks.length > 0 ? (
+              <button
+                onClick={() => router.push(`/student/assessments?content_id=${contentId}`)}
+                className="px-6 py-2 bg-secondary text-on-secondary font-bold rounded-full text-xs uppercase tracking-widest transition-all hover:opacity-90 shadow-lg shadow-secondary/20 animate-in zoom-in-95 duration-300"
+              >
+                Take Quiz
+              </button>
+          ) : (
+              <button 
+                onClick={nextChunk}
+                disabled={currentChunk === chunks.length - 1}
+                aria-label="Load next chunk"
+                className="px-6 py-2 bg-primary text-on-primary font-bold rounded-full disabled:opacity-50 active:scale-95 transition-all shadow-lg shadow-primary/20"
+              >
+                Next Chunk
+              </button>
+          )}
         </div>
       </div>
       <footer className="w-full flex flex-col items-center gap-4 text-center py-8 mt-auto">
@@ -269,11 +365,12 @@ function ReadingZone({ chunks, currentChunk, nextChunk, prevChunk, cssConfig, ti
   );
 }
 
-function AdaptationHUD({ isConnected, lastCommand, listeningPhase, onToggleListen }: {
+function AdaptationHUD({ isConnected, lastCommand, listeningPhase, onToggleListen, audioDuration }: {
   isConnected: boolean;
   lastCommand: import('@/types/models').AdaptationCommand | null;
   listeningPhase: 'idle' | 'synthesizing' | 'playing';
   onToggleListen: () => void;
+  audioDuration: number;
 }) {
   return (
     <aside className="hidden md:flex flex-col w-[30%] bg-surface-container border-l border-outline-variant/15 p-8 gap-8 overflow-y-auto z-10" aria-label="Adaptation Controls">
@@ -309,6 +406,7 @@ function AdaptationHUD({ isConnected, lastCommand, listeningPhase, onToggleListe
           className={`flex-1 py-3 px-2 flex flex-col items-center gap-1 rounded-lg transition-all ${listeningPhase !== 'idle' ? 'text-primary bg-primary/10 font-bold' : 'text-on-surface-variant hover:bg-white/5'} focus:ring-2 focus:ring-inset focus:ring-primary outline-none`} 
           onClick={onToggleListen}
         >
+
           <Headphones size={20} />
           <span className="text-[10px] uppercase font-bold tracking-widest">Listen</span>
         </button>
@@ -369,7 +467,9 @@ function AdaptationHUD({ isConnected, lastCommand, listeningPhase, onToggleListe
               </button>
               <div className="text-center">
                 <div className="text-on-surface font-bold mb-1 uppercase tracking-widest text-xs">Now Reading</div>
-                <div className="text-secondary text-[10px] font-bold">Rachel (Neural Voice) • 0:42</div>
+                <div className="text-secondary text-[10px] font-bold">
+                  Rachel (Neural Voice){audioDuration > 0 ? ` • ${Math.floor(audioDuration / 60)}:${String(audioDuration % 60).padStart(2, '0')}` : ''}
+                </div>
               </div>
             </motion.div>
           )}

@@ -94,16 +94,15 @@ async def get_cohort_stats(current_teacher = Depends(get_current_teacher)):
         current_teacher["id"]
     )
     
-    # Average engagement (from last 24h sessions)
-    yesterday = datetime.now() - timedelta(days=1)
+    # Average engagement (from last 7 days sessions)
     avg_engagement = await pool.fetchval(
         """
         SELECT AVG((telemetry_summary->>'engagement_score')::float) 
         FROM sessions s
         JOIN teacher_student_link tsl ON s.student_id = tsl.student_id
-        WHERE tsl.teacher_id = $1 AND s.started_at >= $2
+        WHERE tsl.teacher_id = $1 AND s.started_at >= NOW() - INTERVAL '7 days'
         """,
-        current_teacher["id"], yesterday
+        current_teacher["id"]
     )
     
     # Risk count
@@ -117,19 +116,50 @@ async def get_cohort_stats(current_teacher = Depends(get_current_teacher)):
         if p.get("ability_estimate", 0) < -1.0:
             risk_count += 1
 
-    # Hourly trend for impact analysis (mocking structure from real data)
-    # In a real app, we'd group sessions by hour
+    # Hourly trend for impact analysis
+    rows = await pool.fetch(
+        """
+        SELECT
+            to_char(date_trunc('hour', s.started_at), 'HH24:MI') AS hour_label,
+            ROUND(
+                AVG(
+                    (s.telemetry_summary->>'current_frustration_level')::float
+                ) * 100
+            )::int AS avg_frustration,
+            ROUND(
+                (1.0 - AVG(
+                    (s.telemetry_summary->>'current_frustration_level')::float
+                )) * 100
+            )::int AS avg_engagement
+        FROM sessions s
+        JOIN teacher_student_link tsl ON s.student_id = tsl.student_id
+        WHERE tsl.teacher_id = $1
+            AND s.started_at >= NOW() - INTERVAL '7 days'
+            AND s.ended_at IS NOT NULL
+            AND s.telemetry_summary IS NOT NULL
+        GROUP BY date_trunc('hour', s.started_at)
+        ORDER BY date_trunc('hour', s.started_at)
+        """,
+        current_teacher["id"]
+    )
+
     trend = [
-        {"time": "08:00", "frustration": 20, "engagement": 75},
-        {"time": "10:00", "frustration": 45, "engagement": 60},
-        {"time": "12:00", "frustration": 30, "engagement": 85},
-        {"time": "14:00", "frustration": 15, "engagement": 90},
-        {"time": "16:00", "frustration": 10, "engagement": 95},
+        {
+            "time": r["hour_label"],
+            "frustration": r["avg_frustration"],
+            "engagement": r["avg_engagement"]
+        }
+        for r in rows
     ]
+
+    if not trend:
+        trend = [{"time": "No data", "frustration": 0, "engagement": 0}]
+
+    avg_display = round(avg_engagement * 100) if avg_engagement is not None else None
 
     return {
         "totalStudents": total_students or 0,
-        "avgEngagement": round((avg_engagement or 0.85) * 100),
+        "avgEngagement": avg_display,
         "riskAlerts": risk_count,
         "performanceTrend": trend
     }
@@ -148,16 +178,24 @@ async def get_student_growth(student_id: UUID, current_teacher = Depends(get_cur
         raise HTTPException(status_code=403, detail="Student not linked to this teacher")
         
     assessments = await pool.fetch(
-        "SELECT taken_at, ability_after FROM assessments WHERE student_id = $1 ORDER BY taken_at ASC",
+        """
+        SELECT taken_at, theta_after
+        FROM assessments
+        WHERE student_id = $1
+        ORDER BY taken_at ASC
+        """,
         student_id
     )
     
     growth_data = [
         {
-            "date": a["taken_at"].strftime("%m/%d"),
-            "ability": round(a["ability_after"], 2)
+            "date": a["taken_at"].strftime("%m/%d %H:%M"),
+            "ability": round(float(a["theta_after"]), 2)
         } for a in assessments
     ]
+    
+    if not growth_data:
+        return [{"date": "No data", "ability": 0.0}]
     
     return growth_data
 

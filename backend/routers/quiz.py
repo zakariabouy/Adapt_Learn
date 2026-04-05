@@ -1,4 +1,5 @@
 import json
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Query
 from shared.models import LearnerModel, QuizQuestion, QuizAnswerRequest, QuizAnswerResponse
 from routers.auth import get_current_user
@@ -8,6 +9,7 @@ from shared.database import get_pool
 from uuid import UUID
 
 router = APIRouter(prefix="/student/quiz", tags=["Student Quiz"])
+logger = logging.getLogger(__name__)
 
 @router.get("/{content_id}/next", response_model=QuizQuestion)
 async def get_quiz_question(
@@ -43,6 +45,7 @@ async def submit_quiz_answer(
     request: QuizAnswerRequest,
     answered: str = Query(default=""),
     current_score: int = Query(default=0),
+    responses_json: str = Query(default="[]"),
     current_user = Depends(get_current_user)
 ):
     """
@@ -71,9 +74,25 @@ async def submit_quiz_answer(
     if not profile:
         raise HTTPException(status_code=404, detail="Student profile not found")
     
+    # Capture ability BEFORE update
+    theta_before = profile.ability_estimate
+    
     # Calculate new ability
-    new_ability = calculate_new_ability(profile.ability_estimate, difficulty, is_correct)
+    new_ability = calculate_new_ability(theta_before, difficulty, is_correct)
     profile.ability_estimate = new_ability
+    
+    # Track responses
+    try:
+        prior_responses = json.loads(responses_json)
+    except Exception:
+        prior_responses = []
+        
+    prior_responses.append({
+        "question_id": request.question_id,
+        "selected": request.selected_option,
+        "correct": is_correct,
+        "difficulty": difficulty
+    })
     
     # Update mastery cleanly
     if topic not in profile.mastery_by_topic:
@@ -101,6 +120,28 @@ async def submit_quiz_answer(
         
     score = current_score + (1 if is_correct else 0)
     
+    # 4. If quiz is complete, persist to assessments table
+    if quiz_complete:
+        try:
+            total_answered = len(answered_ids)
+            final_score = score / total_answered if total_answered > 0 else 0.0
+            
+            await pool.execute(
+                """
+                INSERT INTO assessments 
+                    (student_id, questions, responses, score, theta_before, theta_after)
+                VALUES ($1, $2, $3, $4, $5, $6)
+                """,
+                UUID(current_user["id"]),
+                json.dumps(answered_ids),
+                json.dumps(prior_responses),
+                final_score,
+                theta_before,
+                new_ability
+            )
+        except Exception as e:
+            logger.error(f"Failed to persist assessment for user {current_user['id']}: {e}")
+    
     return QuizAnswerResponse(
         is_correct=is_correct,
         correct_id=correct_id,
@@ -109,5 +150,6 @@ async def submit_quiz_answer(
         next_question=next_q,
         quiz_complete=quiz_complete,
         score=score,
-        total_questions=5
+        total_questions=5,
+        responses_json=json.dumps(prior_responses)
     )

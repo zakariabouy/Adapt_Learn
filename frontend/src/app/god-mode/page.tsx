@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Terminal, Cpu, Activity, Database, ShieldAlert, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { API_URL } from '@/lib/api';
 
 export default function GodMode() {
   const [logs, setLogs] = useState<any[]>([]);
@@ -14,7 +15,7 @@ export default function GodMode() {
       const token = localStorage.getItem('token');
       if (!token) return;
       try {
-        const res = await axios.get('http://localhost:8000/admin/orchestrator-logs', {
+        const res = await axios.get(`${API_URL}/admin/orchestrator-logs`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         setLogs(res.data);

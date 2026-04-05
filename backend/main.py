@@ -24,15 +24,19 @@ async def lifespan(app: FastAPI):
     scheduler = start_scheduler()
     
     yield
-    # Shutdown: Close the pool
-    scheduler.shutdown()
-    pass
+    # Shutdown: Close the pool and scheduler
+    try:
+        if scheduler and scheduler.running:
+            scheduler.shutdown(wait=False)
+    except Exception:
+        pass
 
+_debug = os.getenv("DEBUG", "false").lower() == "true"
 app = FastAPI(
     title="AdaptLearn API", 
     version="0.1.0",
     lifespan=lifespan,
-    debug=True
+    debug=_debug
 )
 
 # CORS Configuration — set ALLOWED_ORIGINS as comma-separated list in env
@@ -51,13 +55,12 @@ app.add_middleware(
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     traceback.print_exc()
-    origin = request.headers.get("origin", ALLOWED_ORIGINS[0])
-    allowed_origin = origin if origin in ALLOWED_ORIGINS else ALLOWED_ORIGINS[0]
+    origin = request.headers.get("origin", "*")
     return JSONResponse(
         status_code=500,
         content={"detail": str(exc), "type": type(exc).__name__},
         headers={
-            "Access-Control-Allow-Origin": allowed_origin,
+            "Access-Control-Allow-Origin": origin,
             "Access-Control-Allow-Credentials": "true"
         }
     )
@@ -77,4 +80,10 @@ async def health_check():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run(
+        "main:app", 
+        host="0.0.0.0", 
+        port=int(os.getenv("PORT", 8000)), 
+        reload=_debug,
+        log_level="debug" if _debug else "info"
+    )

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { AdaptationCommand, TelemetryEvent } from '@/types/models';
 import { WS_URL } from '@/lib/api';
 
-export function useAdaptation(studentId: string | null) {
+export function useAdaptation(studentId: string | null, contentId: string | null = null) {
   const [lastCommand, setLastCommand] = useState<AdaptationCommand | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const socketRef = useRef<WebSocket | null>(null);
@@ -22,7 +22,12 @@ export function useAdaptation(studentId: string | null) {
     function connect() {
       if (disposed) return;
 
-      const ws = new WebSocket(`${WS_URL}/session/${studentId}?token=${token}`);
+      let url = `${WS_URL}/session/${studentId}?token=${token}`;
+      if (contentId) {
+        url += `&content_id=${contentId}`;
+      }
+      
+      const ws = new WebSocket(url);
 
       ws.onopen = () => {
         setIsConnected(true);

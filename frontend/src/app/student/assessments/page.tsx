@@ -1,13 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Star, Check, Flag, ArrowRight, Lightbulb, X, RotateCcw } from 'lucide-react';
 import axios from 'axios';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { API_URL } from '@/lib/api';
 
-export default function Assessment() {
+function AssessmentContent() {
+  const searchParams = useSearchParams();
+  const CONTENT_ID = searchParams.get('content_id') ?? '';
+  
   const [questions, setQuestions] = useState<any[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
@@ -17,14 +20,14 @@ export default function Assessment() {
   const [showResult, setShowResult] = useState(false);
   const [answeredIds, setAnsweredIds] = useState<string[]>([]);
   const [explanation, setExplanation] = useState<string | null>(null);
+  const [responsesJson, setResponsesJson] = useState<string>("[]");
   const router = useRouter();
 
-  // Mock content_id for now
-  const CONTENT_ID = '00000000-0000-0000-0000-000000000000';
-
   useEffect(() => {
-    fetchNextQuestion([]); // Initial fetch
-  }, []);
+    if (CONTENT_ID) {
+      fetchNextQuestion([]); // Initial fetch
+    }
+  }, [CONTENT_ID]);
 
   const fetchNextQuestion = async (answeredArray: string[]) => {
     const token = localStorage.getItem('token');
@@ -43,7 +46,7 @@ export default function Assessment() {
       setLoading(false);
     } catch (error: any) {
       console.error('Failed to fetch quiz', error);
-      if (error.response?.status === 404 && error.response?.data?.detail === "No more questions available for this module.") {
+      if (error.response?.status === 404) {
           // If no more questions, trigger result screen
           setShowResult(true);
       }
@@ -60,7 +63,7 @@ export default function Assessment() {
 
     try {
       const res = await axios.post(
-        `${API_URL}/student/quiz/answer?answered=${answeredParam}`, 
+        `${API_URL}/student/quiz/answer?answered=${answeredParam}&responses_json=${encodeURIComponent(responsesJson)}&current_score=${score}`, 
         {
           question_id: q.id,
           selected_option: selectedOption,
@@ -74,10 +77,11 @@ export default function Assessment() {
       const responseData = res.data;
       setIsCorrect(responseData.is_correct);
       setExplanation(responseData.explanation);
+      setResponsesJson(responseData.responses_json);
       
       const newAnsweredIds = [...answeredIds, q.id];
       setAnsweredIds(newAnsweredIds);
-      setScore(responseData.score);
+      setScore(responseData.is_correct ? score + 1 : score);
 
       // Wait 3.5 seconds to read the explanation before moving on
       setTimeout(() => {
@@ -100,6 +104,18 @@ export default function Assessment() {
     }
   };
 
+  if (!CONTENT_ID) return (
+    <div className="min-h-screen bg-[#0e0e10] flex items-center justify-center text-[#c7c4d8] flex-col gap-4">
+      <p>No content selected. Please go back to the workspace.</p>
+      <button 
+          onClick={() => router.push('/student/workspace')}
+          className="px-6 py-2 bg-primary text-on-primary rounded-xl font-bold"
+      >
+        Go to Workspace
+      </button>
+    </div>
+  );
+
   if (loading) return <div className="min-h-screen bg-[#0e0e10] flex items-center justify-center text-primary">Loading Assessment...</div>;
 
   if (showResult) {
@@ -114,7 +130,9 @@ export default function Assessment() {
             <Star className="w-12 h-12 text-primary fill-primary" />
           </div>
           <h1 className="text-4xl font-bold mb-4">Assessment Complete!</h1>
-          <p className="text-[#c7c4d8] mb-8 text-lg">You scored {Math.round((score / questions.length) * 100)}% on Astronomy Fundamentals.</p>
+          <p className="text-[#c7c4d8] mb-8 text-lg">
+            You scored {Math.round((score / Math.max(1, answeredIds.length)) * 100)}% on {questions[0]?.topic || 'this module'}.
+          </p>
           <div className="flex gap-4">
             <button 
                 onClick={() => router.push('/student/workspace')}
@@ -159,7 +177,7 @@ export default function Assessment() {
           className="mb-12 flex flex-col md:flex-row md:items-center justify-between gap-6"
         >
           <div className="flex flex-col gap-2">
-            <span className="font-headline text-xs tracking-widest uppercase text-[#c7c4d8] font-semibold">Astronomy Fundamentals</span>
+            <span className="font-headline text-xs tracking-widest uppercase text-[#c7c4d8] font-semibold">{q?.topic || 'Assessment'}</span>
             <div className="flex items-center gap-4">
               <div className="h-1.5 w-48 bg-[#201f21] rounded-full overflow-hidden">
                 <motion.div 
@@ -177,7 +195,7 @@ export default function Assessment() {
         </motion.div>
 
         <motion.div 
-          key={currentQuestion}
+          key={answeredIds.length}
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           className="bg-[#2a2a2c]/70 backdrop-blur-xl rounded-[2rem] p-8 md:p-12 border border-[#464555]/20 shadow-[0_12px_40px_rgba(0,0,0,0.6),inset_0_1px_0_0_rgba(70,69,85,0.2)] relative overflow-hidden"
@@ -185,19 +203,19 @@ export default function Assessment() {
           <div className="flex flex-col gap-8 max-w-2xl pt-4 md:pt-0">
             <div className="flex items-center gap-3">
               <span className="px-3 py-1 bg-[#c4c0ff]/10 text-[#e3dfff] font-headline text-[10px] font-bold tracking-widest uppercase rounded-full border border-[#c4c0ff]/20">
-                {q.topic || 'Subject'}
+                {q?.topic || 'Subject'}
               </span>
               <span className="px-3 py-1 bg-surface-container-high text-on-surface-variant font-headline text-[10px] font-bold tracking-widest uppercase rounded-full border border-[#464555]/20">
-                Difficulty: {q.difficulty.toFixed(1)} θ
+                Difficulty: {q?.difficulty?.toFixed(1) || '0.0'} θ
               </span>
             </div>
             
             <h1 className="text-3xl md:text-4xl font-semibold text-[#e5e1e4] leading-tight pr-16 md:pr-0">
-              {q.text}
+              {q?.text}
             </h1>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-              {q.options.map((opt: any) => {
+              {q?.options?.map((opt: any) => {
                 const isSelected = selectedOption === opt.id;
                 let bgClass = 'bg-[#1b1b1d] border-[#464555]/10';
                 if (isSelected) {
@@ -263,7 +281,7 @@ export default function Assessment() {
         ) : (
              <div className="mt-8 flex items-center justify-center gap-3 text-[#c7c4d8]/60 text-sm">
                 <Lightbulb className="w-4 h-4 animate-pulse text-[#c4c0ff]" />
-                <p>Tip: {q.hint}</p>
+                <p>Tip: {q?.hint || 'Think carefully about the concepts covered.'}</p>
              </div>
         )}
       </main>
@@ -274,5 +292,13 @@ export default function Assessment() {
         </p>
       </footer>
     </div>
+  );
+}
+
+export default function Assessment() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#0e0e10] flex items-center justify-center text-primary">Loading...</div>}>
+      <AssessmentContent />
+    </Suspense>
   );
 }

@@ -23,17 +23,15 @@ const springTransition = {
 
 export default function TeacherDashboard() {
   const [students, setStudents] = useState<any[]>([]);
-  const [stats, setStats] = useState<any>({ 
-    totalStudents: 0, 
-    avgEngagement: 0, 
-    riskAlerts: 0, 
-    performanceTrend: [] 
-  });
+  const [stats, setStats] = useState({ student_count: 0, content_count: 0, active_sessions: 0, risk_alerts: 0 });
+  const [trendData, setTrendData] = useState<{ time: string; frustration: number; engagement: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedStudent, setSelectedStudent] = useState<any | null>(null);
   const [growthData, setGrowthData] = useState<any[]>([]);
   const [linkEmail, setLinkEmail] = useState('');
   const [linkStatus, setLinkStatus] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [cohortStats, setCohortStats] = useState<any>(null);
   const router = useRouter();
 
   const fetchData = async () => {
@@ -42,10 +40,12 @@ export default function TeacherDashboard() {
       router.push('/auth/login');
       return;
     }
+    const headers = { Authorization: `Bearer ${token}` };
     try {
-      const [studentsRes, statsRes] = await Promise.all([
-        axios.get(`${API_URL}/teacher/students`, { headers: { Authorization: `Bearer ${token}` } }),
-        axios.get(`${API_URL}/teacher/stats`, { headers: { Authorization: `Bearer ${token}` } }),
+      const [studentsRes, statsRes, cohortRes] = await Promise.all([
+        axios.get(`${API_URL}/teacher/students`, { headers }),
+        axios.get(`${API_URL}/content/teacher/dashboard/stats`, { headers }),
+        axios.get(`${API_URL}/teacher/stats`, { headers }),
       ]);
 
       const formatted = studentsRes.data.map((s: any) => {
@@ -70,6 +70,8 @@ export default function TeacherDashboard() {
 
       setStudents(formatted);
       setStats(statsRes.data);
+      setTrendData(cohortRes.data.performanceTrend ?? []);
+      setCohortStats(cohortRes.data);
       setLoading(false);
     } catch (error) {
       console.error('Failed to fetch teacher data', error);
@@ -78,6 +80,13 @@ export default function TeacherDashboard() {
   };
 
   useEffect(() => { fetchData(); }, [router]);
+
+  const filteredStudents = searchQuery.trim()
+    ? students.filter(s =>
+        s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        s.email.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : students;
 
   const handleLinkStudent = async () => {
     const token = localStorage.getItem('token');
@@ -206,9 +215,17 @@ export default function TeacherDashboard() {
               <TrendingUp size={18}/> Teaching Insight
             </h3>
             <p className="text-sm text-on-surface mb-4 leading-relaxed">
-              Your cohort's reading speed has increased by <strong>15%</strong> since applying <strong>Dyslexic-friendly font</strong> adaptations.
+              {cohortStats?.avgEngagement !== null
+                ? `Cohort avg engagement: ${cohortStats?.avgEngagement}% over the last 7 days.`
+                : 'Start sessions to see cohort engagement data.'}
+              {stats.risk_alerts > 0
+                ? ` ${stats.risk_alerts} student(s) need attention.`
+                : ' All students are on track.'}
             </p>
-            <button className="w-full py-2 bg-primary text-on-primary rounded-lg font-bold text-xs uppercase tracking-widest hover:bg-primary/90 transition-colors">
+            <button 
+              onClick={() => document.getElementById('student-roster')?.scrollIntoView({ behavior: 'smooth' })}
+              className="w-full py-2 bg-primary text-on-primary rounded-lg font-bold text-xs uppercase tracking-widest hover:bg-primary/90 transition-colors"
+            >
               Update Lesson Plan
             </button>
           </motion.div>
@@ -223,36 +240,57 @@ export default function TeacherDashboard() {
           </div>
 
           <div className="h-[400px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={stats.performanceTrend}>
-                <defs>
-                  <linearGradient id="colorEng" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#c4c0ff" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#c4c0ff" stopOpacity={0}/>
-                  </linearGradient>
-                  <linearGradient id="colorFru" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#f87171" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#f87171" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#464555" vertical={false} opacity={0.2} />
-                <XAxis dataKey="time" stroke="#c7c4d8" fontSize={12} tickLine={false} axisLine={false} dy={10} />
-                <YAxis stroke="#c7c4d8" fontSize={12} tickLine={false} axisLine={false} />
-                <Tooltip contentStyle={{ backgroundColor: '#201f21', border: '1px solid #464555', borderRadius: '12px' }} />
-                <Area type="monotone" dataKey="engagement" stroke="#c4c0ff" strokeWidth={3} fillOpacity={1} fill="url(#colorEng)" />
-                <Area type="monotone" dataKey="frustration" stroke="#f87171" strokeWidth={3} fillOpacity={1} fill="url(#colorFru)" />
-              </AreaChart>
-            </ResponsiveContainer>
+            {trendData.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-on-surface-variant/40 text-sm uppercase tracking-widest">
+                No session data in the last 7 days
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={trendData}>
+                  <defs>
+                    <linearGradient id="colorEng" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#c4c0ff" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#c4c0ff" stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="colorFru" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#f87171" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#f87171" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#464555" vertical={false} opacity={0.2} />
+                  <XAxis dataKey="time" stroke="#c7c4d8" fontSize={12} tickLine={false} axisLine={false} dy={10} />
+                  <YAxis stroke="#c7c4d8" fontSize={12} tickLine={false} axisLine={false} />
+                  <Tooltip contentStyle={{ backgroundColor: '#201f21', border: '1px solid #464555', borderRadius: '12px' }} />
+                  <Area type="monotone" dataKey="engagement" stroke="#c4c0ff" strokeWidth={3} fillOpacity={1} fill="url(#colorEng)" />
+                  <Area type="monotone" dataKey="frustration" stroke="#f87171" strokeWidth={3} fillOpacity={1} fill="url(#colorFru)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
 
         {/* Student Roster */}
-        <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
+        <div id="student-roster" className="flex items-center justify-between mb-8 flex-wrap gap-4">
           <h2 className="text-2xl font-black tracking-tight">Active Learners</h2>
           <div className="flex gap-3 flex-wrap items-center">
             <div className="relative">
               <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/40" />
-              <input type="text" placeholder="Filter students..." className="bg-surface-container-lowest border border-outline-variant/10 rounded-full pl-10 pr-4 py-2 text-sm focus:ring-1 focus:ring-primary outline-none transition-all w-52" />
+              <input 
+                type="text" 
+                placeholder="Filter students..." 
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="bg-surface-container-lowest border border-outline-variant/10 rounded-full pl-10 pr-10 py-2 text-sm focus:ring-1 focus:ring-primary outline-none transition-all w-52" 
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant/40 hover:text-on-surface-variant transition-colors"
+                  aria-label="Clear filter"
+                >
+                  <X size={14} />
+                </button>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <input
@@ -279,7 +317,7 @@ export default function TeacherDashboard() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-12">
-          {students.map((student, idx) => (
+          {filteredStudents.map((student, idx) => (
             <motion.div 
               key={student.id} 
               initial={{ opacity: 0, y: 20 }} 
@@ -313,6 +351,11 @@ export default function TeacherDashboard() {
             </motion.div>
           ))}
         </div>
+        {filteredStudents.length === 0 && searchQuery && (
+          <div className="text-center py-16 text-on-surface-variant/50 text-sm uppercase tracking-widest">
+            No students match "{searchQuery}"
+          </div>
+        )}
       </main>
 
       {/* Student Growth Modal */}

@@ -115,4 +115,5 @@ class QuizAnswerResponse(BaseModel):
     quiz_complete: bool = False
     score: int = 0
     total_questions: int = 0
+    responses_json: str = ""
 

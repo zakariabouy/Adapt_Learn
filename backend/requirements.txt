@@ -6,8 +6,7 @@ python-multipart==0.0.9
 # AI & Orchestration
 langgraph==0.1.1
 langchain==0.2.1
-langchain-anthropic==0.1.11
-langchain-openai==0.1.7
+langchain-google-genai==1.0.6
 
 # Databases
 asyncpg==0.29.0

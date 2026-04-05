@@ -11,7 +11,13 @@
       "Bash(curl -s http://localhost:8000/health)",
       "Bash(npx next:*)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000)",
-      "Bash(git:*)"
+      "Bash(git:*)",
+      "Bash(./venv/Scripts/python.exe -c \"from agents.exam.agent import generate_exam; print\\('Import OK'\\)\")",
+      "Bash(gh pr create --title 'feat: exam generator agent for primary school' --body ':*)",
+      "Bash(./venv/Scripts/python.exe -c \"from agents.orientation.agent import generate_orientation_report; print\\('Import OK'\\)\")",
+      "Bash(./venv/Scripts/python.exe -c \"from agents.profile.agent import generate_profile_summary; print\\('Import OK'\\)\")",
+      "Bash(./venv/Scripts/python.exe -c \"from agents.profile.game_profiler import process_game_result, get_available_games; print\\('Import OK'\\); print\\('Games:', [g['game_type'] for g in get_available_games\\(\\)]\\)\")",
+      "Bash(./venv/Scripts/python.exe -c ':*)"
     ]
   }
 }

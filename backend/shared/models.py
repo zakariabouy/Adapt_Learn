@@ -117,3 +117,36 @@ class QuizAnswerResponse(BaseModel):
     total_questions: int = 0
     responses_json: str = ""
 
+# --- Exam Generation ---
+class ExamType(str, Enum):
+    mcq = "mcq"
+    open = "open"
+    mixed = "mixed"
+
+class ExamRequest(BaseModel):
+    content_id: str
+    exam_type: ExamType = ExamType.mcq
+    num_questions: int = Field(default=10, ge=3, le=30)
+    target_grade_level: int = Field(default=3, ge=1, le=6)
+
+class ExamQuestion(BaseModel):
+    question_number: int
+    question_type: str  # "mcq" or "open"
+    text: str
+    options: Optional[List[QuizOption]] = None  # None for open questions
+    correct_answer: str
+    hint: Optional[str] = None
+    explanation: str
+    difficulty: float  # IRT theta
+    topic: str
+    points: int = 1
+
+class GeneratedExam(BaseModel):
+    title: str
+    subject: str
+    grade_level: int
+    total_points: int
+    duration_minutes: int
+    instructions: str
+    questions: List[ExamQuestion]
+

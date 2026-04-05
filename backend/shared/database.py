@@ -18,17 +18,19 @@ if not _raw_url:
     )
 
 # Normalize scheme: asyncpg requires postgresql://, not postgres:// or postgresql+asyncpg://
-ASYNCPG_URL = (
-    _raw_url
-    .replace("postgresql+asyncpg://", "postgresql://")
-    .replace("postgres://", "postgresql://")
-)
+# Use re.sub with ^ anchor to avoid partial substring replacement bugs
+import re as _re
+ASYNCPG_URL = _re.sub(r'^postgres(ql\+asyncpg)?://', 'postgresql://', _raw_url)
+
+# Log the host we're connecting to (safe: no password)
+_db_host = ASYNCPG_URL.split("@")[-1].split("/")[0] if "@" in ASYNCPG_URL else ASYNCPG_URL
+logger.info("DATABASE_URL normalized. Connecting to host: %s", _db_host)
 
 pool = None
 redis_pool = None
 
 
-async def get_pool():
+async def get_pool():h
     global pool
     if pool is None:
         try:

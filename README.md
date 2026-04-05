@@ -2,8 +2,9 @@
 ### Agentic AI for Inclusive Education
 
 [![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com/)
-[![Next.js](https://img.shields.io/badge/Next.js_14-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org/)
+[![Next.js](https://img.shields.io/badge/Next.js_16-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org/)
 [![LangGraph](https://img.shields.io/badge/LangGraph-ReAct_Loop-6366f1?style=for-the-badge&logo=chainlink&logoColor=white)](https://langchain-ai.github.io/langgraph/)
+[![Gemini](https://img.shields.io/badge/Gemini_1.5_Flash-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev/)
 [![Python](https://img.shields.io/badge/Python_3.11-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 
@@ -61,7 +62,7 @@ graph LR
 
 ```mermaid
 graph TD
-    subgraph "Client Layer (Next.js)"
+    subgraph "Client Layer (Next.js 16)"
         SW[Student Workspace]
         TD[Teacher Dashboard]
     end
@@ -108,14 +109,67 @@ graph TD
 
 | Layer | Technology | Purpose |
 |---|---|---|
-| **Frontend** | Next.js 14, TypeScript, TailwindCSS | App Router, SSR, WCAG 2.1 AA |
+| **Frontend** | Next.js 16, React 19, TypeScript, TailwindCSS 4 | App Router, SSR, WCAG 2.1 AA |
 | **Backend** | Python 3.11, FastAPI, Uvicorn | Async API + WebSocket server |
 | **Agent Engine** | LangGraph, LangChain | Stateful ReAct orchestration |
-| **LLM (Reasoning)** | Google Gemini 1.5 Flash | plan_node — orchestrator brain |
-| **LLM (Utility)** | Google Gemini 1.5 Flash | Text simplification, memory trimming |
+| **LLM** | Google Gemini 1.5 Flash | Orchestrator brain + text simplification |
 | **TTS** | ElevenLabs | High-quality audio content |
 | **Database** | PostgreSQL 15 + asyncpg | Persistent data (no ORM overhead) |
 | **Session Cache** | Redis 7 | WebSocket state, telemetry buffer |
+| **Animation** | Framer Motion | Micro-interactions & transitions |
+| **State Mgmt** | Zustand | Lightweight client-side stores |
+
+---
+
+## 📂 Project Structure
+
+```
+AdaptLearn_ENSET-Challenge26/
+├── backend/
+│   ├── agents/
+│   │   ├── profile/agent.py        # Learner Model CRUD
+│   │   ├── adaptation/agent.py     # Text simplification, chunking, TTS, CSS
+│   │   └── monitor/agent.py        # Engagement classification & trigger logic
+│   ├── orchestrator/
+│   │   ├── graph.py                # LangGraph StateGraph definition
+│   │   ├── nodes.py                # Gemini-powered plan/adapt/validate nodes
+│   │   └── state.py                # AgentState TypedDict
+│   ├── routers/
+│   │   ├── auth.py                 # JWT register/login/me
+│   │   ├── student.py              # Profile + adapted workspace
+│   │   ├── session.py              # WebSocket telemetry loop
+│   │   └── content.py              # File upload + teacher stats
+│   ├── shared/
+│   │   ├── models.py               # Pydantic models (User, LearnerModel, Telemetry, etc.)
+│   │   ├── database.py             # asyncpg pool manager
+│   │   └── security.py             # JWT + bcrypt helpers
+│   ├── migrations/001_initial.sql  # PostgreSQL DDL
+│   ├── seed_db.py                  # Demo data seeder
+│   ├── docker-compose.yml          # PostgreSQL 15 + Redis 7
+│   ├── requirements.txt            # Python dependencies
+│   ├── .env.example                # Environment template
+│   └── main.py                     # FastAPI entrypoint
+├── frontend/
+│   ├── src/
+│   │   ├── app/
+│   │   │   ├── page.tsx            # Landing page
+│   │   │   ├── globals.css         # Tailwind 4 theme tokens
+│   │   │   ├── auth/login/         # Login page
+│   │   │   ├── auth/register/      # Register page
+│   │   │   ├── student/workspace/  # AI-adapted reading workspace
+│   │   │   ├── student/onboarding/ # Profile wizard
+│   │   │   ├── student/assessments/# IRT-adaptive quiz
+│   │   │   └── teacher/            # Dashboard + Content Upload
+│   │   ├── hooks/
+│   │   │   ├── useTelemetry.ts     # Behavioral event capture
+│   │   │   └── useAdaptation.ts    # WebSocket adaptation receiver
+│   │   ├── components/workspace/
+│   │   │   └── GodModePanel.tsx    # Debug telemetry injector (Ctrl+Shift+D)
+│   │   └── lib/api.ts              # API base URL config
+│   ├── package.json
+│   └── next.config.ts
+└── README.md
+```
 
 ---
 
@@ -127,14 +181,34 @@ graph TD
 - Docker & Docker Compose
 - API Keys: **Google AI Studio** (required), **ElevenLabs** (optional for audio)
 
-### 1. Backend Setup
+### 1. Infrastructure
 ```bash
 cd backend
-python -m venv .venv && source .venv/bin/activate
+docker-compose up -d        # PostgreSQL 15 + Redis 7
+```
+
+### 2. Backend Setup
+```bash
+cd backend
+python -m venv .venv && source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example .env        # Add GOOGLE_API_KEY here
+cp .env.example .env        # Add your GOOGLE_API_KEY here
+python seed_db.py           # Seed demo data
 uvicorn main:app --reload
 ```
+
+### 3. Frontend Setup
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+### 4. Test the Demo
+1. Open `http://localhost:3000`
+2. Login with `student@luminous.edu` / `password123`
+3. Press `Ctrl+Shift+D` in the workspace to open the **God Mode** debug panel
+4. Inject telemetry scenarios (distracted → audio switch, frustrated → simplify)
 
 ---
 
@@ -148,7 +222,7 @@ Create `backend/.env` from `.env.example`:
 | `ELEVENLABS_API_KEY` | ⚠️ | Text-to-Speech audio generation |
 | `DATABASE_URL` | ✅ | `postgresql://adaptlearn:adaptlearn_dev@localhost:5432/adaptlearn` |
 | `REDIS_URL` | ✅ | `redis://localhost:6379` |
-| `SECRET_KEY` | ✅ | JWT signing secret |
+| `SECRET_KEY` | ✅ | JWT signing secret (`openssl rand -hex 32`) |
 
 ---
 
@@ -161,8 +235,8 @@ Create `backend/.env` from `.env.example`:
 | 3 | Adaptation Agent + Content pipeline | ✅ Done |
 | 4 | LangGraph Orchestrator (Gemini Integration) | ✅ Done |
 | 5 | Feedback Agent + IRT-adaptive quizzes | 🔲 Planned |
-| 6 | IEP Agent + Teacher Dashboard | 🔲 Planned |
-| 7 | Audit, Performance, Deployment | 🔲 Planned |
+| 6 | IEP Agent + Teacher Dashboard wiring | 🔲 Planned |
+| 7 | WCAG 2.1 AA Audit + Performance | 🔲 Planned |
 
 ---
 

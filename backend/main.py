@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 from shared.database import get_pool
-from routers import auth, student, session, content, quiz, teacher, admin, gamification
+from routers import auth, student, session, content, quiz, teacher, admin, gamification, exam
 from orchestrator.scheduler import start_scheduler
 
 logging.basicConfig(
@@ -74,6 +74,7 @@ app.include_router(quiz.router)
 app.include_router(teacher.router)
 app.include_router(admin.router)
 app.include_router(gamification.router)
+app.include_router(exam.router)
 
 @app.get("/health")
 async def health_check():

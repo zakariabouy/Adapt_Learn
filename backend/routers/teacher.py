@@ -6,6 +6,7 @@ from shared.models import User, Role
 from routers.auth import get_current_user
 from shared.database import get_pool
 from agents.iep.agent import generate_iep_report
+from orchestrator.graph import generate_orientation_via_graph
 from uuid import UUID
 import json
 from datetime import datetime, timedelta
@@ -215,3 +216,33 @@ async def get_student_report(student_id: UUID, current_teacher = Depends(get_cur
     
     # Fallback to markdown if PDF generation failed
     return {"markdown": report["markdown"]}
+
+@router.get("/student/{student_id}/orientation")
+async def get_student_orientation(student_id: UUID, current_teacher = Depends(get_current_teacher)):
+    """Generates a long-term orientation/career guidance report for a student."""
+    pool = await get_pool()
+    
+    # 1. Verify link
+    link = await pool.fetchrow(
+        "SELECT 1 FROM teacher_student_link WHERE teacher_id = $1 AND student_id = $2",
+        current_teacher["id"], student_id
+    )
+    if not link:
+        raise HTTPException(status_code=403, detail="Student not linked to this teacher")
+    
+    # 2. Get Student Profile
+    profile_row = await pool.fetchrow(
+        "SELECT profile_data FROM learner_profiles WHERE student_id = $1",
+        student_id
+    )
+    if not profile_row:
+        raise HTTPException(status_code=404, detail="Student profile not found")
+    
+    learner_model = json.loads(profile_row["profile_data"])
+    
+    # 3. Trigger Orientation Agent via Orchestrator
+    try:
+        report = await generate_orientation_via_graph(learner_model, str(current_teacher["id"]))
+        return report
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Orientation generation failed: {str(e)}")

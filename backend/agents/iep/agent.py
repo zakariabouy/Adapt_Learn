@@ -14,6 +14,7 @@ from langchain_core.messages import HumanMessage
 from shared.database import get_pool
 from shared.models import LearnerModel
 from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.graphics.shapes import Drawing
 from reportlab.graphics.charts.barcharts import VerticalBarChart
@@ -27,7 +28,63 @@ def get_llm():
         _llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=os.getenv("GOOGLE_API_KEY"))
     return _llm
 
-# ... (get_student_stats function remains the same as previously modified)
+async def get_student_stats(student_id: UUID) -> Dict[str, Any]:
+    """Fetches the student's profile, recent sessions, and assessments."""
+    pool = await get_pool()
+
+    # Get user name
+    user_row = await pool.fetchrow("SELECT name, email FROM users WHERE id = $1", student_id)
+    student_name = (user_row["name"] if user_row and user_row["name"] else
+                    user_row["email"].split("@")[0].capitalize() if user_row else "Unknown")
+
+    # Get Profile
+    profile_record = await pool.fetchrow(
+        "SELECT profile_data FROM learner_profiles WHERE student_id = $1", student_id
+    )
+    profile = json.loads(profile_record["profile_data"]) if profile_record else {}
+
+    # Get Recent Sessions (last 7 days)
+    last_week = datetime.now() - timedelta(days=7)
+    sessions = await pool.fetch(
+        "SELECT * FROM sessions WHERE student_id = $1 AND started_at >= $2 ORDER BY started_at DESC",
+        student_id, last_week
+    )
+
+    session_count = len(sessions)
+    total_time_on_page = 0
+    total_frustration = 0.0
+
+    for s in sessions:
+        summary = s["telemetry_summary"] or {}
+        if isinstance(summary, str):
+            summary = json.loads(summary)
+        total_time_on_page += summary.get("timeOnPage", 0)
+        total_frustration += summary.get("current_frustration_level", 0.0)
+
+    avg_frustration = total_frustration / session_count if session_count > 0 else 0.0
+    total_time_minutes = total_time_on_page / 60.0
+
+    # Ability and mastery from profile
+    ability_estimate = profile.get("ability_estimate", 0.0)
+    mastery_by_topic = profile.get("mastery_by_topic", {})
+
+    # Risk level
+    risk_level = "low"
+    if ability_estimate < -1.5 or avg_frustration > 0.7:
+        risk_level = "high"
+    elif ability_estimate < -0.5 or avg_frustration > 0.4:
+        risk_level = "medium"
+
+    return {
+        "student_name": student_name,
+        "profile": profile,
+        "session_count": session_count,
+        "total_time_minutes": total_time_minutes,
+        "avg_frustration": avg_frustration,
+        "risk_level": risk_level,
+        "ability_estimate": ability_estimate,
+        "mastery_by_topic": mastery_by_topic,
+    }
 
 async def generate_iep_report(student_id: UUID, teacher_id: UUID) -> Dict[str, Any]:
     """

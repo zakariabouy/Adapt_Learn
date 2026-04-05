@@ -53,13 +53,13 @@ async def seed():
     # 3. Seed Learner Profile
     learner_model = {
         "student_id": str(student_id),
-        "disabilities": ["dyslexia", "adhd"],
-        "severity": {"dyslexia": 0.6, "adhd": 0.4},
+        "learning_tags": ["slow_reader", "short_attention", "visual_learner"],
+        "tag_strength": {"slow_reader": 0.6, "short_attention": 0.4, "visual_learner": 0.7},
         "preferred_font": "OpenDyslexic",
         "font_size": 18,
         "line_spacing": 1.8,
         "color_theme": "dark",
-        "preferred_modality": "text",
+        "preferred_modality": "visual",
         "reading_speed_wpm": 140,
         "chunk_size": 400,
         "current_engagement_score": 1.0,

@@ -11,50 +11,55 @@ from uuid import UUID
 
 logger = logging.getLogger(__name__)
 
-# Initialize Gemini
-llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=os.getenv("GOOGLE_API_KEY"))
+_llm = None
+
+def get_llm():
+    global _llm
+    if _llm is None:
+        _llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=os.getenv("GOOGLE_API_KEY"))
+    return _llm
 
 def compute_interaction_profile(profile: dict) -> dict:
     """
     Returns a dict describing the interaction effects of co-occurring
-    disabilities. Used to enrich the Gemini strategy prompt.
+    learning style tags. Used to enrich the Gemini strategy prompt.
     """
-    disabilities = set(profile.get("disabilities") or [])
-    severity = profile.get("severity") or {}
+    tags = set(profile.get("learning_tags") or [])
+    strengths = profile.get("tag_strength") or {}
 
     notes = []
     urgency_boost = 0.0
 
-    # Dyslexia + ADHD co-occurrence
-    if "dyslexia" in disabilities and "adhd" in disabilities:
+    # Short attention + visual learner
+    if "short_attention" in tags and "visual_learner" in tags:
         notes.append(
-            "Co-occurring dyslexia+ADHD: prioritise chunking over "
+            "Short attention + visual learner: prioritise chunking over "
             "simplification. Use bold key terms. Avoid bullet lists longer "
-            "than 3 items. Prefer switch_modality→audio when frustration>0.5."
+            "than 3 items. Prefer switch_modality→visual when frustration>0.5."
         )
         urgency_boost += 0.2
 
-    # Dyslexia + dyscalculia
-    if "dyslexia" in disabilities and "dyscalculia" in disabilities:
+    # Slow reader + needs repetition
+    if "slow_reader" in tags and "needs_repetition" in tags:
         notes.append(
-            "Co-occurring dyslexia+dyscalculia: avoid numeric lists. "
-            "Replace numbers with words where possible. "
-            "Summarise_chunk is preferred over simplify_content."
+            "Slow reader + needs repetition: use shorter sentences. "
+            "Summarise_chunk is preferred over simplify_content. "
+            "Repeat key concepts in different wording."
         )
         urgency_boost += 0.1
 
-    # High severity on any single disability
-    for disability, sev in severity.items():
-        if sev >= 0.8:
+    # High strength on any learning tag = strong preference
+    for tag, strength in strengths.items():
+        if strength >= 0.8:
             notes.append(
-                f"Severe {disability} (severity={sev:.1f}): "
+                f"Strong {tag} preference (strength={strength:.1f}): "
                 f"immediate adaptation required — do not select no_action."
             )
             urgency_boost += 0.15
 
     return {
         "interaction_notes": notes,
-        "urgency_boost": min(urgency_boost, 0.5)   # cap at 0.5
+        "urgency_boost": min(urgency_boost, 0.5)
     }
 
 async def get_strategic_command(
@@ -74,12 +79,12 @@ async def get_strategic_command(
     )
     profile = json.loads(profile_record["profile_data"]) if profile_record else {}
     
-    # Task 2: Multi-Disability Interaction Analysis
+    # Task 2: Learning Style Interaction Analysis
     interaction = compute_interaction_profile(profile)
     interaction_section = ""
     if interaction["interaction_notes"]:
         notes_str = "\n".join([f"• {note}" for note in interaction["interaction_notes"]])
-        interaction_section = f"\nDisability interaction analysis:\n{notes_str}"
+        interaction_section = f"\nLearning style interaction analysis:\n{notes_str}"
         if interaction["urgency_boost"] > 0:
             interaction_section += f"\nUrgency modifier: +{interaction['urgency_boost']:.2f} — bias toward active interventions."
 
@@ -103,8 +108,8 @@ unless the student's state has significantly changed):
     A student's engagement has been classified as: {state.value.upper()}
     
     Student Profile:
-    - Disabilities: {profile.get('disabilities', [])}
-    - Severity: {profile.get('severity', {})}
+    - Learning Tags: {profile.get('learning_tags', [])}
+    - Tag Strength: {profile.get('tag_strength', {})}
     {interaction_section}
     
     Current Telemetry:
@@ -130,7 +135,7 @@ unless the student's state has significantly changed):
     """
     
     try:
-        response = await llm.ainvoke([HumanMessage(content=prompt)])
+        response = await get_llm().ainvoke([HumanMessage(content=prompt)])
         # Extract JSON from response (Gemini might wrap it in ```json)
         content = response.content.strip()
         if "```json" in content:

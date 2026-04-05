@@ -58,8 +58,8 @@ async def get_adapted_workspace(
     config_str = json.dumps({
         "preferred_font": profile.preferred_font,
         "preferred_modality": profile.preferred_modality,
-        "disabilities": profile.disabilities,
-        "severity": profile.severity
+        "learning_tags": profile.learning_tags,
+        "tag_strength": profile.tag_strength
     }, sort_keys=True)
     
     if not force_refresh:

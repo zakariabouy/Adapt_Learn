@@ -12,25 +12,27 @@ import {
 } from 'lucide-react';
 
 const steps = [
-  { id: 'identity', label: 'Identity' },
+  { id: 'style', label: 'Style' },
   { id: 'goals', label: 'Goals' },
   { id: 'methods', label: 'Methods' },
   { id: 'schedule', label: 'Schedule' },
   { id: 'review', label: 'Review' },
 ];
 
-const difficulties = [
-  { id: 'dyslexia', label: 'Dyslexia', icon: BookOpen },
-  { id: 'adhd', label: 'ADHD', icon: Zap },
-  { id: 'dyscalculia', label: 'Dyscalculia', icon: Calculator },
-  { id: 'other', label: 'Other', icon: MoreHorizontal },
+const learningStyles = [
+  { id: 'visual_learner', label: 'Visual Learner', icon: Eye },
+  { id: 'short_attention', label: 'Short Attention', icon: Zap },
+  { id: 'slow_reader', label: 'Slow Reader', icon: BookOpen },
+  { id: 'audio_learner', label: 'Audio Learner', icon: Volume2 },
+  { id: 'needs_repetition', label: 'Needs Repetition', icon: MoreHorizontal },
+  { id: 'gamification', label: 'Gamification', icon: Calculator },
 ];
 
 export default function Onboarding() {
   const [step, setStep] = useState(0);
   const [studentId, setStudentId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
-    disabilities: [] as string[],
+    learning_tags: [] as string[],
     preferred_font: 'Arial',
     preferred_modality: 'text',
     attention_span: 15,
@@ -57,12 +59,12 @@ export default function Onboarding() {
     fetchUser();
   }, [router]);
 
-  const toggleDisability = (id: string) => {
+  const toggleLearningTag = (id: string) => {
     setFormData((prev) => ({
       ...prev,
-      disabilities: prev.disabilities.includes(id)
-        ? prev.disabilities.filter((d) => d !== id)
-        : [...prev.disabilities, id]
+      learning_tags: prev.learning_tags.includes(id)
+        ? prev.learning_tags.filter((d) => d !== id)
+        : [...prev.learning_tags, id]
     }));
   };
 
@@ -74,12 +76,16 @@ export default function Onboarding() {
     if (!studentId || !token) return;
 
     try {
+      // Build tag_strength: default 0.6 for all selected tags
+      const tagStrength: Record<string, number> = {};
+      formData.learning_tags.forEach((tag) => { tagStrength[tag] = 0.6; });
+
       const learnerModel = {
         student_id: studentId,
-        disabilities: formData.disabilities,
+        learning_tags: formData.learning_tags,
+        tag_strength: tagStrength,
         preferred_font: formData.preferred_font,
         preferred_modality: formData.preferred_modality,
-        severity: {}, 
         font_size: 16,
         line_spacing: 1.5,
         color_theme: 'light',
@@ -177,19 +183,19 @@ export default function Onboarding() {
               {step === 0 && (
                 <>
                   <h1 className="font-headline text-3xl md:text-4xl font-extrabold text-on-surface mb-4 leading-tight tracking-tight">
-                    What makes learning tricky for you?
+                    How do you learn best?
                   </h1>
                   <p className="text-on-surface-variant font-body text-lg mb-12 max-w-lg">
-                    Select any that apply. We'll adjust your interface to support your focus.
+                    Select all that describe your learning style. We'll personalize your experience.
                   </p>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full mb-16">
-                    {difficulties.map((diff) => {
-                      const isSelected = formData.disabilities.includes(diff.id);
-                      const Icon = diff.icon;
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 w-full mb-16">
+                    {learningStyles.map((style) => {
+                      const isSelected = formData.learning_tags.includes(style.id);
+                      const Icon = style.icon;
                       return (
                         <button
-                          key={diff.id}
-                          onClick={() => toggleDisability(diff.id)}
+                          key={style.id}
+                          onClick={() => toggleLearningTag(style.id)}
                           className={`group flex flex-col items-center gap-4 p-6 rounded-2xl transition-all duration-300 border ${
                             isSelected ? 'bg-primary/10 border-primary/50' : 'bg-surface-container-low border-outline-variant/5 hover:bg-surface-container-high'
                           }`}
@@ -199,7 +205,7 @@ export default function Onboarding() {
                           }`}>
                             <Icon className={`w-8 h-8 ${isSelected ? 'text-on-primary' : 'text-primary'}`} />
                           </div>
-                          <span className="font-headline font-semibold text-sm text-on-surface">{diff.label}</span>
+                          <span className="font-headline font-semibold text-sm text-on-surface">{style.label}</span>
                         </button>
                       );
                     })}
@@ -296,8 +302,8 @@ export default function Onboarding() {
                   </p>
                   <div className="w-full bg-surface-container-lowest/50 rounded-2xl p-8 text-left space-y-4 mb-16 border border-outline-variant/5">
                     <div className="flex justify-between items-center pb-4 border-b border-outline-variant/10">
-                      <span className="text-on-surface-variant font-label text-xs uppercase tracking-widest">Challenges</span>
-                      <span className="font-bold">{formData.disabilities.join(', ') || 'None'}</span>
+                      <span className="text-on-surface-variant font-label text-xs uppercase tracking-widest">Learning Style</span>
+                      <span className="font-bold">{formData.learning_tags.map(t => t.replace(/_/g, ' ')).join(', ') || 'None'}</span>
                     </div>
                     <div className="flex justify-between items-center pb-4 border-b border-outline-variant/10">
                       <span className="text-on-surface-variant font-label text-xs uppercase tracking-widest">Font Family</span>
@@ -347,9 +353,9 @@ export default function Onboarding() {
                 <Lightbulb className="w-5 h-5 text-primary" fill="currentColor" />
               </div>
               <div className="text-left">
-                <p className="text-on-surface text-sm font-semibold mb-1">Neurodiversity Optimization</p>
+                <p className="text-on-surface text-sm font-semibold mb-1">Personalized Learning</p>
                 <p className="text-on-surface-variant text-xs leading-relaxed">
-                  AdaptLearn adjusts your workspace in real-time based on these parameters.
+                  AdaptLearn uses AI agents to personalize your workspace in real-time based on your learning profile.
                 </p>
               </div>
             </div>

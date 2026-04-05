@@ -18,7 +18,6 @@ if not _raw_url:
     )
 
 # Normalize scheme: asyncpg requires postgresql://, not postgres:// or postgresql+asyncpg://
-# Use re.sub with ^ anchor to avoid partial substring replacement bugs
 import re as _re
 ASYNCPG_URL = _re.sub(r'^postgres(ql\+asyncpg)?://', 'postgresql://', _raw_url)
 
@@ -30,11 +29,11 @@ pool = None
 redis_pool = None
 
 
-async def get_pool():h
+async def get_pool():
     global pool
     if pool is None:
         try:
-            pool = await asyncpg.create_pool(ASYNCPG_URL, ssl="require")
+            pool = await asyncpg.create_pool(ASYNCPG_URL, ssl=False)
         except Exception as e:
             logger.error("Failed to connect to PostgreSQL: %s", e)
             raise RuntimeError(
@@ -48,7 +47,6 @@ async def get_redis():
     if redis_pool is None:
         try:
             redis_pool = redis.from_url(REDIS_URL, decode_responses=True)
-            # Ping to verify connection is alive
             await redis_pool.ping()
         except Exception as e:
             logger.warning("Redis unavailable — session history will be disabled: %s", e)

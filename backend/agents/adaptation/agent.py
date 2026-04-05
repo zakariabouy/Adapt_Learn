@@ -60,17 +60,21 @@ async def simplify_text(text: str, profile: LearnerModel) -> str:
     """
     Calls Gemini 1.5 Flash to simplify text based on the student's profile.
     """
-    severity_dyslexia = profile.severity.get('dyslexia', 0.0)
-    severity_adhd = profile.severity.get('adhd', 0.0)
-    
+    # Build a natural-language description of the learner's profile
+    tag_descriptions = []
+    for tag in profile.learning_tags:
+        strength = profile.tag_strength.get(tag, 0.5)
+        tag_descriptions.append(f"{tag} (strength {strength:.1f})")
+    profile_str = ", ".join(tag_descriptions) if tag_descriptions else "general learner"
+
     prompt = f"""
-    You are an expert in inclusive education. Simplify the following text for a student with the following profile:
-    - Disabilities: {profile.disabilities}
-    - Severity: Dyslexia={severity_dyslexia:.1f}, ADHD={severity_adhd:.1f}
-    
+    You are an expert in inclusive education. Simplify the following text for a student with this learning profile:
+    - Learning style: {profile_str}
+    - Preferred modality: {profile.preferred_modality}
+
     Original Text:
     {text}
-    
+
     Tasks:
     1. Use simpler vocabulary and shorter sentences.
     2. Maintain core pedagogical concepts.
@@ -135,8 +139,7 @@ async def transform_font(profile: LearnerModel) -> dict:
         "lineHeight": str(profile.line_spacing),
     }
     
-    if "dyslexia" in profile.disabilities:
-        # Override with Dyslexic friendly font if preferred or required
+    if "slow_reader" in profile.learning_tags or profile.preferred_font == "OpenDyslexic":
         config["fontFamily"] = "OpenDyslexic, sans-serif"
     
     return config

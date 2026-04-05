@@ -6,10 +6,9 @@ import {
   LayoutDashboard, Users, BookOpen, BarChart2, AlertTriangle,
   Search, FileUp, LogOut, FileText, Activity, Zap, X, TrendingUp, UserPlus
 } from 'lucide-react';
-import { 
-  LineChart, Line, XAxis, YAxis, CartesianGrid, 
-  Tooltip, ResponsiveContainer, AreaChart, Area,
-  ReferenceLine, Label
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid,
+  Tooltip, ResponsiveContainer, AreaChart, Area
 } from 'recharts';
 import axios from 'axios';
 import { useRouter } from 'next/navigation';
@@ -188,7 +187,7 @@ export default function TeacherDashboard() {
                 <div className="p-2 bg-primary/10 rounded-lg text-primary"><Users size={20}/></div>
                 <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Total Students</span>
               </div>
-              <div className="text-3xl font-black">{loading ? '—' : stats.totalStudents}</div>
+              <div className="text-3xl font-black">{loading ? '—' : (cohortStats?.totalStudents ?? 0)}</div>
               <div className="text-xs text-on-surface-variant/60 font-bold mt-1">Cohort Size</div>
             </div>
             <div className="bg-surface-container-high p-6 rounded-2xl border border-outline-variant/10 shadow-sm">
@@ -196,7 +195,7 @@ export default function TeacherDashboard() {
                 <div className="p-2 bg-secondary/10 rounded-lg text-secondary"><Activity size={20}/></div>
                 <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Avg Engagement</span>
               </div>
-              <div className="text-3xl font-black">{loading ? '—' : stats.avgEngagement}%</div>
+              <div className="text-3xl font-black">{loading ? '—' : (cohortStats?.avgEngagement ?? 0)}%</div>
               <div className="text-xs text-on-surface-variant/60 font-bold mt-1">Cohort Average</div>
             </div>
             <div className="bg-surface-container-high p-6 rounded-2xl border border-outline-variant/10 shadow-sm">
@@ -204,8 +203,8 @@ export default function TeacherDashboard() {
                 <div className="p-2 bg-red-400/10 rounded-lg text-red-400"><AlertTriangle size={20}/></div>
                 <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Risk Alerts</span>
               </div>
-              <div className={`text-3xl font-black ${stats.riskAlerts > 0 ? 'text-red-400' : 'text-green-400'}`}>{loading ? '—' : stats.riskAlerts}</div>
-              <div className="text-xs text-red-400/60 font-bold mt-1">{stats.riskAlerts > 0 ? 'Attention needed' : 'All students on track'}</div>
+              <div className={`text-3xl font-black ${(cohortStats?.riskAlerts ?? 0) > 0 ? 'text-red-400' : 'text-green-400'}`}>{loading ? '—' : (cohortStats?.riskAlerts ?? 0)}</div>
+              <div className="text-xs text-red-400/60 font-bold mt-1">{(cohortStats?.riskAlerts ?? 0) > 0 ? 'Attention needed' : 'All students on track'}</div>
             </div>
           </div>
 
@@ -218,8 +217,8 @@ export default function TeacherDashboard() {
               {cohortStats?.avgEngagement !== null
                 ? `Cohort avg engagement: ${cohortStats?.avgEngagement}% over the last 7 days.`
                 : 'Start sessions to see cohort engagement data.'}
-              {stats.risk_alerts > 0
-                ? ` ${stats.risk_alerts} student(s) need attention.`
+              {(cohortStats?.riskAlerts ?? 0) > 0
+                ? ` ${cohortStats?.riskAlerts} student(s) need attention.`
                 : ' All students are on track.'}
             </p>
             <button 
@@ -391,7 +390,7 @@ export default function TeacherDashboard() {
                     </div>
                     <div className="bg-surface-container-low p-4 rounded-2xl border border-outline-variant/5">
                         <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Last Active</p>
-                        <p className="text-lg font-bold">{new Date(selectedStudent.lastActive).toLocaleDateString()}</p>
+                        <p className="text-lg font-bold">{selectedStudent.lastActive ? new Date(selectedStudent.lastActive).toLocaleDateString() : 'No sessions yet'}</p>
                     </div>
                     <div className="bg-surface-container-low p-4 rounded-2xl border border-outline-variant/5">
                         <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Risk Status</p>

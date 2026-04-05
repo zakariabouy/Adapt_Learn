@@ -24,8 +24,7 @@ async def seed():
                 await pool.execute(f.read())
 
     # 1. Seed Teacher
-...
-
+    teacher_id = uuid4()
     teacher_email = "teacher@luminous.edu"
     hashed_password = get_password_hash("password123")
     

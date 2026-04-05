@@ -132,7 +132,20 @@ async def upload_content(file: UploadFile = File(...), current_user = Depends(ge
 @router.get("/list")
 async def list_content(current_user = Depends(get_current_user)):
     pool = await get_pool()
-    rows = await pool.fetch("SELECT id, title, subject, grade_level FROM content_items ORDER BY created_at DESC")
+    if current_user["role"] == "teacher":
+        rows = await pool.fetch(
+            "SELECT id, title, subject, grade_level FROM content_items WHERE teacher_id = $1 ORDER BY created_at DESC",
+            current_user["id"]
+        )
+    else:
+        rows = await pool.fetch(
+            """SELECT ci.id, ci.title, ci.subject, ci.grade_level
+               FROM content_items ci
+               JOIN teacher_student_link tsl ON ci.teacher_id = tsl.teacher_id
+               WHERE tsl.student_id = $1
+               ORDER BY ci.created_at DESC""",
+            current_user["id"]
+        )
     return [dict(row) for row in rows]
 
 @router.get("/teacher/dashboard/stats")

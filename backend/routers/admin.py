@@ -6,6 +6,6 @@ router = APIRouter(prefix="/admin", tags=["Admin"])
 
 @router.get("/orchestrator-logs")
 async def get_logs(current_user = Depends(get_current_user)):
-    # In a real app, we'd check if user is an admin
-    # For the hackathon demo, any authenticated user can view them if they know the route
+    if current_user["role"] not in ("admin", "teacher"):
+        raise HTTPException(status_code=403, detail="Admin or teacher access required")
     return orchestrator_logs.get_logs()

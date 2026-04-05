@@ -3,6 +3,7 @@ import json
 import logging
 import time
 from typing import Dict
+from uuid import UUID
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
 from jose import JWTError, jwt
 from shared.models import TelemetryEvent, AdaptationCommand, EngagementState

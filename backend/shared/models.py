@@ -23,9 +23,12 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str
+    name: Optional[str] = None
+    grade_level: Optional[int] = Field(default=None, ge=1, le=6)
 
 class User(UserBase):
     id: UUID
+    name: Optional[str] = None
     created_at: datetime
 
     class Config:

@@ -154,6 +154,9 @@ async def teacher_award_xp(award: TeacherXPAward, current_user=Depends(get_curre
     if current_user["role"] != "teacher":
         raise HTTPException(status_code=403, detail="Only teachers can award XP")
 
+    if award.xp_amount <= 0 or award.xp_amount > 1000:
+        raise HTTPException(status_code=400, detail="XP amount must be between 1 and 1000")
+
     pool = await get_pool()
 
     # Verify student is linked to this teacher
@@ -172,7 +175,7 @@ async def teacher_award_xp(award: TeacherXPAward, current_user=Depends(get_curre
 
 
 @router.get("/leaderboard", response_model=List[LeaderboardEntry])
-async def get_leaderboard(grade_level: Optional[int] = None):
+async def get_leaderboard(grade_level: Optional[int] = None, current_user=Depends(get_current_user)):
     pool = await get_pool()
     if grade_level:
         rows = await pool.fetch(

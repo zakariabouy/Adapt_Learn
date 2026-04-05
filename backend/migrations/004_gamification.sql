@@ -46,6 +46,10 @@ FROM users u
 JOIN student_gamification sg ON u.id = sg.student_id
 WHERE u.role = 'student';
 
+-- Performance indexes
+CREATE INDEX IF NOT EXISTS idx_xp_logs_student_id ON xp_logs(student_id);
+CREATE INDEX IF NOT EXISTS idx_xp_logs_earned_at ON xp_logs(earned_at);
+
 -- Initialize badges
 INSERT INTO badges (id, name, description, requirement_xp) VALUES
 ('explorer_1', 'Novice Explorer', 'Joined the AdaptLearn adventure!', 0),

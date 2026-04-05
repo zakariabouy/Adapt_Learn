@@ -18,12 +18,12 @@ export default function GodModePanel({ sendTelemetry }: GodModePanelProps) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.shiftKey && e.key === 'D') {
-        setIsVisible(!isVisible);
+        setIsVisible(prev => !prev);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isVisible]);
+  }, []);
 
   const scenarios = [
     { 

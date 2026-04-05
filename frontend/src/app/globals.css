@@ -2,7 +2,9 @@
 @import "tailwindcss";
 
 @theme {
+  --color-surface: #121214;
   --color-surface-dim: #131315;
+  --color-surface-bright: #3b3a3d;
   --color-surface-container: #201f21;
   --color-surface-container-low: #1b1b1d;
   --color-surface-container-high: #2a2a2c;
@@ -13,6 +15,7 @@
   --color-primary-container: #3700cb;
   --color-on-primary-container: #e5e1ff;
   --color-secondary: #43e5b1;
+  --color-on-secondary: #003822;
   --color-outline-variant: #464555;
   --color-on-surface: #e5e1e4;
   --color-on-surface-variant: #c7c4d8;

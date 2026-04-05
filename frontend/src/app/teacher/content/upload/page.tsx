@@ -2,9 +2,9 @@
 
 import React, { useState, useRef } from 'react';
 import { 
-  Bell, Settings, LayoutDashboard, Users, 
-  BookOpen, BarChart2, Sliders, HelpCircle, 
-  LogOut, FileText, File, X, Loader2, Upload,
+  LayoutDashboard, 
+  BookOpen, 
+  LogOut, Loader2, Upload,
   CheckCircle, AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -77,7 +77,7 @@ export default function ContentUpload() {
         >
           <header className="mb-12">
             <h1 className="text-4xl font-headline font-bold tracking-tight text-on-surface mb-2">Knowledge Ingestion</h1>
-            <p className="text-on-surface-variant text-lg max-w-2xl font-body">Upload pedagogical materials to the Luminous Neural Network. We support markdown and plain text formats.</p>
+            <p className="text-on-surface-variant text-lg max-w-2xl font-body">Upload pedagogical materials to the AdaptLearn content pipeline. We support markdown and plain text formats.</p>
           </header>
 
           <div className="glass-card rounded-xl overflow-hidden border border-outline-variant/20 flex flex-col min-h-[500px]">
@@ -166,7 +166,7 @@ function TopNav({ onLogout }: { onLogout: () => void }) {
     return (
         <nav className="fixed top-0 w-full z-50 flex justify-between items-center px-8 h-16 bg-[#131315]/80 backdrop-blur-xl border-b border-[#464555]/20 shadow-2xl shadow-black/50">
           <div className="text-lg font-bold tracking-tighter text-[#e5e1e4] flex items-center gap-2 before:content-[''] before:w-3 before:h-3 before:bg-[#FF6B6B] before:rounded-full before:shadow-[16px_0_0_#FFB84D,32px_0_0_#00C896]">
-            <span className="ml-10">Luminous Cognition</span>
+            <span className="ml-10">AdaptLearn</span>
           </div>
           <div className="flex items-center gap-4">
             <button onClick={onLogout} className="text-on-surface-variant hover:text-red-400 transition-colors">

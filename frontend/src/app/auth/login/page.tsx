@@ -133,7 +133,7 @@ export default function Login() {
       {/* Visual Polish: Grainy Texture Overlay */}
       <div
         className="fixed inset-0 pointer-events-none opacity-[0.03] z-50"
-        style={{ backgroundImage: "url('https://lh3.googleusercontent.com/aida-public/AB6AXuCmXwNe_6MOMKHYLXi0blNqsHx9mLmKY-nYlW7jewcfoKLD9vrLyoHqDdg6t_5Is72NFo3VUya9a_PkDZ2X9XXcllqhBTe8Ms4jh3LK2ZeS8RGHviF2YL9n_8TCn2tn6vK21JqD6Jv7SIxnkkTeIF5tIhMT4swUFe7tLiaSwf642Q-sA1UQHzrbX6M-PiyIiuiKGWx8MtYaiBtNjVeZSshNgadzZQUkZA6hLoNXyBVdOvyeakyF1_QcmH0uNHuI__8kKzEcVLYNbLs')" }}
+        style={{ backgroundImage: "url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMDAiIGhlaWdodD0iMzAwIj48ZmlsdGVyIGlkPSJhIj48ZmVUdXJidWxlbmNlIHR5cGU9ImZyYWN0YWxOb2lzZSIgYmFzZUZyZXF1ZW5jeT0iLjc1Ii8+PC9maWx0ZXI+PHJlY3Qgd2lkdGg9IjMwMCIgaGVpZ2h0PSIzMDAiIGZpbHRlcj0idXJsKCNhKSIgb3BhY2l0eT0iLjA1Ii8+PC9zdmc+')" }}
       ></div>
     </div>
   );

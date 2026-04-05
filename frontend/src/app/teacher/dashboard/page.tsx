@@ -7,8 +7,6 @@ import {
   Users,
   BookOpen,
   BarChart2,
-  Settings,
-  HelpCircle,
   AlertTriangle,
   Search,
   Filter,
@@ -143,7 +141,7 @@ export default function TeacherDashboard() {
           transition={springTransition}
           className="mb-10 animate-pulse"
         >
-          <div className="bg-tertiary-container/20 border border-tertiary-container/30 p-4 rounded-xl flex items-center justify-between">
+          <div className="bg-red-400/10 border border-red-400/20 p-4 rounded-xl flex items-center justify-between">
             <div className="flex items-center gap-3 text-red-400">
               <AlertTriangle size={20} className="fill-current" />
               <span className="font-headline font-semibold text-sm">

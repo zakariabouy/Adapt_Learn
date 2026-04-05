@@ -8,7 +8,7 @@ import { API_URL } from '@/lib/api';
 import { 
   BookOpen, Zap, Calculator, MoreHorizontal, 
   ArrowLeft, ArrowRight, Lightbulb, Check,
-  Type, Volume2, Eye, Clock, List
+  Type, Volume2, Eye
 } from 'lucide-react';
 
 const steps = [
@@ -116,7 +116,7 @@ export default function Onboarding() {
             <span className="w-3 h-3 bg-[#00C896] rounded-full"></span>
           </div>
           <span className="font-headline font-bold tracking-tighter text-on-surface ml-4">
-            Luminous Cognition
+            AdaptLearn
           </span>
         </div>
         <div className="flex items-center gap-4">
@@ -349,7 +349,7 @@ export default function Onboarding() {
               <div className="text-left">
                 <p className="text-on-surface text-sm font-semibold mb-1">Neurodiversity Optimization</p>
                 <p className="text-on-surface-variant text-xs leading-relaxed">
-                  Luminous Cognition adjusts your workspace in real-time based on these parameters.
+                  AdaptLearn adjusts your workspace in real-time based on these parameters.
                 </p>
               </div>
             </div>

@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { API_URL } from '@/lib/api';
 import { 
-  Bell, Settings, ChevronLeft, ChevronRight, Brain, 
-  BookOpen, Headphones, Eye, Play, CheckCircle, 
+  ChevronLeft, ChevronRight, Brain, 
+  BookOpen, Headphones, Eye, Play, 
   Sparkles, Zap, LogOut
 } from 'lucide-react';
 import { useAdaptation } from '@/hooks/useAdaptation';
@@ -94,7 +94,7 @@ function TopNavBar({ studentId, onLogout }: { studentId: string | null, onLogout
   return (
     <header className="fixed top-0 w-full z-50 flex justify-between items-center px-8 h-16 bg-[#131315]/80 backdrop-blur-xl border-b border-[#464555]/20 shadow-2xl shadow-black/50">
       <div className="text-lg font-bold tracking-tighter text-[#e5e1e4] flex items-center gap-2 before:content-[''] before:w-3 before:h-3 before:bg-[#FF6B6B] before:rounded-full before:shadow-[16px_0_0_#FFB84D,32px_0_0_#00C896]">
-        Luminous Cognition
+        AdaptLearn
       </div>
       <nav className="hidden md:flex gap-8 items-center font-headline font-medium text-sm tracking-tight">
         <a className="text-[#e5e1e4] border-b-2 border-[#6C63FF] pb-1" href="#">Workspace</a>

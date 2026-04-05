@@ -4,17 +4,28 @@ from uuid import uuid4
 from shared.database import get_pool
 from shared.security import get_password_hash
 import json
+import os
 
 async def seed():
     pool = await get_pool()
-    
+
     # Run migrations
     print("Running migrations...")
-    with open("migrations/002_question_bank.sql", "r") as f:
-        await pool.execute(f.read())
+    migration_files = [
+        "migrations/001_initial.sql",
+        "migrations/002_question_bank.sql",
+        "migrations/003_teacher_student_link.sql"
+    ]
+
+    for m in migration_files:
+        if os.path.exists(m):
+            print(f"Applying {m}...")
+            with open(m, "r") as f:
+                await pool.execute(f.read())
 
     # 1. Seed Teacher
-    teacher_id = uuid4()
+...
+
     teacher_email = "teacher@luminous.edu"
     hashed_password = get_password_hash("password123")
     

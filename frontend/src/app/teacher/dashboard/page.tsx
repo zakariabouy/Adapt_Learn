@@ -23,7 +23,12 @@ const springTransition = {
 
 export default function TeacherDashboard() {
   const [students, setStudents] = useState<any[]>([]);
-  const [stats, setStats] = useState({ student_count: 0, content_count: 0, active_sessions: 0, risk_alerts: 0 });
+  const [stats, setStats] = useState<any>({ 
+    totalStudents: 0, 
+    avgEngagement: 0, 
+    riskAlerts: 0, 
+    performanceTrend: [] 
+  });
   const [loading, setLoading] = useState(true);
   const [selectedStudent, setSelectedStudent] = useState<any | null>(null);
   const [growthData, setGrowthData] = useState<any[]>([]);
@@ -40,7 +45,7 @@ export default function TeacherDashboard() {
     try {
       const [studentsRes, statsRes] = await Promise.all([
         axios.get(`${API_URL}/teacher/students`, { headers: { Authorization: `Bearer ${token}` } }),
-        axios.get(`${API_URL}/content/teacher/dashboard/stats`, { headers: { Authorization: `Bearer ${token}` } }),
+        axios.get(`${API_URL}/teacher/stats`, { headers: { Authorization: `Bearer ${token}` } }),
       ]);
 
       const formatted = studentsRes.data.map((s: any) => {
@@ -174,24 +179,24 @@ export default function TeacherDashboard() {
                 <div className="p-2 bg-primary/10 rounded-lg text-primary"><Users size={20}/></div>
                 <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Total Students</span>
               </div>
-              <div className="text-3xl font-black">{loading ? '—' : stats.student_count}</div>
-              <div className="text-xs text-on-surface-variant/60 font-bold mt-1">{stats.active_sessions} active now</div>
+              <div className="text-3xl font-black">{loading ? '—' : stats.totalStudents}</div>
+              <div className="text-xs text-on-surface-variant/60 font-bold mt-1">Cohort Size</div>
             </div>
             <div className="bg-surface-container-high p-6 rounded-2xl border border-outline-variant/10 shadow-sm">
               <div className="flex items-center gap-4 mb-2">
                 <div className="p-2 bg-secondary/10 rounded-lg text-secondary"><Activity size={20}/></div>
-                <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Content Modules</span>
+                <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Avg Engagement</span>
               </div>
-              <div className="text-3xl font-black">{loading ? '—' : stats.content_count}</div>
-              <div className="text-xs text-on-surface-variant/60 font-bold mt-1">Uploaded lessons</div>
+              <div className="text-3xl font-black">{loading ? '—' : stats.avgEngagement}%</div>
+              <div className="text-xs text-on-surface-variant/60 font-bold mt-1">Cohort Average</div>
             </div>
             <div className="bg-surface-container-high p-6 rounded-2xl border border-outline-variant/10 shadow-sm">
               <div className="flex items-center gap-4 mb-2">
                 <div className="p-2 bg-red-400/10 rounded-lg text-red-400"><AlertTriangle size={20}/></div>
                 <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Risk Alerts</span>
               </div>
-              <div className={`text-3xl font-black ${stats.risk_alerts > 0 ? 'text-red-400' : 'text-green-400'}`}>{loading ? '—' : stats.risk_alerts}</div>
-              <div className="text-xs text-red-400/60 font-bold mt-1">{stats.risk_alerts > 0 ? 'Attention needed' : 'All students on track'}</div>
+              <div className={`text-3xl font-black ${stats.riskAlerts > 0 ? 'text-red-400' : 'text-green-400'}`}>{loading ? '—' : stats.riskAlerts}</div>
+              <div className="text-xs text-red-400/60 font-bold mt-1">{stats.riskAlerts > 0 ? 'Attention needed' : 'All students on track'}</div>
             </div>
           </div>
 

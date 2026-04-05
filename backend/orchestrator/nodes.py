@@ -2,12 +2,15 @@ import os
 import logging
 import textstat
 from typing import Dict, List
+from uuid import UUID
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage, SystemMessage
 from orchestrator.state import AgentState
-from shared.models import LearnerModel
+from shared.models import LearnerModel, ExamRequest, ExamType
 from shared.log_store import orchestrator_logs
 from agents.adaptation.agent import simplify_text, summarize_text
+from agents.exam.agent import generate_exam
+from agents.orientation.agent import generate_orientation_report
 import json
 
 logger = logging.getLogger(__name__)
@@ -125,3 +128,80 @@ async def validation_node(state: AgentState):
         "adaptation_history": [f"Validation: grade={grade_level:.1f}, issues={issues or 'none'}"],
         "current_step": "end"
     }
+
+
+async def exam_generation_node(state: AgentState):
+    """
+    Generates an exam for the given content using the Exam Agent.
+    Only runs when flow_type == "exam".
+    """
+    orchestrator_logs.add_log("exam_generation", "Starting exam generation")
+
+    content_id = state.get("content_id")
+    grade_level = state.get("grade_level", 3)
+
+    if not content_id:
+        orchestrator_logs.add_log("exam_generation", "ERROR: No content_id provided")
+        return {"generated_exam": None, "current_step": "end"}
+
+    try:
+        request = ExamRequest(
+            content_id=content_id,
+            exam_type=ExamType.mixed,
+            num_questions=10,
+            target_grade_level=grade_level,
+        )
+        exam = await generate_exam(request)
+        exam_dict = exam.model_dump()
+
+        orchestrator_logs.add_log(
+            "exam_generation",
+            f"Exam generated: {exam.title} ({len(exam.questions)} questions)",
+            {"subject": exam.subject, "total_points": exam.total_points},
+        )
+
+        return {
+            "generated_exam": exam_dict,
+            "adaptation_history": [f"Exam generated: {exam.title}"],
+            "current_step": "end",
+        }
+    except Exception as e:
+        logger.error("Exam generation node failed: %s", e)
+        orchestrator_logs.add_log("exam_generation", f"FAILED: {e}")
+        return {"generated_exam": None, "current_step": "end"}
+
+
+async def orientation_report_node(state: AgentState):
+    """
+    Generates an orientation report for the student using the Orientation Agent.
+    Only runs when flow_type == "orientation".
+    """
+    orchestrator_logs.add_log("orientation_report", "Starting orientation report generation")
+
+    profile = state["learner_model"]
+    teacher_id = state.get("teacher_id")
+
+    if not teacher_id:
+        orchestrator_logs.add_log("orientation_report", "ERROR: No teacher_id provided")
+        return {"orientation_report": None, "current_step": "end"}
+
+    try:
+        report = await generate_orientation_report(
+            UUID(profile.student_id), UUID(teacher_id)
+        )
+
+        orchestrator_logs.add_log(
+            "orientation_report",
+            f"Report generated for {report.get('student_name', 'unknown')}",
+            {"strengths": report.get("data_summary", {}).get("strengths", [])},
+        )
+
+        return {
+            "orientation_report": report,
+            "adaptation_history": [f"Orientation report generated"],
+            "current_step": "end",
+        }
+    except Exception as e:
+        logger.error("Orientation report node failed: %s", e)
+        orchestrator_logs.add_log("orientation_report", f"FAILED: {e}")
+        return {"orientation_report": None, "current_step": "end"}

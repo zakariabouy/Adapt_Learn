@@ -1,6 +1,7 @@
-from typing import List, Dict, Annotated, TypedDict
+from typing import List, Dict, Optional, Annotated, TypedDict
 from shared.models import LearnerModel
 import operator
+
 
 class AgentState(TypedDict):
     # The student's current learner model
@@ -13,5 +14,18 @@ class AgentState(TypedDict):
     adaptation_history: Annotated[List[str], operator.add]
     # LLM Messages
     messages: Annotated[List[Dict[str, str]], operator.add]
-    # Current chunk index or tracking
+    # Current step tracking
     current_step: str
+    # --- V2 additions ---
+    # Flow type: "adapt" (default), "exam", "orientation"
+    flow_type: str
+    # Content metadata
+    content_id: Optional[str]
+    subject: Optional[str]
+    grade_level: Optional[int]
+    # Exam generation output (only for flow_type="exam")
+    generated_exam: Optional[Dict]
+    # Orientation report output (only for flow_type="orientation")
+    orientation_report: Optional[Dict]
+    # Teacher ID (needed for orientation reports)
+    teacher_id: Optional[str]

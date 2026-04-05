@@ -8,6 +8,9 @@ import os
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage
 
+import io
+import pdfplumber
+
 router = APIRouter(prefix="/content", tags=["Content"])
 
 _llm = None
@@ -21,15 +24,27 @@ def get_llm():
 @router.post("/upload")
 async def upload_content(file: UploadFile = File(...), current_user = Depends(get_current_user)):
     # Validate file type
-    if not (file.filename.endswith(".md") or file.filename.endswith(".txt")):
-        raise HTTPException(status_code=400, detail="Only .md or .txt files are allowed.")
+    allowed_extensions = [".md", ".txt", ".pdf"]
+    if not any(file.filename.endswith(ext) for ext in allowed_extensions):
+        raise HTTPException(status_code=400, detail="Only .md, .txt or .pdf files are allowed.")
     
     # Check if user is a teacher
     if current_user["role"] != "teacher":
          raise HTTPException(status_code=403, detail="Only teachers can upload content.")
 
-    content = await file.read()
-    text_content = content.decode("utf-8")
+    if file.filename.endswith(".pdf"):
+        content = await file.read()
+        try:
+            with pdfplumber.open(io.BytesIO(content)) as pdf:
+                text_content = "\n".join(page.extract_text() or "" for page in pdf.pages)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Failed to extract text from PDF: {str(e)}")
+    else:
+        content = await file.read()
+        text_content = content.decode("utf-8")
+    
+    if not text_content.strip():
+         raise HTTPException(status_code=400, detail="File is empty or contains no readable text.")
     
     # --- AI Analysis Phase ---
     prompt = f"""

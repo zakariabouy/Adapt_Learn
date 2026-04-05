@@ -18,11 +18,12 @@ if not _raw_url:
     )
 
 # Normalize scheme: asyncpg requires postgresql://, not postgres:// or postgresql+asyncpg://
-ASYNCPG_URL = (
-    _raw_url
-    .replace("postgresql+asyncpg://", "postgresql://")
-    .replace("postgres://", "postgresql://")
-)
+import re as _re
+ASYNCPG_URL = _re.sub(r'^postgres(ql\+asyncpg)?://', 'postgresql://', _raw_url)
+
+# Log the host we're connecting to (safe: no password)
+_db_host = ASYNCPG_URL.split("@")[-1].split("/")[0] if "@" in ASYNCPG_URL else ASYNCPG_URL
+logger.info("DATABASE_URL normalized. Connecting to host: %s", _db_host)
 
 pool = None
 redis_pool = None
@@ -32,7 +33,7 @@ async def get_pool():
     global pool
     if pool is None:
         try:
-            pool = await asyncpg.create_pool(ASYNCPG_URL, ssl="require")
+            pool = await asyncpg.create_pool(ASYNCPG_URL, ssl=False)
         except Exception as e:
             logger.error("Failed to connect to PostgreSQL: %s", e)
             raise RuntimeError(
@@ -46,7 +47,6 @@ async def get_redis():
     if redis_pool is None:
         try:
             redis_pool = redis.from_url(REDIS_URL, decode_responses=True)
-            # Ping to verify connection is alive
             await redis_pool.ping()
         except Exception as e:
             logger.warning("Redis unavailable — session history will be disabled: %s", e)

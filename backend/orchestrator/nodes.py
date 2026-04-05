@@ -12,32 +12,37 @@ import json
 
 logger = logging.getLogger(__name__)
 
-# Initialize Gemini
-llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=os.getenv("GOOGLE_API_KEY"))
+_llm = None
+
+def get_llm():
+    global _llm
+    if _llm is None:
+        _llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=os.getenv("GOOGLE_API_KEY"))
+    return _llm
 
 async def profile_analysis_node(state: AgentState):
     """
     Reads LearnerModel, decides adaptation strategy.
     """
     profile = state["learner_model"]
-    orchestrator_logs.add_log("profile_analysis", f"Analyzing profile for student: {profile.student_id}", {"disabilities": profile.disabilities})
-    
+    orchestrator_logs.add_log("profile_analysis", f"Analyzing profile for student: {profile.student_id}", {"learning_tags": profile.learning_tags})
+
     prompt = f"""
-    Analyze the following student profile and decide on an adaptation strategy for learning content.
+    Analyze the following student learning profile and decide on an adaptation strategy for learning content.
     Profile:
-    - Disabilities: {profile.disabilities}
-    - Severity: {profile.severity}
+    - Learning Style Tags: {profile.learning_tags}
+    - Tag Strength: {profile.tag_strength}
     - Preferred Modality: {profile.preferred_modality}
     - Attention Span: {profile.chunk_size} characters per chunk
-    
+
     Return a JSON object with:
     - "strategy": A brief description of the strategy.
     - "simplification_level": 0.0 to 1.0 (how much to simplify).
     - "chunk_size_override": Recommended chunk size.
     """
-    
+
     try:
-        response = await llm.ainvoke([HumanMessage(content=prompt)])
+        response = await get_llm().ainvoke([HumanMessage(content=prompt)])
         strategy_info = response.content
     except Exception as e:
         logger.warning("Gemini profile analysis failed, using default strategy: %s", e)
@@ -63,7 +68,7 @@ async def content_adaptation_node(state: AgentState):
     adapted_text = await simplify_text(raw_text, profile)
     
     # Memory Trimming Logic: Every 12 entries in history, summarize
-    new_history = [f"Content adapted for {', '.join(profile.disabilities)}"]
+    new_history = [f"Content adapted for {', '.join(profile.learning_tags)}"]
     if len(state["adaptation_history"]) >= 12:
         orchestrator_logs.add_log("memory_trimming", "Context limit reached. Summarizing history.")
         # Use the agent's summarizer for the history too
@@ -89,9 +94,9 @@ async def validation_node(state: AgentState):
 
     orchestrator_logs.add_log("validation", "Running WCAG accessibility checks")
 
-    # Determine max acceptable grade level based on disabilities
-    has_reading_disability = any(d in profile.disabilities for d in ["dyslexia", "adhd", "dyscalculia"])
-    max_grade_level = 6.0 if has_reading_disability else 9.0
+    # Determine max acceptable grade level based on learning profile
+    needs_simpler_text = any(t in profile.learning_tags for t in ["slow_reader", "short_attention", "needs_repetition"])
+    max_grade_level = 6.0 if needs_simpler_text else 9.0
 
     grade_level = textstat.flesch_kincaid_grade(adapted)
     max_chunk = (profile.chunk_size or 500) * 3

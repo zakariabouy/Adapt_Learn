@@ -42,8 +42,8 @@ class TokenData(BaseModel):
 # --- Learner Model ---
 class LearnerModel(BaseModel):
     student_id: str
-    disabilities: List[str] = []
-    severity: Dict[str, float] = {}
+    learning_tags: List[str] = []
+    tag_strength: Dict[str, float] = {}
     preferred_font: str = "Arial"
     font_size: int = 16
     line_spacing: float = 1.5

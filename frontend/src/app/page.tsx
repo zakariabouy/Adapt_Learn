@@ -36,7 +36,7 @@ export default function Home() {
           <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">adapts to you</span>
         </h1>
         <p className="text-on-surface-variant text-lg md:text-xl max-w-xl mx-auto mb-12 leading-relaxed">
-          AI-powered inclusive education for students with dyslexia, ADHD, and other learning disabilities. Real-time adaptation, zero manual effort.
+          AI-powered inclusive education that adapts to your unique learning style. Real-time personalization, zero manual effort.
         </p>
         <div className="flex gap-4 justify-center">
           <Link

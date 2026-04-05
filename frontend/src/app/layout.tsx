@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "AdaptLearn — Agentic AI for Inclusive Education",
-  description: "AI-powered inclusive education platform for students with dyslexia, ADHD, and other learning disabilities.",
+  description: "AI-powered inclusive education platform that adapts to each student's unique learning style using multi-agent AI.",
 };
 
 export default function RootLayout({

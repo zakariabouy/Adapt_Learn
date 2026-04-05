@@ -10,8 +10,13 @@ from langchain_core.messages import HumanMessage
 
 router = APIRouter(prefix="/content", tags=["Content"])
 
-# Initialize Gemini
-llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=os.getenv("GOOGLE_API_KEY"))
+_llm = None
+
+def get_llm():
+    global _llm
+    if _llm is None:
+        _llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=os.getenv("GOOGLE_API_KEY"))
+    return _llm
 
 @router.post("/upload")
 async def upload_content(file: UploadFile = File(...), current_user = Depends(get_current_user)):
@@ -59,7 +64,7 @@ async def upload_content(file: UploadFile = File(...), current_user = Depends(ge
     """
     
     try:
-        response = await llm.ainvoke([HumanMessage(content=prompt)])
+        response = await get_llm().ainvoke([HumanMessage(content=prompt)])
         # Clean potential markdown backticks
         raw_json = response.content.strip()
         if "```json" in raw_json:

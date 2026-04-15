@@ -153,3 +153,39 @@ class GeneratedExam(BaseModel):
     instructions: str
     questions: List[ExamQuestion]
 
+# --- Human-in-the-Loop ---
+class PendingActionType(str, Enum):
+    exam_generation = "exam_generation"
+    orientation_report = "orientation_report"
+    iep_report = "iep_report"
+    content_adaptation = "content_adaptation"
+
+class PendingActionStatus(str, Enum):
+    pending = "pending"
+    approved = "approved"
+    rejected = "rejected"
+    modified = "modified"
+
+class PendingAction(BaseModel):
+    id: UUID
+    action_type: PendingActionType
+    student_id: Optional[UUID] = None
+    teacher_id: UUID
+    content_id: Optional[UUID] = None
+    payload: Dict[str, Any]
+    original_payload: Optional[Dict[str, Any]] = None
+    status: PendingActionStatus
+    reviewer_notes: Optional[str] = None
+    created_at: datetime
+    reviewed_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class PendingReviewRequest(BaseModel):
+    reviewer_notes: Optional[str] = Field(default=None, max_length=2000)
+
+class PendingModifyRequest(BaseModel):
+    payload: Dict[str, Any]
+    reviewer_notes: Optional[str] = Field(default=None, max_length=2000)
+

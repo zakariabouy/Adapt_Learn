@@ -7,6 +7,7 @@ from routers.auth import get_current_user
 from shared.database import get_pool
 from agents.iep.agent import generate_iep_report
 from orchestrator.graph import generate_orientation_via_graph
+from shared.pending import enqueue_pending_action
 from uuid import UUID
 import json
 from datetime import datetime, timedelta
@@ -160,11 +161,17 @@ async def get_cohort_stats(current_teacher = Depends(get_current_teacher)):
 
     avg_display = round(avg_engagement * 100) if avg_engagement is not None else None
 
+    pending_reviews = await pool.fetchval(
+        "SELECT COUNT(*) FROM pending_actions WHERE teacher_id = $1 AND status = 'pending'",
+        current_teacher["id"]
+    )
+
     return {
         "totalStudents": total_students or 0,
         "avgEngagement": avg_display,
         "riskAlerts": risk_count,
-        "performanceTrend": trend
+        "performanceTrend": trend,
+        "pendingReviews": pending_reviews or 0,
     }
 
 @router.get("/student/{student_id}/growth")
@@ -245,6 +252,23 @@ async def get_student_orientation(student_id: UUID, current_teacher = Depends(ge
     # 3. Trigger Orientation Agent via Orchestrator
     try:
         report = await generate_orientation_via_graph(learner_model, str(current_teacher["id"]))
-        return report
+
+        # 4. HITL gate: orientation reports go to parents — teacher must
+        # review the AI output before it is finalized and sent.
+        pending = await enqueue_pending_action(
+            action_type="orientation_report",
+            teacher_id=current_teacher["id"],
+            payload={"report": report},
+            student_id=student_id,
+        )
+
+        return {
+            "status": "pending_review",
+            "pending_id": pending["id"],
+            "message": "Orientation report generated — awaiting teacher approval.",
+            "report_preview": report,
+        }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Orientation generation failed: {str(e)}")

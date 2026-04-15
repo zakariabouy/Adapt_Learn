@@ -89,8 +89,8 @@ async def get_adapted_workspace(
     original_text = content_item["original_text"]
     title = content_item["title"]
 
-    # Simplify/Adapt using Orchestrator
-    adapted_text = await adapt_content(profile, original_text)
+    # Simplify/Adapt using Orchestrator (passes content_id for RAG retrieval)
+    adapted_text = await adapt_content(profile, original_text, content_id=str(content_id))
 
     # Chunking
     chunks = await chunk_content(adapted_text, profile.chunk_size or 500)

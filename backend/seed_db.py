@@ -3,6 +3,7 @@ import datetime
 from uuid import uuid4, UUID
 from shared.database import get_pool
 from shared.security import get_password_hash
+from shared.rag import embed_and_store_content
 import json
 import os
 
@@ -16,7 +17,8 @@ async def seed():
         "migrations/002_question_bank.sql",
         "migrations/003_teacher_student_link.sql",
         "migrations/004_gamification.sql",
-        "migrations/005_grade_level.sql"
+        "migrations/005_grade_level.sql",
+        "migrations/006_rag_vectors.sql",
     ]
 
     for m in migration_files:
@@ -194,7 +196,18 @@ async def seed():
         fetched = await pool.fetchrow("SELECT id FROM content_items WHERE title = $1 AND teacher_id = $2", item["title"], teacher_id)
         content_ids.append(fetched["id"])
 
-    # 4. Seed demo sessions + assessments (for growth charts & stats)
+    # 4. RAG: embed content items into vector store
+    print("Embedding content for RAG...")
+    for i, item in enumerate(content_items_cfg):
+        cid = content_ids[i]
+        meta = {"subject": item["subject"], "grade_level": item["grade"]}
+        try:
+            n = await embed_and_store_content(cid, item["text"], meta)
+            print(f"  Embedded '{item['title']}': {n} chunks")
+        except Exception as e:
+            print(f"  WARNING: RAG embedding failed for '{item['title']}': {e}")
+
+    # 5. Seed demo sessions + assessments (for growth charts & stats)
     print("Seeding demo sessions and assessments...")
     demo_sessions = [
         # (student_name, content_index, days_ago, theta_before, theta_after, score)

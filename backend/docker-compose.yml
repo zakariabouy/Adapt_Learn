@@ -2,7 +2,7 @@ version: "3.9"
 
 services:
   postgres:
-    image: postgres:15-alpine
+    image: pgvector/pgvector:pg15
     environment:
       POSTGRES_DB: adaptlearn
       POSTGRES_USER: adaptlearn
@@ -16,6 +16,7 @@ services:
       - ./migrations/003_teacher_student_link.sql:/docker-entrypoint-initdb.d/003_teacher_student_link.sql:ro
       - ./migrations/004_gamification.sql:/docker-entrypoint-initdb.d/004_gamification.sql:ro
       - ./migrations/005_grade_level.sql:/docker-entrypoint-initdb.d/005_grade_level.sql:ro
+      - ./migrations/006_rag_vectors.sql:/docker-entrypoint-initdb.d/006_rag_vectors.sql:ro
 
   redis:
     image: redis:7-alpine

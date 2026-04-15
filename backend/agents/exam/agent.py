@@ -8,6 +8,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage
 
 from shared.database import get_pool
+from shared.rag import build_rag_context
 from shared.models import (
     ExamType, ExamRequest, ExamQuestion, GeneratedExam, QuizOption,
 )
@@ -81,7 +82,7 @@ EXAM TYPE: {exam_type.value}
 CLASS AVERAGE ABILITY (IRT theta): {class_avg_ability:.2f}
 Calibrate question difficulty around this average. Spread difficulties: some easier ({class_avg_ability - 1:.1f}), some at level ({class_avg_ability:.1f}), some harder ({class_avg_ability + 1:.1f}).
 
-COURSE CONTENT TO BASE THE EXAM ON:
+COURSE CONTENT (retrieved via semantic search from the knowledge base):
 {content_text[:4000]}
 
 IMPORTANT RULES FOR PRIMARY SCHOOL:
@@ -128,18 +129,23 @@ async def generate_exam(request: ExamRequest) -> GeneratedExam:
     """
     content_id = UUID(request.content_id)
 
-    # 1. Fetch content
+    # 1. Fetch content metadata
     content_data = await _fetch_content_text(content_id)
     if not content_data:
         raise ValueError(f"Content {request.content_id} not found")
 
     subject = content_data.get("subject") or "General"
-    content_text = content_data["original_text"]
 
-    # 2. Get class average ability for calibration
+    # 2. RAG: retrieve the most relevant chunks for exam generation
+    #    Falls back to raw text truncation if no embeddings exist
+    rag_query = f"Key concepts and facts for a {subject} exam, grade {request.target_grade_level}"
+    rag_context = await build_rag_context(rag_query, content_id, top_k=8, max_context_chars=4000)
+    content_text = rag_context if rag_context else content_data["original_text"]
+
+    # 3. Get class average ability for calibration
     class_avg = await _fetch_class_avg_ability(content_id)
 
-    # 3. Build prompt and call Gemini
+    # 4. Build prompt and call Gemini
     prompt = _build_exam_prompt(
         content_text=content_text,
         subject=subject,

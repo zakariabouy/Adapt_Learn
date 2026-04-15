@@ -63,9 +63,11 @@ def create_orchestrator_graph():
 orchestrator_app = create_orchestrator_graph()
 
 
-async def adapt_content(learner_model, raw_content: str):
+async def adapt_content(learner_model, raw_content: str, content_id: str = None):
     """
     Runs the content adaptation flow (default).
+    When content_id is provided, the adaptation node uses RAG retrieval
+    for context-aware adaptation.
     """
     initial_state: AgentState = {
         "learner_model": learner_model,
@@ -75,7 +77,7 @@ async def adapt_content(learner_model, raw_content: str):
         "messages": [],
         "current_step": "start",
         "flow_type": "adapt",
-        "content_id": None,
+        "content_id": content_id,
         "subject": None,
         "grade_level": None,
         "generated_exam": None,

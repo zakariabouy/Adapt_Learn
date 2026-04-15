@@ -11,6 +11,7 @@ from shared.log_store import orchestrator_logs
 from agents.adaptation.agent import simplify_text, summarize_text
 from agents.exam.agent import generate_exam
 from agents.orientation.agent import generate_orientation_report
+from shared.rag import build_rag_context
 import json
 
 logger = logging.getLogger(__name__)
@@ -61,12 +62,31 @@ async def profile_analysis_node(state: AgentState):
 async def content_adaptation_node(state: AgentState):
     """
     Calls Adaptation Agent to rewrite content per strategy.
+    Uses RAG retrieval when content_id is available to provide
+    semantically relevant context instead of raw full text.
     """
     profile = state["learner_model"]
     raw_text = state["raw_content"]
-    
+    content_id = state.get("content_id")
+
     orchestrator_logs.add_log("content_adaptation", "Generating adapted content via Adaptation Agent")
-    
+
+    # RAG Enhancement: retrieve most relevant chunks for this student's profile
+    if content_id:
+        try:
+            rag_query = f"Content for a {', '.join(profile.learning_tags or ['general'])} learner: {profile.preferred_modality} modality"
+            rag_context = await build_rag_context(
+                rag_query, UUID(content_id), top_k=6, max_context_chars=3000
+            )
+            if rag_context:
+                orchestrator_logs.add_log(
+                    "content_adaptation",
+                    f"RAG: retrieved relevant chunks for content {content_id}",
+                )
+                raw_text = rag_context
+        except Exception as e:
+            logger.warning("RAG retrieval failed, using raw text: %s", e)
+
     # Use the Adaptation Agent's simplified text logic
     adapted_text = await simplify_text(raw_text, profile)
     

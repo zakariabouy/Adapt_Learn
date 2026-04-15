@@ -1,7 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+import logging
+from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from shared.database import get_pool
+from shared.rag import embed_and_store_content, retrieve_relevant_chunks, reembed_all_content
 from routers.auth import get_current_user
-from uuid import uuid4
+from uuid import uuid4, UUID
 import datetime
 import json
 import os
@@ -10,6 +13,8 @@ from langchain_core.messages import HumanMessage
 
 import io
 import pdfplumber
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/content", tags=["Content"])
 
@@ -89,7 +94,7 @@ async def upload_content(file: UploadFile = File(...), current_user = Depends(ge
             
         ai_data = json.loads(raw_json)
     except Exception as e:
-        print(f"AI Content Parsing Error: {e}")
+        logger.warning("AI Content Parsing Error: %s", e)
         ai_data = {
             "subject": "General",
             "grade_level": 5,
@@ -119,13 +124,22 @@ async def upload_content(file: UploadFile = File(...), current_user = Depends(ge
                 q["hint"], q["explanation"]
             )
         except Exception as e:
-            print(f"Failed to seed AI question: {e}")
+            logger.warning("Failed to seed AI question: %s", e)
     
+    # 3. RAG: chunk + embed content for semantic retrieval
+    rag_meta = {"subject": ai_data.get("subject"), "grade_level": ai_data.get("grade_level")}
+    chunks_stored = 0
+    try:
+        chunks_stored = await embed_and_store_content(content_id, text_content, rag_meta)
+    except Exception as e:
+        logger.warning("RAG embedding failed for content %s (non-blocking): %s", content_id, e)
+
     return {
-        "id": content_id, 
-        "title": file.filename, 
+        "id": content_id,
+        "title": file.filename,
         "subject": ai_data.get("subject"),
         "questions_generated": len(ai_data.get("questions", [])),
+        "rag_chunks": chunks_stored,
         "status": "processed"
     }
 
@@ -184,3 +198,42 @@ async def get_teacher_stats(current_user = Depends(get_current_user)):
         "active_sessions": active_sessions or 0,
         "risk_alerts": risk_alerts or 0
     }
+
+
+# ---------------------------------------------------------------------------
+# RAG endpoints
+# ---------------------------------------------------------------------------
+
+
+@router.get("/search")
+async def semantic_search(
+    q: str = Query(..., min_length=2, description="Search query"),
+    content_id: Optional[str] = None,
+    top_k: int = Query(default=5, ge=1, le=20),
+    current_user=Depends(get_current_user),
+):
+    """
+    Semantic search across the pedagogical knowledge base.
+    Returns the most relevant content chunks ranked by cosine similarity.
+    """
+    cid = UUID(content_id) if content_id else None
+    results = await retrieve_relevant_chunks(q, content_id=cid, top_k=top_k)
+
+    # Stringify UUIDs for JSON serialization
+    for r in results:
+        r["content_id"] = str(r["content_id"])
+
+    return {"query": q, "results": results}
+
+
+@router.post("/reembed")
+async def reembed_all(current_user=Depends(get_current_user)):
+    """
+    Re-embeds all content items. Teacher/admin only.
+    Useful after model upgrade or initial migration to RAG.
+    """
+    if current_user["role"] not in ("teacher", "admin"):
+        raise HTTPException(status_code=403, detail="Teacher or admin access required")
+
+    result = await reembed_all_content()
+    return result

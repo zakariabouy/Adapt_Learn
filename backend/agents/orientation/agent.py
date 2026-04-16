@@ -15,26 +15,18 @@ import math
 import logging
 from uuid import UUID
 
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage, SystemMessage
 
+from shared.llm import get_rotating_llm
 from shared.database import get_pool
 from agents.orientation.schema import OrientationReportSchema
 from agents.orientation.prompt import SYSTEM_PROMPT
 
 logger = logging.getLogger(__name__)
 
-_llm = None
-
 
 def get_llm():
-    global _llm
-    if _llm is None:
-        _llm = ChatGoogleGenerativeAI(
-            model="gemini-2.5-flash",
-            google_api_key=os.getenv("GOOGLE_API_KEY"),
-        )
-    return _llm
+    return get_rotating_llm("gemini-2.5-flash")
 
 
 # ─────────────────────────────────────────────────────────────────────────────

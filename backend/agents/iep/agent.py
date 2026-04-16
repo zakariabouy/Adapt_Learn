@@ -9,8 +9,8 @@ from typing import Optional, List, Dict, Any
 from uuid import UUID
 
 logger = logging.getLogger(__name__)
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage
+from shared.llm import get_rotating_llm
 from shared.database import get_pool
 from shared.models import LearnerModel
 from shared.guardrails import run_output_guardrails, log_guardrail_event
@@ -21,13 +21,8 @@ from reportlab.graphics.shapes import Drawing
 from reportlab.graphics.charts.barcharts import VerticalBarChart
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
-_llm = None
-
 def get_llm():
-    global _llm
-    if _llm is None:
-        _llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", google_api_key=os.getenv("GOOGLE_API_KEY"))
-    return _llm
+    return get_rotating_llm("gemini-2.5-flash")
 
 async def get_student_stats(student_id: UUID) -> Dict[str, Any]:
     """Fetches the student's profile, recent sessions, and assessments."""

@@ -12,20 +12,17 @@ from shared.guardrails import (
     filter_unsafe_content,
 )
 import os
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage
 from elevenlabs.client import ElevenLabs
 
+from shared.llm import get_rotating_llm
+
 logger = logging.getLogger(__name__)
 
-_llm = None
 _eleven_client = None
 
 def get_llm():
-    global _llm
-    if _llm is None:
-        _llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", google_api_key=os.getenv("GOOGLE_API_KEY"))
-    return _llm
+    return get_rotating_llm("gemini-2.5-flash")
 
 def get_eleven_client():
     global _eleven_client

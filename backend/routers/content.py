@@ -14,8 +14,8 @@ from uuid import uuid4, UUID
 import datetime
 import json
 import os
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage
+from shared.llm import get_rotating_llm
 
 import io
 import pdfplumber
@@ -25,13 +25,8 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/content", tags=["Content"])
 
-_llm = None
-
 def get_llm():
-    global _llm
-    if _llm is None:
-        _llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", google_api_key=os.getenv("GOOGLE_API_KEY"))
-    return _llm
+    return get_rotating_llm("gemini-2.5-flash")
 
 @router.post("/upload")
 async def upload_content(file: UploadFile = File(...), current_user = Depends(get_current_user)):

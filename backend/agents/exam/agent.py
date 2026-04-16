@@ -4,9 +4,9 @@ import logging
 from typing import Optional
 from uuid import UUID
 
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage
 
+from shared.llm import get_rotating_llm
 from shared.database import get_pool
 from shared.rag import build_rag_context
 from shared.guardrails import (
@@ -24,17 +24,8 @@ from shared.models import (
 
 logger = logging.getLogger(__name__)
 
-_llm = None
-
-
 def get_llm():
-    global _llm
-    if _llm is None:
-        _llm = ChatGoogleGenerativeAI(
-            model="gemini-2.5-flash",
-            google_api_key=os.getenv("GOOGLE_API_KEY"),
-        )
-    return _llm
+    return get_rotating_llm("gemini-2.5-flash")
 
 
 async def _fetch_content_text(content_id: UUID) -> Optional[dict]:

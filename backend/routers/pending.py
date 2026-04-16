@@ -6,6 +6,7 @@ router is the teacher's review queue.
 """
 
 import json
+import logging
 from typing import Optional
 from uuid import UUID
 
@@ -15,6 +16,14 @@ from routers.teacher import get_current_teacher
 from shared.database import get_pool
 from shared.models import PendingActionStatus, PendingModifyRequest, PendingReviewRequest
 from shared.pending import serialize_pending_row
+from shared.guardrails import (
+    run_output_guardrails,
+    validate_exam_output,
+    check_content_safety,
+    log_guardrail_event,
+)
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/teacher/pending", tags=["HITL"])
 
@@ -119,6 +128,10 @@ async def approve_pending_action(
         notes,
         pending_id,
     )
+
+    # ── Side-effects: deliver the approved artifact downstream ──
+    await _deliver_approved_action(updated)
+
     return serialize_pending_row(updated)
 
 
@@ -165,6 +178,54 @@ async def modify_pending_action(
             detail=f"Cannot modify action in status '{row['status']}'",
         )
 
+    # ── Guardrail: validate the teacher's edits ──
+    guardrail_warnings = []
+    action_type = row["action_type"]
+    new_payload = request.payload
+
+    # 1. Content safety check on the full serialized payload
+    payload_text = json.dumps(new_payload)
+    output_check = await run_output_guardrails(
+        payload_text,
+        endpoint=f"/teacher/pending/{pending_id}/modify",
+    )
+    if not output_check["safe"]:
+        # Critical content issues → block the edit
+        await log_guardrail_event(
+            event_type="content_safety",
+            severity="critical",
+            action_taken="blocked",
+            user_id=current_teacher["id"],
+            endpoint=f"/teacher/pending/{pending_id}/modify",
+            output_snippet=payload_text[:500],
+            details={"issues": output_check["issues"]},
+        )
+        raise HTTPException(
+            status_code=400,
+            detail="Your edits were flagged by content safety guardrails. "
+                   "Please review and remove any inappropriate content.",
+        )
+    if output_check["issues"]:
+        guardrail_warnings.extend(
+            [f"{i['type']}: {i.get('severity', '')}" for i in output_check["issues"]]
+        )
+
+    # 2. Domain-specific validation for exam payloads
+    if action_type == "exam_generation" and "exam" in new_payload:
+        exam_validation = validate_exam_output(new_payload["exam"])
+        if not exam_validation["valid"]:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Exam validation failed: {'; '.join(exam_validation['errors'])}",
+            )
+        if exam_validation.get("warnings"):
+            guardrail_warnings.extend(exam_validation["warnings"])
+
+    if guardrail_warnings:
+        logger.info(
+            "Modify guardrail warnings for %s: %s", pending_id, guardrail_warnings
+        )
+
     # Keep the very first original payload so repeated edits don't overwrite it.
     original = row["original_payload"]
     if original is None:
@@ -191,4 +252,57 @@ async def modify_pending_action(
         request.reviewer_notes,
         pending_id,
     )
-    return serialize_pending_row(updated)
+    result = serialize_pending_row(updated)
+    if guardrail_warnings:
+        result["guardrail_warnings"] = guardrail_warnings
+    return result
+
+
+# ─── Delivery side-effects ────────────────────────────────────────────────────
+
+async def _deliver_approved_action(row) -> None:
+    """When a teacher approves a pending action, deliver it downstream.
+
+    - exam_generation → insert into student_exams
+    - orientation_report → (placeholder: could email parents)
+    - iep_report → (placeholder: archive in student records)
+    """
+    pool = await get_pool()
+    action_type = row["action_type"]
+    student_id = row["student_id"]
+    teacher_id = row["teacher_id"]
+    payload = row["payload"]
+    if isinstance(payload, str):
+        payload = json.loads(payload)
+
+    try:
+        if action_type == "exam_generation":
+            content_id = row["content_id"]
+            await pool.execute(
+                """
+                INSERT INTO student_exams
+                    (student_id, teacher_id, content_id, pending_action_id, exam_data)
+                VALUES ($1, $2, $3, $4, $5)
+                """,
+                student_id,
+                teacher_id,
+                content_id,
+                row["id"],
+                json.dumps(payload.get("exam", payload)),
+            )
+            logger.info("Exam delivered to student %s from pending %s", student_id, row["id"])
+
+        elif action_type == "orientation_report":
+            logger.info(
+                "Orientation report approved for student %s — ready for parent delivery.",
+                student_id,
+            )
+
+        elif action_type == "iep_report":
+            logger.info(
+                "IEP report approved for student %s — archived.",
+                student_id,
+            )
+
+    except Exception as e:
+        logger.error("Failed to deliver approved action %s: %s", row["id"], e)

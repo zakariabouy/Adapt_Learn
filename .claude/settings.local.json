@@ -27,7 +27,8 @@
       "Bash(python3 -c \"import sys; print\\(sys.prefix\\)\")",
       "Read(//Users/daoudiadam/.claude/**)",
       "Bash(curl -sf http://localhost:8000/auth/login -X POST -H \"Content-Type: application/json\" -d '{\"email\":\"teacher@enset.edu\",\"password\":\"password123\"}')",
-      "Bash(curl -s -X POST http://localhost:8000/auth/login -H \"Content-Type: application/json\" -d '{\"email\":\"teacher@enset.edu\",\"password\":\"password123\"}')"
+      "Bash(curl -s -X POST http://localhost:8000/auth/login -H \"Content-Type: application/json\" -d '{\"email\":\"teacher@enset.edu\",\"password\":\"password123\"}')",
+      "Bash(curl -s -X POST http://localhost:8000/auth/login -H \"Content-Type: application/json\" -H \"Origin: http://localhost:3000\" -d '{\"email\":\"teacher@enset.edu\",\"password\":\"password123\"}' -v)"
     ]
   }
 }

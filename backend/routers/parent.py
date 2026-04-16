@@ -157,9 +157,12 @@ async def get_child_dashboard(child_id: UUID, parent=Depends(get_current_parent)
         "child_id": str(child_id),
         "profile": {
             "learning_tags": profile.get("learning_tags", []),
+            "tag_strength": profile.get("tag_strength", {}),
             "preferred_modality": profile.get("preferred_modality", "text"),
             "ability_estimate": round(ability, 2),
             "reading_speed_wpm": profile.get("reading_speed_wpm", 0),
+            "bartle_type": profile.get("bartle_type"),
+            "bartle_scores": profile.get("bartle_scores"),
         },
         "gamification": {
             "xp": gam["current_xp"] if gam else 0,

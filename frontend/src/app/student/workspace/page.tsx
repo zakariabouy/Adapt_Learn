@@ -313,10 +313,10 @@ function TopNavBar({ studentId, onLogout }: { studentId: string | null, onLogout
         <Brain size={18} className="text-primary" />
         <span className="text-sm font-bold tracking-tight text-on-surface">AdaptLearn</span>
       </div>
-      <nav className="hidden md:flex gap-6 items-center text-sm" aria-label="Main Navigation">
-        <a className="text-on-surface font-medium border-b border-primary pb-0.5" href="/student/workspace">Workspace</a>
-        <a className="text-on-surface-variant hover:text-on-surface transition-colors" href="/student/profile">Profile</a>
-        <a className="text-on-surface-variant hover:text-on-surface transition-colors" href="/student/games/memory">Games</a>
+      <nav className="hidden md:flex gap-8 items-center font-headline font-medium text-sm tracking-tight" aria-label="Main Navigation">
+        <a className="text-on-surface border-b-2 border-primary pb-1" href="/student/workspace">Workspace</a>
+        <a className="text-on-surface-variant hover:text-on-surface pb-1 transition-all" href="/student/profile">Profile</a>
+        <a className="text-on-surface-variant hover:text-on-surface pb-1 transition-all" href="/student/games">Games</a>
       </nav>
       <div className="flex items-center gap-3">
         <span className="text-[11px] text-on-surface-variant/40 hidden lg:block tabular-nums">

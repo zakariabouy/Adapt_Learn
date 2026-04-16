@@ -19,6 +19,13 @@ interface Card {
   matched: boolean;
 }
 
+interface GameResult {
+  xp_earned?: number;
+  bartle_type?: string;
+  tag_changes?: Record<string, unknown>;
+  error?: boolean;
+}
+
 function shuffleCards(): Card[] {
   const emojis = [...EMOJI_PAIRS, ...EMOJI_PAIRS]; // 16 cards (8 pairs)
   for (let i = emojis.length - 1; i > 0; i--) {
@@ -37,7 +44,7 @@ export default function MemoryGame() {
   const [matches, setMatches] = useState(0);
   const [attempts, setAttempts] = useState(0);
   const [timeElapsed, setTimeElapsed] = useState(0);
-  const [gameResult, setGameResult] = useState<Record<string, unknown> | null>(null);
+  const [gameResult, setGameResult] = useState<GameResult | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lockRef = useRef(false);
   const startTimeRef = useRef(0);
@@ -46,8 +53,25 @@ export default function MemoryGame() {
   const headers = { Authorization: `Bearer ${token}` };
 
   useEffect(() => {
-    if (!token) router.push('/auth/login');
-  }, [token, router]);
+    if (!token) {
+      router.push('/auth/login');
+      return;
+    }
+    // Verify role is student — games require a student account
+    axios.get(`${API_URL}/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => {
+        if (res.data?.role !== 'student') {
+          // Wrong role — likely a stale parent/teacher/admin token
+          localStorage.removeItem('token');
+          router.push('/auth/login');
+        }
+      })
+      .catch(() => {
+        localStorage.removeItem('token');
+        router.push('/auth/login');
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
 
   // Timer
   useEffect(() => {
@@ -89,7 +113,14 @@ export default function MemoryGame() {
       }, { headers });
       setGameResult(res.data);
     } catch (err) {
+      const status = axios.isAxiosError(err) ? err.response?.status : undefined;
       console.error('Failed to submit game result', err);
+      if (status === 401 || status === 403) {
+        // Stale or non-student token — send back to login
+        localStorage.removeItem('token');
+        router.push('/auth/login');
+        return;
+      }
       setGameResult({ error: true });
     }
     setPhase('results');
@@ -312,11 +343,11 @@ export default function MemoryGame() {
               </div>
 
               {/* Profile impact */}
-              {gameResult && !('error' in gameResult) && (
+              {gameResult && !gameResult.error && (
                 <div className="p-4 rounded-xl bg-primary/5 border border-primary/10 mb-6 text-left">
                   <p className="text-xs font-label font-bold text-primary uppercase tracking-widest mb-2">Profile Updated</p>
-                  {gameResult.xp_earned && (
-                    <p className="text-sm text-on-surface">+{gameResult.xp_earned as number} XP earned</p>
+                  {gameResult.xp_earned !== undefined && (
+                    <p className="text-sm text-on-surface">+{gameResult.xp_earned} XP earned</p>
                   )}
                   {gameResult.bartle_type && (
                     <p className="text-sm text-on-surface-variant mt-1">
@@ -327,9 +358,9 @@ export default function MemoryGame() {
                       }</span>
                     </p>
                   )}
-                  {gameResult.tag_changes && Object.keys(gameResult.tag_changes as object).length > 0 && (
+                  {gameResult.tag_changes && Object.keys(gameResult.tag_changes).length > 0 && (
                     <p className="text-xs text-on-surface-variant/60 mt-1">
-                      Learning tags adjusted: {Object.keys(gameResult.tag_changes as object).join(', ')}
+                      Learning tags adjusted: {Object.keys(gameResult.tag_changes).join(', ')}
                     </p>
                   )}
                 </div>

@@ -201,6 +201,25 @@ Return ONLY the JSON object."""
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Robust JSON extraction — Gemini occasionally wraps output or adds prose
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _extract_json_payload(raw: str) -> str:
+    """Best-effort extraction of a JSON object from an LLM response."""
+    s = raw.strip()
+    # Strip code fences ```json ... ``` or ``` ... ```
+    fence = re.match(r"^```(?:json)?\s*(.*?)\s*```\s*$", s, re.DOTALL)
+    if fence:
+        s = fence.group(1).strip()
+    # Slice from first { to last } (handles prose before/after)
+    start = s.find("{")
+    end = s.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        s = s[start : end + 1]
+    return s
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Main entry
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -244,12 +263,7 @@ async def personalize_content(
     try:
         response = await get_llm().ainvoke([HumanMessage(content=prompt)])
         raw = response.content.strip()
-
-        # Strip accidental code fences
-        if raw.startswith("```"):
-            raw = raw.split("```", 2)[1].lstrip("json\n").strip()
-            if raw.endswith("```"):
-                raw = raw.rsplit("```", 1)[0].strip()
+        raw = _extract_json_payload(raw)
 
         check = validate_json_output(
             raw, required_keys=["child_content", "quiz", "parent_summary"]

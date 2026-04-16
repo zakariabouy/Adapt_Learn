@@ -211,20 +211,44 @@ async def get_student_growth(student_id: UUID, current_teacher = Depends(get_cur
 
 @router.get("/reports/{student_id}")
 async def get_student_report(student_id: UUID, current_teacher = Depends(get_current_teacher)):
+    """Generates an IEP report and enqueues it for HITL review."""
+    pool = await get_pool()
+
+    # Verify link
+    link = await pool.fetchrow(
+        "SELECT 1 FROM teacher_student_link WHERE teacher_id = $1 AND student_id = $2",
+        current_teacher["id"], student_id
+    )
+    if not link:
+        raise HTTPException(status_code=403, detail="Student not linked to this teacher")
+
     # Trigger IEP Agent to generate report
-    report = await generate_iep_report(student_id, current_teacher["id"])
-    
-    # Check if PDF was generated successfully
-    pdf_path = report.get("pdf_path")
-    if pdf_path and os.path.exists(pdf_path):
-        return FileResponse(
-            pdf_path, 
-            media_type="application/pdf", 
-            filename=f"IEP_Report_{student_id}.pdf"
-        )
-    
-    # Fallback to markdown if PDF generation failed
-    return {"markdown": report["markdown"]}
+    try:
+        report = await generate_iep_report(student_id, current_teacher["id"])
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"IEP generation failed: {str(e)}")
+
+    # Enqueue into the HITL review queue instead of returning directly
+    pending = await enqueue_pending_action(
+        action_type="iep_report",
+        teacher_id=current_teacher["id"],
+        payload={
+            "student_name": report.get("stats", {}).get("student_name", "Unknown"),
+            "week": datetime.now().strftime("%Y-W%W"),
+            "auto_generated": True,
+            "markdown": report["markdown"],
+            "stats_summary": report.get("stats", {}),
+            "pdf_path": report.get("pdf_path"),
+        },
+        student_id=student_id,
+    )
+
+    return {
+        "status": "pending_review",
+        "pending_id": pending["id"],
+        "message": "IEP report generated — awaiting teacher approval in the review desk.",
+        "report_preview": report["markdown"][:500] + "…" if len(report["markdown"]) > 500 else report["markdown"],
+    }
 
 @router.get("/student/{student_id}/orientation")
 async def get_student_orientation(student_id: UUID, current_teacher = Depends(get_current_teacher)):

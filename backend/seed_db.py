@@ -21,6 +21,7 @@ async def seed():
         "migrations/006_rag_vectors.sql",
         "migrations/007_guardrails.sql",
         "migrations/008_pending_actions.sql",
+        "migrations/009_student_exams.sql",
     ]
 
     for m in migration_files:

@@ -378,3 +378,163 @@ async def list_student_exams(current_user=Depends(get_current_user)):
             "completed_at": r["completed_at"].isoformat() if r["completed_at"] else None,
         })
     return result
+
+
+class ExamAnswers(BaseModel):
+    answers: dict  # {question_number: selected_option_id}
+
+
+@router.post("/exams/{exam_id}/start")
+async def start_exam(exam_id: UUID, current_user=Depends(get_current_user)):
+    """Marks an exam as in_progress."""
+    if current_user["role"] != "student":
+        raise HTTPException(status_code=403, detail="Only students can take exams")
+
+    pool = await get_pool()
+    row = await pool.fetchrow(
+        "SELECT id, status FROM student_exams WHERE id = $1 AND student_id = $2",
+        exam_id, current_user["id"],
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Exam not found")
+    if row["status"] == "completed":
+        raise HTTPException(status_code=409, detail="Exam already completed")
+
+    await pool.execute(
+        "UPDATE student_exams SET status = 'in_progress', started_at = NOW() WHERE id = $1",
+        exam_id,
+    )
+    return {"status": "in_progress"}
+
+
+@router.post("/exams/{exam_id}/submit")
+async def submit_exam(
+    exam_id: UUID,
+    body: ExamAnswers,
+    current_user=Depends(get_current_user),
+):
+    """Submit exam answers, auto-grade MCQ, update IRT theta, award XP."""
+    if current_user["role"] != "student":
+        raise HTTPException(status_code=403, detail="Only students can submit exams")
+
+    pool = await get_pool()
+    row = await pool.fetchrow(
+        "SELECT * FROM student_exams WHERE id = $1 AND student_id = $2",
+        exam_id, current_user["id"],
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Exam not found")
+    if row["status"] == "completed":
+        raise HTTPException(status_code=409, detail="Exam already submitted")
+
+    exam_data = row["exam_data"]
+    if isinstance(exam_data, str):
+        exam_data = json.loads(exam_data)
+
+    questions = exam_data.get("questions", [])
+    if not questions:
+        raise HTTPException(status_code=400, detail="Exam has no questions")
+
+    # ── Auto-grade MCQ answers ──
+    total_points = 0
+    earned_points = 0
+    results = []
+
+    for q in questions:
+        qnum = str(q.get("question_number", ""))
+        q_type = q.get("question_type", "mcq")
+        points = q.get("points", 1)
+        total_points += points
+
+        student_answer = body.answers.get(qnum, body.answers.get(int(qnum) if qnum.isdigit() else qnum, ""))
+        correct = q.get("correct_answer", "")
+
+        if q_type == "mcq":
+            is_correct = str(student_answer).strip().upper() == str(correct).strip().upper()
+            if is_correct:
+                earned_points += points
+        else:
+            # Open questions: give partial credit (teacher can re-grade later)
+            is_correct = bool(student_answer and len(str(student_answer).strip()) > 10)
+            if is_correct:
+                earned_points += max(1, points // 2)
+
+        results.append({
+            "question_number": q.get("question_number"),
+            "student_answer": student_answer,
+            "correct_answer": correct,
+            "is_correct": is_correct,
+            "points_earned": points if (q_type == "mcq" and is_correct) else (max(1, points // 2) if is_correct else 0),
+            "explanation": q.get("explanation", ""),
+        })
+
+    score = earned_points / total_points if total_points > 0 else 0.0
+
+    # ── IRT theta update (simplified 1PL) ──
+    profile_row = await pool.fetchrow(
+        "SELECT profile_data FROM learner_profiles WHERE student_id = $1",
+        current_user["id"],
+    )
+    theta_before = 0.0
+    if profile_row:
+        profile = json.loads(profile_row["profile_data"])
+        theta_before = profile.get("ability_estimate", 0.0)
+
+    # Simple theta adjustment: +0.3 for high scores, -0.2 for low
+    if score >= 0.8:
+        theta_after = theta_before + 0.3
+    elif score >= 0.5:
+        theta_after = theta_before + 0.1
+    else:
+        theta_after = theta_before - 0.2
+
+    theta_after = max(-3.0, min(3.0, theta_after))
+
+    # Update learner profile with new theta
+    if profile_row:
+        profile["ability_estimate"] = round(theta_after, 2)
+        await pool.execute(
+            "UPDATE learner_profiles SET profile_data = $1 WHERE student_id = $2",
+            json.dumps(profile), current_user["id"],
+        )
+
+    # ── Save exam results ──
+    await pool.execute(
+        """
+        UPDATE student_exams
+        SET status = 'completed',
+            score = $1,
+            answers = $2::jsonb,
+            theta_before = $3,
+            theta_after = $4,
+            completed_at = NOW()
+        WHERE id = $5
+        """,
+        score,
+        json.dumps(body.answers),
+        theta_before,
+        theta_after,
+        exam_id,
+    )
+
+    # ── Award XP ──
+    xp_earned = max(10, round(score * 50))
+    try:
+        async with pool.acquire() as conn:
+            async with conn.transaction():
+                xp_result = await _apply_xp(conn, current_user["id"], xp_earned, "exam_completion")
+    except Exception as e:
+        logger.warning("XP award failed for exam %s: %s", exam_id, e)
+        xp_result = {}
+
+    return {
+        "score": round(score, 2),
+        "earned_points": earned_points,
+        "total_points": total_points,
+        "percentage": round(score * 100),
+        "theta_before": round(theta_before, 2),
+        "theta_after": round(theta_after, 2),
+        "xp_earned": xp_earned,
+        "gamification": xp_result,
+        "results": results,
+    }

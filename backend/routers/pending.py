@@ -277,22 +277,6 @@ async def _deliver_approved_action(row) -> None:
 
     try:
         if action_type == "exam_generation":
-            # Create the student_exams table row so the student can access it
-            await pool.execute(
-                """
-                CREATE TABLE IF NOT EXISTS student_exams (
-                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                    student_id UUID REFERENCES users(id) ON DELETE CASCADE,
-                    teacher_id UUID REFERENCES users(id),
-                    content_id UUID REFERENCES content_items(id) ON DELETE SET NULL,
-                    pending_action_id UUID REFERENCES pending_actions(id),
-                    exam_data JSONB NOT NULL,
-                    status TEXT NOT NULL DEFAULT 'assigned',
-                    assigned_at TIMESTAMPTZ DEFAULT NOW(),
-                    completed_at TIMESTAMPTZ
-                )
-                """
-            )
             content_id = row["content_id"]
             await pool.execute(
                 """

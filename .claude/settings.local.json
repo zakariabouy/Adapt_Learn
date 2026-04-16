@@ -52,7 +52,14 @@
       "Bash(taskkill //F //FI \"WINDOWTITLE eq *uvicorn*\")",
       "Bash(taskkill //F //FI \"IMAGENAME eq python.exe\")",
       "Bash(curl -s -o /dev/null -w \"Memory game: %{http_code}\\\\n\" http://localhost:3000/student/games/memory)",
-      "Bash(curl -s -o /dev/null -w \"Profile page: %{http_code}\\\\n\" http://localhost:3000/student/profile)"
+      "Bash(curl -s -o /dev/null -w \"Profile page: %{http_code}\\\\n\" http://localhost:3000/student/profile)",
+      "Bash(curl -s -X POST http://localhost:8000/auth/login -H \"Content-Type: application/json\" -d '{\"email\":\"lina@student.com\",\"password\":\"password123\"}')",
+      "Bash(cat .env)",
+      "Bash(cat .env.example)",
+      "Bash(curl *)",
+      "Bash(tasklist)",
+      "Bash(taskkill //F //PID 1456)",
+      "Bash(npx next *)"
     ]
   }
 }

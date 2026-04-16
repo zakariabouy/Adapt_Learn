@@ -39,7 +39,7 @@ async def seed():
     teacher_email = "teacher@enset.edu"
     print(f"Seeding teacher: {teacher_email}")
     await pool.execute(
-        "INSERT INTO users (id, email, role, hashed_password, name) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (email) DO NOTHING",
+        "INSERT INTO users (id, email, role, hashed_password, name) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (email) DO UPDATE SET hashed_password = EXCLUDED.hashed_password",
         uuid4(), teacher_email, "teacher", hashed_password, "Mme. Fatima"
     )
     teacher_id = (await pool.fetchrow("SELECT id FROM users WHERE email = $1", teacher_email))["id"]
@@ -81,7 +81,7 @@ async def seed():
         print(f"Seeding student: {s['name']} (Grade {s['grade']})")
         await pool.execute(
             "INSERT INTO users (id, email, role, hashed_password, name, grade_level) "
-            "VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (email) DO NOTHING",
+            "VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (email) DO UPDATE SET hashed_password = EXCLUDED.hashed_password",
             uuid4(), s["email"], "student", hashed_password, s["name"], s["grade"]
         )
         s_id = (await pool.fetchrow("SELECT id FROM users WHERE email = $1", s["email"]))["id"]
@@ -158,7 +158,7 @@ async def seed():
     parent_email = "parent@family.com"
     print(f"Seeding parent: {parent_email}")
     await pool.execute(
-        "INSERT INTO users (id, email, role, hashed_password, name) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (email) DO NOTHING",
+        "INSERT INTO users (id, email, role, hashed_password, name) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (email) DO UPDATE SET hashed_password = EXCLUDED.hashed_password",
         uuid4(), parent_email, "parent", hashed_password, "M. Khalid"
     )
     parent_id = (await pool.fetchrow("SELECT id FROM users WHERE email = $1", parent_email))["id"]
@@ -200,7 +200,7 @@ async def seed():
     admin_email = "admin@enset.edu"
     print(f"Seeding admin: {admin_email}")
     await pool.execute(
-        "INSERT INTO users (id, email, role, hashed_password, name) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (email) DO NOTHING",
+        "INSERT INTO users (id, email, role, hashed_password, name) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (email) DO UPDATE SET hashed_password = EXCLUDED.hashed_password",
         uuid4(), admin_email, "admin", hashed_password, "Admin ENSET"
     )
 

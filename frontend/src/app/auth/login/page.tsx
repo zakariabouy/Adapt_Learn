@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { API_URL } from '@/lib/api';
-import { Brain, AtSign, Lock, GraduationCap, Presentation, Loader2, ArrowRight } from 'lucide-react';
+import { Brain, AtSign, Lock, Loader2, ArrowRight } from 'lucide-react';
 import { AestheticBackground, GlassCard, MacWindowHeader } from '@/components/ui/Layout';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
@@ -13,7 +13,6 @@ export default function Login() {
   const { register, handleSubmit, formState: { errors } } = useForm();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [role, setRole] = useState<'student' | 'teacher'>('student');
   const router = useRouter();
 
   const onSubmit = async (data: any) => {
@@ -152,16 +151,9 @@ export default function Login() {
                   </p>
                 </div>
 
-                <div className="flex gap-3">
-                  <button onClick={() => setRole('student')} className={`px-5 py-2 border rounded-full text-xs font-label transition-all flex items-center gap-2 ${role === 'student' ? 'bg-primary/10 border-primary/40 text-primary' : 'bg-surface-container/50 border-outline-variant/10 text-on-surface-variant hover:bg-surface-container-high'}`}>
-                    <GraduationCap className="w-4 h-4" />
-                    Student Portal
-                  </button>
-                  <button onClick={() => setRole('teacher')} className={`px-5 py-2 border rounded-full text-xs font-label transition-all flex items-center gap-2 ${role === 'teacher' ? 'bg-primary/10 border-primary/40 text-primary' : 'bg-surface-container-high border-primary/40 text-on-surface'}`}>
-                    <Presentation className="w-4 h-4" />
-                    Teacher Portal
-                  </button>
-                </div>
+                <p className="text-xs text-on-surface-variant/50">
+                  All roles (Student, Teacher, Parent, Admin) use the same login.
+                </p>
               </div>
             </div>
           </GlassCard>

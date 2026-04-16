@@ -316,9 +316,9 @@ function TopNavBar({ studentId, onLogout }: { studentId: string | null, onLogout
         AdaptLearn
       </div>
       <nav className="hidden md:flex gap-8 items-center font-headline font-medium text-sm tracking-tight" aria-label="Main Navigation">
-        <a className="text-on-surface border-b-2 border-primary pb-1" href="#">Workspace</a>
-        <a className="text-on-surface-variant hover:text-on-surface pb-1 transition-all" href="#">Curriculum</a>
-        <a className="text-on-surface-variant hover:text-on-surface pb-1 transition-all" href="#">Library</a>
+        <a className="text-on-surface border-b-2 border-primary pb-1" href="/student/workspace">Workspace</a>
+        <a className="text-on-surface-variant hover:text-on-surface pb-1 transition-all" href="/student/profile">Profile</a>
+        <a className="text-on-surface-variant hover:text-on-surface pb-1 transition-all" href="/student/games/memory">Games</a>
       </nav>
       <div className="flex items-center gap-4">
         <button onClick={onLogout} aria-label="Logout" className="text-on-surface-variant hover:text-red-400 p-2 rounded-full transition-all flex items-center gap-2">
@@ -328,7 +328,9 @@ function TopNavBar({ studentId, onLogout }: { studentId: string | null, onLogout
         <div className="text-[10px] font-bold text-on-surface-variant/40 uppercase tracking-widest hidden lg:block">
             SID: {studentId?.substring(0, 8)}
         </div>
-        <img alt="User Avatar" className="w-8 h-8 rounded-full border border-outline-variant object-cover" src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=100&q=80" />
+        <div className="w-8 h-8 rounded-full border border-outline-variant bg-primary/20 flex items-center justify-center text-primary font-bold text-xs">
+          {studentId?.substring(0, 2).toUpperCase() || '??'}
+        </div>
       </div>
     </header>
   );

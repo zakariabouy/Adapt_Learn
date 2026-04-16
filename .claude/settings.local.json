@@ -24,7 +24,8 @@
       "Bash(python3 -m py_compile routers/pending.py)",
       "Bash(python3 -m py_compile routers/pending.py main.py)",
       "Bash(python3 -c \"import main; print\\('Import OK'\\); print\\([r.path for r in main.app.routes if '/teacher/pending' in r.path or '/exam' in r.path]\\)\")",
-      "Bash(python3 -c \"import sys; print\\(sys.prefix\\)\")"
+      "Bash(python3 -c \"import sys; print\\(sys.prefix\\)\")",
+      "Read(//Users/daoudiadam/.claude/**)"
     ]
   }
 }

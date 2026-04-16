@@ -4,7 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Users, BookOpen, BarChart2, AlertTriangle,
-  Search, FileUp, LogOut, FileText, Activity, Zap, X, TrendingUp, UserPlus
+  Search, FileUp, LogOut, FileText, Activity, Zap, X, TrendingUp, UserPlus,
+  ShieldCheck
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
@@ -166,6 +167,18 @@ export default function TeacherDashboard() {
             <BookOpen size={20} />
             <span className="font-label text-sm">Library</span>
           </button>
+          <button
+            onClick={() => router.push('/teacher/pending')}
+            className="w-full flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-white/5 rounded-xl transition-all duration-200 text-left relative"
+          >
+            <ShieldCheck size={20} />
+            <span className="font-label text-sm">Review Queue</span>
+            {(cohortStats?.pendingReviews ?? 0) > 0 && (
+              <span className="ml-auto inline-flex items-center justify-center min-w-[1.5rem] h-6 px-2 rounded-full bg-primary text-on-primary text-xs font-bold tabular-nums">
+                {cohortStats.pendingReviews}
+              </span>
+            )}
+          </button>
           <a href="#" className="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-white/5 rounded-xl transition-all duration-200">
             <BarChart2 size={20} />
             <span className="font-label text-sm">Analytics</span>
@@ -180,6 +193,38 @@ export default function TeacherDashboard() {
       </aside>
 
       <main className="ml-64 flex-1 p-8 lg:p-12 overflow-y-auto">
+        {(cohortStats?.pendingReviews ?? 0) > 0 && (
+          <motion.button
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            onClick={() => router.push('/teacher/pending')}
+            className="w-full mb-8 flex items-center gap-5 px-6 py-5 rounded-2xl border-2 border-primary/30 bg-primary/10 hover:bg-primary/15 transition-all text-left group"
+          >
+            <div className="p-3 rounded-xl bg-primary/20 text-primary">
+              <ShieldCheck size={24} />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-xs font-bold uppercase tracking-widest text-primary">Human-in-the-loop</span>
+                <span className="inline-flex items-center justify-center min-w-[1.75rem] h-5 px-2 rounded-full bg-primary text-on-primary text-[0.65rem] font-black tabular-nums">
+                  {cohortStats.pendingReviews}
+                </span>
+              </div>
+              <p className="font-headline font-bold text-lg text-on-surface">
+                {cohortStats.pendingReviews === 1
+                  ? 'An AI-drafted item is awaiting your review.'
+                  : `${cohortStats.pendingReviews} AI-drafted items are awaiting your review.`}
+              </p>
+              <p className="text-xs text-on-surface-variant/80 mt-0.5">
+                Exams, orientation reports, and weekly plans cannot reach students or parents until you sign off.
+              </p>
+            </div>
+            <div className="text-primary font-label text-xs uppercase tracking-widest opacity-60 group-hover:opacity-100 transition-opacity">
+              Open the desk →
+            </div>
+          </motion.button>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
           <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-surface-container-high p-6 rounded-2xl border border-outline-variant/10 shadow-sm">

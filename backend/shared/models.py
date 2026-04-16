@@ -172,6 +172,7 @@ class PendingActionType(str, Enum):
     orientation_report = "orientation_report"
     iep_report = "iep_report"
     content_adaptation = "content_adaptation"
+    personalization = "personalization"
 
 class PendingActionStatus(str, Enum):
     pending = "pending"

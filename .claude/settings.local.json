@@ -81,7 +81,17 @@
       "Bash(./.venv/Scripts/python.exe -c \"import pptx; print\\('pptx version:', pptx.__version__\\)\")",
       "Bash(./.venv/Scripts/python.exe -m pip install python-pptx==1.0.2)",
       "Bash(./.venv/Scripts/python.exe -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload)",
-      "Bash(docker cp *)"
+      "Bash(docker cp *)",
+      "Bash(./.venv/Scripts/python.exe -c \"from routers.adventure import router; print\\('adventure router OK, routes:', [r.path for r in router.routes]\\)\")",
+      "Bash(mermaid\" \"C:/Users/zikob/OneDrive/Desktop/enset-challenge-submission-2IE/README.md\")",
+      "Bash(grep -c \"```mermaid\" \"C:/Users/zikob/OneDrive/Desktop/enset-challenge-submission-2IE/README.md\")",
+      "Bash(tasklist //FI \"PID eq 30624\" //FO CSV)",
+      "Bash(nohup python *)",
+      "Bash(echo \"Started with PID $!\")",
+      "Bash(awk '{print $NF}')",
+      "Bash(ls /c/Users/zikob/OneDrive/Desktop/enset-challenge-submission-2IE/backend/agents/*/*.py)",
+      "Bash(python -m uvicorn main:app --host 0.0.0.0 --port 8000)",
+      "Bash(echo \"started pid=$!\")"
     ]
   }
 }

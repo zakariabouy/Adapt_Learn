@@ -27,7 +27,8 @@ export type PendingActionType =
   | 'exam_generation'
   | 'orientation_report'
   | 'iep_report'
-  | 'content_adaptation';
+  | 'content_adaptation'
+  | 'personalization';
 
 export type PendingActionStatus = 'pending' | 'approved' | 'rejected' | 'modified';
 

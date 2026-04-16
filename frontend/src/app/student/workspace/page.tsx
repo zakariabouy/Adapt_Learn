@@ -7,7 +7,7 @@ import { API_URL } from '@/lib/api';
 import {
   ChevronLeft, ChevronRight, Brain,
   BookOpen, Headphones, Eye, Play, Pause,
-  Sparkles, Zap, LogOut, Loader2, ChevronDown, FileText
+  Sparkles, Zap, LogOut, Loader2, ChevronDown, FileText, Star, Check
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAdaptation } from '@/hooks/useAdaptation';
@@ -35,6 +35,8 @@ export default function Workspace() {
   const [isGeneratingVisual, setIsGeneratingVisual] = useState(false);
   const [contentList, setContentList] = useState<Array<{ id: string; title: string; subject: string; grade_level: number }>>([]);
   const [isLoadingContent, setIsLoadingContent] = useState(false);
+  const [feedbackSent, setFeedbackSent] = useState(false);
+  const [deliveryId, setDeliveryId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
 
   const router = useRouter();
@@ -107,12 +109,21 @@ export default function Workspace() {
     setCurrentChunk(0);
     setChunkSummary(null);
     setChunkVisual(null);
+    setFeedbackSent(false);
+    setDeliveryId(null);
     try {
       const res = await axios.get(`${API_URL}/student/workspace/${cid}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setChunks(res.data.chunks);
       setCssConfig(res.data.css_config);
+      // Try to fetch the approved delivery for this content (for feedback attachment)
+      try {
+        const delRes = await axios.get(`${API_URL}/student/delivery/${cid}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setDeliveryId(delRes.data?.delivery_id ?? null);
+      } catch { /* no delivery yet — fine */ }
     } catch (err) {
       console.error('Failed to load content', err);
       setChunks(['Failed to load this lesson. Please try again.']);
@@ -295,6 +306,9 @@ export default function Workspace() {
           chunkVisual={chunkVisual}
           isGeneratingVisual={isGeneratingVisual}
           progress={progress}
+          feedbackSent={feedbackSent}
+          onFeedbackSent={() => setFeedbackSent(true)}
+          deliveryId={deliveryId}
         />
         <AdaptationHUD
           isConnected={isConnected}
@@ -359,7 +373,7 @@ function TopNavBar({ studentId, onLogout, contentList, contentId, onSelectConten
   );
 }
 
-function ReadingZone({ chunks, currentChunk, nextChunk, prevChunk, cssConfig, title, contentId, router, chunkVisual, isGeneratingVisual, progress }: {
+function ReadingZone({ chunks, currentChunk, nextChunk, prevChunk, cssConfig, title, contentId, router, chunkVisual, isGeneratingVisual, progress, feedbackSent, onFeedbackSent, deliveryId }: {
   chunks: string[];
   currentChunk: number;
   nextChunk: () => void;
@@ -371,6 +385,9 @@ function ReadingZone({ chunks, currentChunk, nextChunk, prevChunk, cssConfig, ti
   chunkVisual: string | null;
   isGeneratingVisual: boolean;
   progress: number;
+  feedbackSent: boolean;
+  onFeedbackSent: () => void;
+  deliveryId: string | null;
 }) {
   return (
     <section className="w-full md:w-[70%] flex flex-col bg-surface overflow-y-auto transition-colors duration-500" aria-labelledby="lesson-title">
@@ -466,6 +483,18 @@ function ReadingZone({ chunks, currentChunk, nextChunk, prevChunk, cssConfig, ti
             </button>
           )}
         </div>
+
+        {/* Child feedback — shown on last chunk */}
+        {currentChunk === chunks.length - 1 && chunks.length > 0 && (
+          <div className="w-full max-w-3xl mt-6">
+            <ChildFeedbackPanel
+              contentId={contentId}
+              deliveryId={deliveryId}
+              feedbackSent={feedbackSent}
+              onFeedbackSent={onFeedbackSent}
+            />
+          </div>
+        )}
       </div>
     </section>
   );
@@ -632,5 +661,153 @@ function AdaptationHUD({
         <span className="text-xs font-medium text-on-surface-variant">{isSummarizing ? 'Thinking...' : 'Summarize this section'}</span>
       </button>
     </aside>
+  );
+}
+
+const FEEDBACK_TAGS = ['too_hard', 'too_easy', 'confusing', 'boring'] as const;
+const TAG_LABELS: Record<string, string> = {
+  too_hard: 'Too Hard',
+  too_easy: 'Too Easy',
+  confusing: 'Confusing',
+  boring: 'Boring',
+};
+
+function ChildFeedbackPanel({ contentId, deliveryId, feedbackSent, onFeedbackSent }: {
+  contentId: string;
+  deliveryId: string | null;
+  feedbackSent: boolean;
+  onFeedbackSent: () => void;
+}) {
+  const [rating, setRating] = useState(0);
+  const [hovered, setHovered] = useState(0);
+  const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
+  const [freeText, setFreeText] = useState('');
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const toggleTag = (tag: string) => {
+    setSelectedTags((prev) => {
+      const next = new Set(prev);
+      if (next.has(tag)) next.delete(tag);
+      else next.add(tag);
+      return next;
+    });
+  };
+
+  const handleSubmit = async () => {
+    if (rating === 0) return;
+    const token = localStorage.getItem('token');
+    setSending(true);
+    setError(null);
+    try {
+      await axios.post(
+        `${API_URL}/student/feedback`,
+        {
+          content_id: contentId,
+          rating,
+          tags: Array.from(selectedTags),
+          free_text: freeText.trim() || null,
+          delivery_id: deliveryId,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      onFeedbackSent();
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Could not send feedback.');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  if (feedbackSent) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="p-5 rounded-xl border border-outline-variant/10 bg-surface-container text-center"
+      >
+        <Check size={28} className="mx-auto text-green-400 mb-2" />
+        <p className="text-sm font-medium">Thanks for your feedback!</p>
+        <p className="text-xs text-on-surface-variant mt-1">Your teacher will use it to make future lessons even better.</p>
+      </motion.div>
+    );
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="p-5 rounded-xl border border-outline-variant/10 bg-surface-container"
+    >
+      <h3 className="text-sm font-medium mb-1">How was this lesson?</h3>
+      <p className="text-xs text-on-surface-variant mb-4">Your honest feedback helps the AI personalize better.</p>
+
+      {/* Star rating */}
+      <div className="flex items-center gap-1 mb-4" role="radiogroup" aria-label="Rating">
+        {[1, 2, 3, 4, 5].map((v) => (
+          <button
+            key={v}
+            onClick={() => setRating(v)}
+            onMouseEnter={() => setHovered(v)}
+            onMouseLeave={() => setHovered(0)}
+            aria-label={`${v} star${v > 1 ? 's' : ''}`}
+            className="p-1 transition-transform hover:scale-110"
+          >
+            <Star
+              size={26}
+              className={`transition-colors ${
+                v <= (hovered || rating)
+                  ? 'text-amber-400 fill-amber-400'
+                  : 'text-on-surface-variant/20'
+              }`}
+            />
+          </button>
+        ))}
+        {rating > 0 && (
+          <span className="ml-2 text-xs text-on-surface-variant tabular-nums">{rating}/5</span>
+        )}
+      </div>
+
+      {/* Tag chips */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        {FEEDBACK_TAGS.map((tag) => (
+          <button
+            key={tag}
+            onClick={() => toggleTag(tag)}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+              selectedTags.has(tag)
+                ? 'bg-primary/15 border-primary/30 text-primary'
+                : 'bg-surface-container-low border-outline-variant/10 text-on-surface-variant hover:border-primary/20'
+            }`}
+          >
+            {TAG_LABELS[tag]}
+          </button>
+        ))}
+      </div>
+
+      {/* Free text (optional) */}
+      <textarea
+        value={freeText}
+        onChange={(e) => setFreeText(e.target.value)}
+        placeholder="Anything else you want to say? (optional)"
+        rows={2}
+        maxLength={500}
+        className="w-full bg-surface-container-lowest border border-outline-variant/10 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-primary/30 outline-none transition-all resize-none mb-4"
+      />
+
+      {error && <p className="text-xs text-red-400 mb-3">{error}</p>}
+
+      <button
+        onClick={handleSubmit}
+        disabled={rating === 0 || sending}
+        className="px-5 py-2.5 bg-primary text-on-primary font-medium text-sm rounded-lg flex items-center gap-2 hover:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        {sending ? (
+          <><Loader2 size={14} className="animate-spin" /> Sending...</>
+        ) : (
+          'Send Feedback'
+        )}
+      </button>
+    </motion.div>
   );
 }

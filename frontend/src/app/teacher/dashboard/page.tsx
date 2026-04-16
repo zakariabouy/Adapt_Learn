@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Users, BookOpen, BarChart2, AlertTriangle,
   Search, FileUp, LogOut, FileText, Activity, Zap, X, TrendingUp, UserPlus,
-  ShieldCheck, Sparkles, Loader2, Shield, Compass
+  ShieldCheck, Sparkles, Loader2, Shield, Compass, Wand2, NotebookPen
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
@@ -33,6 +33,13 @@ export default function TeacherDashboard() {
   const [guardrailStats, setGuardrailStats] = useState<any>(null);
   const [orientationLoading, setOrientationLoading] = useState(false);
   const [orientationStatus, setOrientationStatus] = useState<{ kind: 'ok' | 'err' | 'pending' | 'approved'; msg: string } | null>(null);
+  const [observationText, setObservationText] = useState('');
+  const [observationSavedAt, setObservationSavedAt] = useState<string | null>(null);
+  const [observationSaving, setObservationSaving] = useState(false);
+  const [observationStatus, setObservationStatus] = useState<{ kind: 'ok' | 'err'; msg: string } | null>(null);
+  const [personalizeContentId, setPersonalizeContentId] = useState<string>('');
+  const [personalizeRunning, setPersonalizeRunning] = useState(false);
+  const [personalizeToast, setPersonalizeToast] = useState<{ kind: 'ok' | 'err'; msg: string } | null>(null);
   const router = useRouter();
 
   const fetchData = async () => {
@@ -113,6 +120,11 @@ export default function TeacherDashboard() {
     setSelectedStudent(student);
     setExamContentId('');
     setExamToast(null);
+    setPersonalizeContentId('');
+    setPersonalizeToast(null);
+    setObservationStatus(null);
+    setObservationText('');
+    setObservationSavedAt(null);
     const token = localStorage.getItem('token');
     try {
       const res = await axios.get(`${API_URL}/teacher/student/${student.id}/growth`, {
@@ -121,6 +133,63 @@ export default function TeacherDashboard() {
       setGrowthData(res.data);
     } catch (error) {
       console.error('Failed to fetch growth data', error);
+    }
+    try {
+      const obs = await axios.get(`${API_URL}/teacher/observations/${student.id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setObservationText(obs.data?.notes ?? '');
+      setObservationSavedAt(obs.data?.updated_at ?? null);
+    } catch (error: any) {
+      if (error?.response?.status !== 404) {
+        console.error('Failed to fetch observations', error);
+      }
+    }
+  };
+
+  const handleSaveObservation = async () => {
+    if (!selectedStudent) return;
+    const token = localStorage.getItem('token');
+    setObservationSaving(true);
+    setObservationStatus(null);
+    try {
+      const res = await axios.put(
+        `${API_URL}/teacher/observations/${selectedStudent.id}`,
+        { notes: observationText },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setObservationSavedAt(res.data?.updated_at ?? new Date().toISOString());
+      setObservationStatus({ kind: 'ok', msg: 'Observation saved. AI will use it on the next personalization.' });
+      setTimeout(() => setObservationStatus(null), 4000);
+    } catch (err: any) {
+      setObservationStatus({ kind: 'err', msg: err.response?.data?.detail || 'Save failed.' });
+    } finally {
+      setObservationSaving(false);
+    }
+  };
+
+  const handleTriggerPersonalize = async () => {
+    if (!selectedStudent || !personalizeContentId) return;
+    const token = localStorage.getItem('token');
+    setPersonalizeRunning(true);
+    setPersonalizeToast(null);
+    try {
+      const res = await axios.post(
+        `${API_URL}/teacher/personalize/${personalizeContentId}/${selectedStudent.id}`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const fidelity = typeof res.data?.fidelity_score === 'number' ? ` (fidelity ${res.data.fidelity_score.toFixed(2)})` : '';
+      setPersonalizeToast({
+        kind: 'ok',
+        msg: `Personalization drafted${fidelity}. Tap to review side-by-side.`,
+      });
+      fetchData();
+    } catch (err: any) {
+      setPersonalizeToast({ kind: 'err', msg: err.response?.data?.detail || 'Personalization failed.' });
+      setTimeout(() => setPersonalizeToast(null), 6000);
+    } finally {
+      setPersonalizeRunning(false);
     }
   };
 
@@ -592,6 +661,113 @@ export default function TeacherDashboard() {
                         }`}
                       >
                         {examToast.msg}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {/* Teacher Observations */}
+                <div className="mb-6 p-4 rounded-xl border border-outline-variant/10 bg-surface-container-low">
+                  <div className="flex items-center gap-2 mb-2">
+                    <NotebookPen size={14} className="text-primary" />
+                    <span className="text-sm font-medium">Observations</span>
+                    {observationSavedAt && (
+                      <span className="ml-auto text-[10px] text-on-surface-variant">
+                        saved {new Date(observationSavedAt).toLocaleDateString()}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-on-surface-variant mb-3 leading-relaxed">
+                    Shy in class, loves Pokemon, struggles with division... Your notes feed every future AI personalization.
+                  </p>
+                  <textarea
+                    value={observationText}
+                    onChange={(e) => setObservationText(e.target.value)}
+                    disabled={observationSaving}
+                    rows={4}
+                    placeholder="What does this child need you to remember?"
+                    className="w-full bg-surface-container-lowest border border-outline-variant/10 rounded-lg px-3 py-2.5 text-sm focus:ring-1 focus:ring-primary/30 outline-none transition-all resize-y disabled:opacity-50"
+                  />
+                  <div className="flex justify-end mt-2">
+                    <button
+                      onClick={handleSaveObservation}
+                      disabled={observationSaving}
+                      className="px-4 py-2 bg-primary/10 text-primary font-medium text-xs rounded-lg flex items-center gap-2 hover:bg-primary/20 transition-all disabled:opacity-40"
+                    >
+                      {observationSaving ? (
+                        <><Loader2 size={14} className="animate-spin" /> Saving...</>
+                      ) : (
+                        <><NotebookPen size={14} /> Save observation</>
+                      )}
+                    </button>
+                  </div>
+                  <AnimatePresence>
+                    {observationStatus && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0 }}
+                        className={`mt-3 text-xs font-medium px-3 py-2 rounded-lg ${
+                          observationStatus.kind === 'ok'
+                            ? 'bg-primary/10 text-primary'
+                            : 'bg-red-400/10 text-red-400'
+                        }`}
+                      >
+                        {observationStatus.msg}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {/* Personalize Lesson */}
+                <div className="mb-6 p-4 rounded-xl border border-outline-variant/10 bg-surface-container-low">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Wand2 size={14} className="text-primary" />
+                    <span className="text-sm font-medium">Personalize a Lesson</span>
+                  </div>
+                  <p className="text-xs text-on-surface-variant mb-3 leading-relaxed">
+                    Runs the 3-agent pipeline (Profiler / Personalizer / Critic). The child version and quiz draft land in your review queue.
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <select
+                      value={personalizeContentId}
+                      onChange={(e) => setPersonalizeContentId(e.target.value)}
+                      disabled={personalizeRunning}
+                      className="flex-1 bg-surface-container-lowest border border-outline-variant/10 rounded-lg px-3 py-2.5 text-sm focus:ring-1 focus:ring-primary/30 outline-none transition-all disabled:opacity-50"
+                    >
+                      <option value="">Select lesson...</option>
+                      {contentList.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.title}{c.subject ? ` — ${c.subject}` : ''}{c.grade_level ? ` (G${c.grade_level})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={handleTriggerPersonalize}
+                      disabled={!personalizeContentId || personalizeRunning}
+                      className="px-5 py-2.5 bg-primary text-on-primary font-medium text-xs rounded-lg flex items-center justify-center gap-2 hover:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {personalizeRunning ? (
+                        <><Loader2 size={14} className="animate-spin" /> Adapting...</>
+                      ) : (
+                        <><Wand2 size={14} /> Personalize</>
+                      )}
+                    </button>
+                  </div>
+                  <AnimatePresence>
+                    {personalizeToast && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => personalizeToast.kind === 'ok' ? router.push('/teacher/pending') : null}
+                        className={`mt-3 text-xs font-medium px-3 py-2 rounded-lg ${
+                          personalizeToast.kind === 'ok'
+                            ? 'bg-primary/10 text-primary cursor-pointer hover:bg-primary/15 transition-colors'
+                            : 'bg-red-400/10 text-red-400'
+                        }`}
+                      >
+                        {personalizeToast.msg}
                       </motion.div>
                     )}
                   </AnimatePresence>

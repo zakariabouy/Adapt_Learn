@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Check, X as RejectIcon, Pencil, Clock, FileText, Compass, GraduationCap, Bot } from 'lucide-react';
+import { ArrowLeft, Check, X as RejectIcon, Pencil, Clock, FileText, Compass, GraduationCap, Bot, Sparkles } from 'lucide-react';
 import { API_URL } from '@/lib/api';
 import { PendingAction, PendingActionStatus, PendingActionType } from '@/types/models';
 
@@ -30,6 +30,11 @@ const ACTION_META: Record<PendingActionType, { label: string; icon: React.ReactN
     label: 'Adaptation',
     icon: <FileText size={16} strokeWidth={1.5} />,
     blurb: 'A content rewrite proposed by the adaptation agent.',
+  },
+  personalization: {
+    label: 'Personalisation',
+    icon: <Sparkles size={16} strokeWidth={1.5} />,
+    blurb: 'A three-agent bundle: child lesson, quiz, and parent summary — awaiting your sign-off.',
   },
 };
 
@@ -271,11 +276,169 @@ function IEPPreview({ payload }: { payload: Record<string, unknown> }) {
   );
 }
 
+function PersonalizationPreview({ payload }: { payload: Record<string, unknown> }) {
+  const childContent = String(payload.child_content ?? '');
+  const originalText = String(payload.original_text ?? '');
+  const parentSummary = String(payload.parent_summary ?? '');
+  const contentTitle = String(payload.content_title ?? 'Lesson');
+  const quiz = Array.isArray(payload.quiz) ? payload.quiz : [];
+  const critic = (payload.critic_report ?? {}) as Record<string, unknown>;
+  const retryCount = Number(payload.retry_count ?? 0);
+
+  const fidelity = Number(critic.fidelity_score ?? 0);
+  const recommendApprove = Boolean(critic.recommend_approve);
+  const accuracyIssues = Array.isArray(critic.accuracy_issues) ? critic.accuracy_issues : [];
+  const missing = Array.isArray(critic.missing_concepts) ? critic.missing_concepts : [];
+  const invented = Array.isArray(critic.invented_content) ? critic.invented_content : [];
+  const summary = String(critic.summary ?? '');
+  const tone = String(critic.tone_assessment ?? '');
+
+  const fidelityTone = fidelity >= 0.8 ? 'var(--ed-sage)' : fidelity >= 0.5 ? 'var(--ed-amber)' : 'var(--ed-vermilion)';
+
+  return (
+    <article className="space-y-10">
+      <header className="space-y-6">
+        <div className="flex items-baseline justify-between gap-6">
+          <p className="ed-small-caps text-xs" style={{ color: 'var(--ed-ink-faint)' }}>
+            Three-agent bundle · {retryCount > 0 ? `after ${retryCount} critic retry${retryCount === 1 ? '' : 's'}` : 'approved on first pass by the critic'}
+          </p>
+        </div>
+        <h2 className="ed-display text-5xl leading-[0.95]" style={{ color: 'var(--ed-ink)' }}>{contentTitle}</h2>
+        <hr className="ed-rule" />
+      </header>
+
+      {/* Critic panel */}
+      <section
+        className="p-6 space-y-4"
+        style={{ background: 'var(--ed-paper-raised)', borderLeft: `3px solid ${fidelityTone}` }}
+      >
+        <div className="flex items-baseline justify-between gap-6 flex-wrap">
+          <div>
+            <p className="ed-small-caps text-[0.65rem] mb-1" style={{ color: 'var(--ed-ink-faint)' }}>Agent 3 · Fidelity critic</p>
+            <p className="ed-display text-2xl" style={{ color: 'var(--ed-ink)' }}>
+              {recommendApprove ? 'Recommends approval' : 'Flags for human review'}
+            </p>
+          </div>
+          <div className="text-right">
+            <div className="ed-display text-4xl tabular-nums" style={{ color: fidelityTone }}>
+              {(fidelity * 100).toFixed(0)}%
+            </div>
+            <p className="ed-small-caps text-[0.6rem]" style={{ color: 'var(--ed-ink-faint)' }}>fidelity to source</p>
+          </div>
+        </div>
+        {summary && <p className="text-sm italic leading-relaxed" style={{ color: 'var(--ed-ink-muted)' }}>{summary}</p>}
+        {tone && <p className="text-xs" style={{ color: 'var(--ed-ink-faint)' }}>Tone: {tone}</p>}
+        {accuracyIssues.length > 0 && (
+          <div className="space-y-2">
+            <p className="ed-small-caps text-[0.65rem]" style={{ color: 'var(--ed-vermilion)' }}>Accuracy issues ({accuracyIssues.length})</p>
+            <ul className="space-y-1 text-sm" style={{ listStyle: 'none', padding: 0, color: 'var(--ed-ink-muted)' }}>
+              {accuracyIssues.map((iss, i) => {
+                const issue = iss as Record<string, unknown>;
+                const sev = String(issue.severity ?? 'low').toUpperCase();
+                return (
+                  <li key={i} className="pl-4 relative">
+                    <span className="absolute left-0" style={{ color: 'var(--ed-vermilion)' }}>·</span>
+                    <span className="ed-small-caps text-[0.6rem] mr-2" style={{ color: 'var(--ed-vermilion)' }}>[{sev}]</span>
+                    {String(issue.description ?? '')}
+                    {issue.suggestion && (
+                      <span className="italic ml-1" style={{ color: 'var(--ed-ink-faint)' }}>— {String(issue.suggestion)}</span>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+        {(missing.length > 0 || invented.length > 0) && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+            {missing.length > 0 && (
+              <div>
+                <p className="ed-small-caps text-[0.6rem] mb-1" style={{ color: 'var(--ed-amber)' }}>Missing from personalized</p>
+                <ul className="text-xs space-y-0.5" style={{ listStyle: 'none', padding: 0, color: 'var(--ed-ink-muted)' }}>
+                  {missing.map((m, i) => <li key={i}>· {String(m)}</li>)}
+                </ul>
+              </div>
+            )}
+            {invented.length > 0 && (
+              <div>
+                <p className="ed-small-caps text-[0.6rem] mb-1" style={{ color: 'var(--ed-vermilion)' }}>Invented (not in source)</p>
+                <ul className="text-xs space-y-0.5" style={{ listStyle: 'none', padding: 0, color: 'var(--ed-ink-muted)' }}>
+                  {invented.map((m, i) => <li key={i}>· {String(m)}</li>)}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+
+      {/* Side-by-side: original vs personalized */}
+      <section className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div>
+          <p className="ed-small-caps text-[0.65rem] mb-3" style={{ color: 'var(--ed-ink-faint)' }}>Source · teacher's lesson</p>
+          <div className="p-5 text-sm leading-relaxed whitespace-pre-wrap" style={{ background: 'var(--ed-paper-sunken)', color: 'var(--ed-ink-muted)', maxHeight: '400px', overflowY: 'auto' }}>
+            {originalText}
+          </div>
+        </div>
+        <div>
+          <p className="ed-small-caps text-[0.65rem] mb-3" style={{ color: 'var(--ed-vermilion)' }}>For this child · Agent 2 output</p>
+          <div className="p-5 text-sm leading-relaxed whitespace-pre-wrap" style={{ background: 'var(--ed-paper-raised)', color: 'var(--ed-ink)', maxHeight: '400px', overflowY: 'auto' }}>
+            {childContent}
+          </div>
+        </div>
+      </section>
+
+      {/* Quiz preview */}
+      {quiz.length > 0 && (
+        <section className="space-y-4">
+          <p className="ed-small-caps text-[0.65rem]" style={{ color: 'var(--ed-ink-faint)' }}>Quiz · {quiz.length} item{quiz.length === 1 ? '' : 's'}</p>
+          <ol className="space-y-5" style={{ listStyle: 'none', padding: 0 }}>
+            {quiz.map((q, i) => {
+              const question = q as Record<string, unknown>;
+              const options = Array.isArray(question.options) ? question.options : [];
+              const correctIdx = Number(question.correct_index ?? 0);
+              return (
+                <li key={i} className="pl-12 relative">
+                  <div className="absolute left-0 top-0 ed-display text-2xl tabular-nums" style={{ color: 'var(--ed-vermilion)' }}>
+                    {formatVolume(i + 1)}
+                  </div>
+                  <p className="text-base mb-2" style={{ color: 'var(--ed-ink)' }}>{String(question.question ?? '')}</p>
+                  <ul className="space-y-1 text-sm" style={{ listStyle: 'none', padding: 0 }}>
+                    {options.map((opt, oi) => (
+                      <li key={oi} style={{ color: oi === correctIdx ? 'var(--ed-sage)' : 'var(--ed-ink-muted)' }}>
+                        {String.fromCharCode(97 + oi)}. {String(opt)}
+                        {oi === correctIdx && <span className="ed-small-caps text-[0.6rem] ml-2">Key</span>}
+                      </li>
+                    ))}
+                  </ul>
+                  {question.explanation && (
+                    <p className="text-xs italic mt-2" style={{ color: 'var(--ed-ink-faint)' }}>
+                      — {String(question.explanation)}
+                    </p>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+      )}
+
+      {/* Parent summary */}
+      {parentSummary && (
+        <section className="space-y-3 pt-4 border-t" style={{ borderColor: 'var(--ed-rule-faint)' }}>
+          <p className="ed-small-caps text-[0.65rem]" style={{ color: 'var(--ed-sage)' }}>For the parent</p>
+          <p className="text-base italic leading-relaxed" style={{ color: 'var(--ed-ink-muted)' }}>{parentSummary}</p>
+        </section>
+      )}
+    </article>
+  );
+}
+
 function PayloadPreview({ action }: { action: PendingAction }) {
   switch (action.action_type) {
     case 'exam_generation':     return <ExamPreview payload={action.payload} />;
     case 'orientation_report':  return <OrientationPreview payload={action.payload} />;
     case 'iep_report':          return <IEPPreview payload={action.payload} />;
+    case 'personalization':     return <PersonalizationPreview payload={action.payload} />;
     default:
       return (
         <pre className="whitespace-pre-wrap text-sm" style={{ color: 'var(--ed-ink-muted)' }}>
@@ -473,7 +636,7 @@ export default function PendingReviewPage() {
         </div>
         <div className="flex items-center gap-5 ed-small-caps text-[0.7rem]">
           <span style={{ color: 'var(--ed-ink-faint)' }}>Kind:</span>
-          {(['all', 'exam_generation', 'orientation_report', 'iep_report', 'content_adaptation'] as TypeFilter[]).map((t) => (
+          {(['all', 'personalization', 'exam_generation', 'orientation_report', 'iep_report', 'content_adaptation'] as TypeFilter[]).map((t) => (
             <button
               key={t}
               onClick={() => setTypeFilter(t)}

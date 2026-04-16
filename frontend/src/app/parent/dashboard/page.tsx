@@ -78,7 +78,8 @@ export default function ParentDashboard() {
   const [loading, setLoading] = useState(true);
   const [dashLoading, setDashLoading] = useState(false);
   const [parentName, setParentName] = useState('');
-  const [activeTab, setActiveTab] = useState<'overview' | 'orientation' | 'rewards'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'orientation' | 'rewards' | 'lessons'>('overview');
+  const [deliveries, setDeliveries] = useState<any[]>([]);
   const [orientationReport, setOrientationReport] = useState<any>(null);
   const [orientationLoading, setOrientationLoading] = useState(false);
   const router = useRouter();
@@ -135,6 +136,10 @@ export default function ParentDashboard() {
       try {
         const oriRes = await axios.get(`${API_URL}/orientation/report/${selectedChild}`, { headers: getHeaders() });
         setOrientationReport(oriRes.data.report);
+      } catch {}
+      try {
+        const delRes = await axios.get(`${API_URL}/parent/deliveries/${selectedChild}`, { headers: getHeaders() });
+        setDeliveries(delRes.data.deliveries || []);
       } catch {}
     };
     fetchDashboard();
@@ -228,12 +233,21 @@ export default function ParentDashboard() {
               >
                 <Gift size={13} /> Rewards Shop
               </button>
+              <button
+                onClick={() => setActiveTab('lessons')}
+                className={`px-4 py-2 rounded-md text-xs font-medium transition-all flex items-center gap-2 ${activeTab === 'lessons' ? 'bg-primary/10 text-primary' : 'text-on-surface-variant hover:bg-surface-container-high'}`}
+              >
+                <BookOpen size={13} /> Lessons
+                {deliveries.length > 0 && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
+              </button>
             </div>
 
             {dashLoading ? (
               <div className="flex items-center justify-center py-20">
                 <Loader2 className="w-6 h-6 text-primary animate-spin" />
               </div>
+            ) : activeTab === 'lessons' ? (
+              <LessonsTab deliveries={deliveries} childName={child?.name || ''} />
             ) : activeTab === 'rewards' && selectedChild ? (
               <RewardsTab childId={selectedChild} childName={child?.name || ''} />
             ) : activeTab === 'orientation' ? (
@@ -799,6 +813,50 @@ function RewardsTab({ childId, childName }: { childId: string; childName: string
           </div>
         </div>
       )}
+    </motion.div>
+  );
+}
+
+function LessonsTab({ deliveries, childName }: { deliveries: any[]; childName: string }) {
+  if (deliveries.length === 0) {
+    return (
+      <div className="text-center py-16">
+        <BookOpen size={32} className="mx-auto text-on-surface-variant/30 mb-3" />
+        <p className="text-sm text-on-surface-variant">No personalized lessons delivered yet.</p>
+        <p className="text-xs text-on-surface-variant/60 mt-1">Once {childName}&apos;s teacher approves a lesson, it will appear here with a summary for you.</p>
+      </div>
+    );
+  }
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+      <p className="text-xs text-on-surface-variant mb-2">
+        Personalized lessons approved for {childName}. Each includes a parent-friendly summary.
+      </p>
+      {deliveries.map((d: any) => (
+        <div key={d.delivery_id} className="rounded-xl border border-outline-variant/10 bg-surface-container p-5">
+          <div className="flex items-start justify-between mb-3">
+            <div>
+              <h3 className="text-sm font-medium">{d.content_title || 'Untitled Lesson'}</h3>
+              {d.subject && <span className="text-[10px] text-on-surface-variant">{d.subject}</span>}
+            </div>
+            <span className="text-[10px] text-on-surface-variant/60 tabular-nums">
+              {d.approved_at ? new Date(d.approved_at).toLocaleDateString() : ''}
+            </span>
+          </div>
+          {d.parent_summary ? (
+            <div className="rounded-lg bg-primary/5 border border-primary/10 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Heart size={12} className="text-primary" />
+                <span className="text-[10px] text-primary uppercase tracking-widest font-medium">For Parents</span>
+              </div>
+              <p className="text-sm text-on-surface leading-relaxed">{d.parent_summary}</p>
+            </div>
+          ) : (
+            <p className="text-xs text-on-surface-variant/50 italic">No parent summary available for this lesson.</p>
+          )}
+        </div>
+      ))}
     </motion.div>
   );
 }

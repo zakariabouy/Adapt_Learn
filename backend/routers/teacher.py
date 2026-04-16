@@ -2,7 +2,7 @@ import os
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, EmailStr
-from shared.models import User, Role, ClassroomRewardRequest, TeacherCorrectionRequest
+from shared.models import User, Role, ClassroomRewardRequest, TeacherCorrectionRequest, LearnerModel
 from routers.auth import get_current_user
 from shared.database import get_pool
 from agents.iep.agent import generate_iep_report
@@ -15,6 +15,11 @@ from datetime import datetime, timedelta
 
 class LinkStudentRequest(BaseModel):
     student_email: EmailStr
+
+
+class TeacherObservationRequest(BaseModel):
+    notes: str
+
 
 router = APIRouter(prefix="/teacher", tags=["Teacher"])
 
@@ -271,11 +276,23 @@ async def get_student_orientation(student_id: UUID, current_teacher = Depends(ge
     if not profile_row:
         raise HTTPException(status_code=404, detail="Student profile not found")
     
-    learner_model = json.loads(profile_row["profile_data"])
-    
+    profile_data = json.loads(profile_row["profile_data"])
+    # Ensure student_id is present (required by LearnerModel) and normalize to a Pydantic model
+    profile_data.setdefault("student_id", str(student_id))
+    learner_model = LearnerModel(**profile_data)
+
     # 3. Trigger Orientation Agent via Orchestrator
     try:
         report = await generate_orientation_via_graph(learner_model, str(current_teacher["id"]))
+
+        # Guard against upstream LLM failure (e.g., quota exhausted). The node
+        # catches the exception and returns None — surface that as 503 instead
+        # of creating a pending action with a null payload.
+        if not report:
+            raise HTTPException(
+                status_code=503,
+                detail="Orientation agent is temporarily unavailable (upstream LLM quota or error). Please retry later.",
+            )
 
         # 4. HITL gate: orientation reports go to parents — teacher must
         # review the AI output before it is finalized and sent.
@@ -445,3 +462,104 @@ async def list_corrections(student_id: UUID, current_teacher=Depends(get_current
         }
         for r in rows
     ]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Teacher observations — feeds Agent 1 (Profiler)
+# One row per (teacher, student), overwritten on each save.
+# ─────────────────────────────────────────────────────────────────────────────
+
+async def _assert_student_linked(teacher_id, student_id: UUID) -> None:
+    pool = await get_pool()
+    link = await pool.fetchrow(
+        "SELECT 1 FROM teacher_student_link WHERE teacher_id = $1 AND student_id = $2",
+        teacher_id, student_id,
+    )
+    if not link:
+        raise HTTPException(status_code=403, detail="Student not linked to this teacher")
+
+
+@router.put("/observations/{student_id}")
+async def upsert_observation(
+    student_id: UUID,
+    request: TeacherObservationRequest,
+    current_teacher=Depends(get_current_teacher),
+):
+    """Teacher writes or overwrites their observation notes for a student."""
+    await _assert_student_linked(current_teacher["id"], student_id)
+    pool = await get_pool()
+    await pool.execute(
+        """
+        INSERT INTO teacher_observations (teacher_id, student_id, notes, updated_at)
+        VALUES ($1, $2, $3, NOW())
+        ON CONFLICT (teacher_id, student_id) DO UPDATE
+        SET notes = EXCLUDED.notes, updated_at = NOW()
+        """,
+        current_teacher["id"], student_id, request.notes,
+    )
+    return {"status": "saved"}
+
+
+@router.get("/observations/{student_id}")
+async def get_observation(
+    student_id: UUID, current_teacher=Depends(get_current_teacher),
+):
+    """Returns the current teacher's observation for this student, if any."""
+    await _assert_student_linked(current_teacher["id"], student_id)
+    pool = await get_pool()
+    row = await pool.fetchrow(
+        """
+        SELECT notes, updated_at FROM teacher_observations
+        WHERE teacher_id = $1 AND student_id = $2
+        """,
+        current_teacher["id"], student_id,
+    )
+    if not row:
+        return {"notes": "", "updated_at": None}
+    return {"notes": row["notes"], "updated_at": row["updated_at"].isoformat()}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Three-agent personalize pipeline trigger
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.post("/personalize/{content_id}/{student_id}")
+async def trigger_personalize(
+    content_id: UUID,
+    student_id: UUID,
+    current_teacher=Depends(get_current_teacher),
+):
+    """
+    Runs the three-agent personalize pipeline for (student, content) and enqueues
+    the bundle into pending_actions for HITL review.
+    """
+    await _assert_student_linked(current_teacher["id"], student_id)
+
+    pool = await get_pool()
+    # Make sure the content exists and the teacher owns it (or is allowed).
+    content = await pool.fetchrow(
+        "SELECT id, teacher_id FROM content_items WHERE id = $1", content_id,
+    )
+    if not content:
+        raise HTTPException(status_code=404, detail="Content not found")
+
+    # Import here to avoid a circular import at module load.
+    from orchestrator.personalize_graph import run_personalize_pipeline
+
+    try:
+        result = await run_personalize_pipeline(
+            student_id=str(student_id),
+            content_id=str(content_id),
+            teacher_id=str(current_teacher["id"]),
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Personalize pipeline failed: {e}")
+
+    return {
+        "status": "pending_review",
+        "pending_id": result["pending_action_id"],
+        "retry_count": result["retry_count"],
+        "fidelity_score": result["fidelity_score"],
+        "critic_recommended_approve": result["recommend_approve"],
+        "message": "Personalization generated — awaiting teacher approval in the review desk.",
+    }

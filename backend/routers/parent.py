@@ -522,3 +522,45 @@ async def list_my_issues(parent=Depends(get_current_parent)):
         }
         for r in rows
     ]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Personalization feed — parents see the parent_summary (Agent 2 output)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get("/child/{child_id}/deliveries")
+async def list_child_deliveries(
+    child_id: UUID,
+    limit: int = Query(default=20, ge=1, le=100),
+    current_parent=Depends(get_current_parent),
+):
+    """
+    Returns recent approved personalizations for the child, parent-framed:
+    each item includes the parent_summary, content title, and approved_at — NOT
+    the full child_content (that's for the child).
+    """
+    await _verify_parent_child(current_parent["id"], child_id)
+    pool = await get_pool()
+    rows = await pool.fetch(
+        """
+        SELECT pd.id, pd.content_id, pd.parent_summary, pd.approved_at,
+               ci.title AS content_title, ci.subject
+        FROM personalization_deliveries pd
+        JOIN content_items ci ON pd.content_id = ci.id
+        WHERE pd.student_id = $1
+        ORDER BY pd.approved_at DESC
+        LIMIT $2
+        """,
+        child_id, limit,
+    )
+    return [
+        {
+            "delivery_id": str(r["id"]),
+            "content_id": str(r["content_id"]),
+            "content_title": r["content_title"],
+            "subject": r["subject"],
+            "parent_summary": r["parent_summary"],
+            "approved_at": r["approved_at"].isoformat(),
+        }
+        for r in rows
+    ]

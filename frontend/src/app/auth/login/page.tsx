@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { API_URL } from '@/lib/api';
-import { Brain, AtSign, Lock, GraduationCap, Presentation, Users, Loader2, ArrowRight } from 'lucide-react';
+import { Brain, AtSign, Lock, GraduationCap, Presentation, Users, Shield, Loader2, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 
@@ -136,6 +136,10 @@ const [role, setRole] = useState<'student' | 'teacher' | 'parent'>('student');
               <button onClick={() => setRole('parent')} className={`px-4 py-2 border rounded-lg text-xs font-medium transition-all flex items-center gap-2 ${role === 'parent' ? 'bg-primary/10 border-primary/30 text-primary' : 'border-outline-variant/10 text-on-surface-variant hover:bg-surface-container-high'}`}>
                 <Users className="w-3.5 h-3.5" />
                 Parent
+              </button>
+              <button onClick={() => setRole('admin')} className={`px-4 py-2 border rounded-lg text-xs font-medium transition-all flex items-center gap-2 ${role === 'admin' ? 'bg-purple-500/10 border-purple-500/30 text-purple-400' : 'border-outline-variant/10 text-on-surface-variant hover:bg-surface-container-high'}`}>
+                <Shield className="w-3.5 h-3.5" />
+                Admin
               </button>
             </div>
             <p className="text-center text-xs text-on-surface-variant">

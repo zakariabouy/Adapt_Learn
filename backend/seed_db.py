@@ -16,17 +16,17 @@ async def seed():
         "migrations/001_initial.sql",
         "migrations/002_question_bank.sql",
         "migrations/003_teacher_student_link.sql",
-        "migrations/005_grade_level.sql",
         "migrations/004_gamification.sql",
+        "migrations/005_grade_level.sql",
         "migrations/006_rag_vectors.sql",
         "migrations/007_guardrails.sql",
-        "migrations/008_pending_actions.sql",
-        "migrations/009_student_exams.sql",
         "migrations/008_parents_admin.sql",
         "migrations/009_communication_feedback.sql",
         "migrations/010_anti_addiction.sql",
         "migrations/011_profile_enrichment.sql",
         "migrations/012_orientation.sql",
+        "migrations/013_pending_actions.sql",
+        "migrations/014_student_exams.sql",
     ]
 
     for m in migration_files:

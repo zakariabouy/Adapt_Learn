@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { API_URL } from '@/lib/api';
 import { ArrowLeft, Trophy, RotateCcw, Sparkles, Timer, Zap } from 'lucide-react';
+import { useHeroStore } from '@/hooks/useHeroStore';
 
 /* ─── card data ─── */
 const EMOJI_PAIRS = [
@@ -24,6 +25,10 @@ interface GameResult {
   bartle_type?: string;
   tag_changes?: Record<string, unknown>;
   error?: boolean;
+}
+
+function pick<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
 }
 
 function shuffleCards(): Card[] {
@@ -84,6 +89,8 @@ export default function MemoryGame() {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [phase]);
 
+  const heroReact = useHeroStore((s) => s.react);
+
   const startGame = useCallback(() => {
     setCards(shuffleCards());
     setSelected([]);
@@ -92,12 +99,14 @@ export default function MemoryGame() {
     setTimeElapsed(0);
     setGameResult(null);
     setPhase('playing');
-  }, []);
+    heroReact('happy.png', "Let's flip some cards! 🃏", 2500);
+  }, [heroReact]);
 
   const submitResult = useCallback(async (finalMatches: number, finalAttempts: number) => {
     if (timerRef.current) clearInterval(timerRef.current);
     const elapsed = (Date.now() - startTimeRef.current) / 1000;
     setPhase('submitting');
+    heroReact('thinking.png', 'Analyzing your memory skills... 🔍', 5000);
 
     // Score: perfect = 8 attempts (one per pair), max tracked = 24
     const rawScore = Math.max(0, 24 - finalAttempts);
@@ -124,6 +133,7 @@ export default function MemoryGame() {
       setGameResult({ error: true });
     }
     setPhase('results');
+    heroReact('happy.png', 'You did it! Amazing memory! 🏆', 5000);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -146,6 +156,7 @@ export default function MemoryGame() {
 
         if (cardA.emoji === cardB.emoji) {
           // Match!
+          heroReact('happy.png', pick(['Nice match! 🎉', 'You found a pair! ⭐', 'Great memory! 🧠']), 2000);
           setTimeout(() => {
             setCards((p) => p.map((c, i) => (i === a || i === b ? { ...c, matched: true } : c)));
             setMatches((m) => {
@@ -160,6 +171,7 @@ export default function MemoryGame() {
           }, 500);
         } else {
           // No match — flip back
+          heroReact('frustrated.png', pick(["Not quite... try again! 🤔", "Keep looking! 👀", "Almost! You'll get it! 💪"]), 2000);
           setTimeout(() => {
             setCards((p) => p.map((c, i) => (i === a || i === b ? { ...c, flipped: false } : c)));
             setSelected([]);

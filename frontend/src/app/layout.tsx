@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Fraunces, IBM_Plex_Sans } from "next/font/google";
 import DemoSwitcher from "@/components/DemoSwitcher";
+import PedagogicalHero from "@/components/ui/PedagogicalHero";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -48,6 +49,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         {children}
         <DemoSwitcher />
+        <PedagogicalHero />
       </body>
     </html>
   );

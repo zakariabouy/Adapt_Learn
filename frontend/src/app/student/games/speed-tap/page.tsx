@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { API_URL } from '@/lib/api';
 import { ArrowLeft, Trophy, RotateCcw, Sparkles, Timer, Zap } from 'lucide-react';
+import { useHeroStore } from '@/hooks/useHeroStore';
 
 interface GameResult {
   xp_earned?: number;
@@ -63,8 +64,11 @@ export default function SpeedTapGame() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
+  const heroReact = useHeroStore((s) => s.react);
+
   const submitResult = useCallback(async (finalScore: number, finalMisses: number, elapsed: number) => {
     setPhase('submitting');
+    heroReact('thinking.png', 'Checking your reflexes... ⚡', 5000);
     const totalTaps = finalScore + finalMisses;
     const accuracy = totalTaps > 0 ? finalScore / totalTaps : 0;
     // Raw score blends speed (taps/sec) + accuracy. Max = 30 correct in 20s.
@@ -91,6 +95,7 @@ export default function SpeedTapGame() {
       setGameResult({ error: true });
     }
     setPhase('results');
+    heroReact('happy.png', 'Lightning fast! Great job! 🏆', 5000);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -102,6 +107,9 @@ export default function SpeedTapGame() {
         const elapsed = (Date.now() - startTimeRef.current) / 1000;
         const remaining = Math.max(0, ROUND_DURATION - elapsed);
         setTimeLeft(remaining);
+        if (remaining <= 5 && remaining > 4.9) {
+          heroReact('panic.png', 'Hurry! Almost out of time! ⏰', 3000);
+        }
         if (remaining <= 0) {
           if (timerRef.current) clearInterval(timerRef.current);
           submitResult(scoreRef.current, missesRef.current, ROUND_DURATION);
@@ -130,13 +138,19 @@ export default function SpeedTapGame() {
     if (emoji === target) {
       scoreRef.current += 1;
       setScore((s) => s + 1);
-      setStreak((s) => s + 1);
+      setStreak((s) => {
+        const next = s + 1;
+        if (next === 5) heroReact('happy.png', '5 in a row! You\'re on fire! 🔥', 2000);
+        else if (next === 10) heroReact('happy.png', '10 streak! Unstoppable! 🚀', 2500);
+        return next;
+      });
       setFlash('hit');
     } else {
       missesRef.current += 1;
       setMisses((m) => m + 1);
       setStreak(0);
       setFlash('miss');
+      heroReact('frustrated.png', 'Oops! Stay focused! 👀', 1500);
     }
     setTimeout(() => setFlash(null), 150);
     const round = pickRound();

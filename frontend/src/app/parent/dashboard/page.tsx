@@ -236,7 +236,7 @@ export default function ParentDashboard() {
   };
 
   const submitIssue = async () => {
-    if (!selectedChild || !newIssue.title) return;
+    if (!selectedChild || !newIssue.title || newIssue.description.length < 10) return;
     setSaving(true);
     try {
       await axios.post(`${API_URL}/parent/issues`, {
@@ -247,7 +247,18 @@ export default function ParentDashboard() {
       setIssues(res.data);
       setNewIssue({ issue_type: 'content_complaint', title: '', description: '' });
       setShowIssueForm(false);
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error('Issue submission error:', err);
+      let errorMsg = 'Unknown error';
+      if (err.response?.data?.detail) {
+        errorMsg = err.response.data.detail;
+      } else if (err.response?.data) {
+        errorMsg = JSON.stringify(err.response.data);
+      } else if (err.message) {
+        errorMsg = err.message;
+      }
+      alert(`Failed to submit issue: ${errorMsg}`);
+    }
     setSaving(false);
   };
 
@@ -880,8 +891,11 @@ export default function ParentDashboard() {
                           <textarea value={newIssue.description} onChange={(e) => setNewIssue({ ...newIssue, description: e.target.value })}
                             rows={3} placeholder="Describe the issue in detail..."
                             className="mt-1 w-full bg-surface-container-lowest/50 border border-outline-variant/10 rounded-xl px-4 py-3 text-on-surface text-sm placeholder:text-on-surface-variant/20 focus:ring-2 focus:ring-primary/40 focus:outline-none resize-none" />
+                          <p className={`text-[10px] mt-1 ${newIssue.description.length < 10 ? 'text-[#FF6B6B]' : 'text-on-surface-variant/50'}`}>
+                            {newIssue.description.length}/10 minimum characters
+                          </p>
                         </div>
-                        <button onClick={submitIssue} disabled={saving || !newIssue.title}
+                        <button onClick={submitIssue} disabled={saving || !newIssue.title || newIssue.description.length < 10}
                           className="w-full py-3 bg-[#FF6B6B] text-white font-headline font-bold rounded-full hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                         >
                           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}

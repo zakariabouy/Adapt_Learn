@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { API_URL } from '@/lib/api';
 import { ArrowLeft, Trophy, RotateCcw, Sparkles, Shapes } from 'lucide-react';
+import { useHeroStore } from '@/hooks/useHeroStore';
 
 interface Tile {
   id: number;
@@ -63,8 +64,11 @@ export default function PatternMatchGame() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
+  const heroReact = useHeroStore((s) => s.react);
+
   const submitResult = useCallback(async (reachedRound: number, totalMistakes: number) => {
     setPhase('submitting');
+    heroReact('thinking.png', 'Analyzing your pattern skills... 🧩', 5000);
     const elapsed = (Date.now() - startTimeRef.current) / 1000;
     // Max possible rounds = MAX_LENGTH - START_LENGTH + 1 = 8
     // Score = how many rounds you completed (reachedRound - 1 is rounds fully passed)
@@ -91,12 +95,14 @@ export default function PatternMatchGame() {
       setGameResult({ error: true });
     }
     setPhase('results');
+    heroReact('happy.png', 'Pattern master! Well done! 🏆', 5000);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Play back the sequence visually
   const playSequence = useCallback(async (seq: number[]) => {
     setPhase('watching');
+    heroReact('thinking.png', `Watch ${seq.length} colors... 🧠`, 3000);
     setActiveTile(null);
     await new Promise((r) => setTimeout(r, 500));
     for (const id of seq) {
@@ -144,6 +150,7 @@ export default function PatternMatchGame() {
       const nextIndex = playerIndex + 1;
       if (nextIndex >= sequence.length) {
         // Completed this round
+        heroReact('happy.png', `Round ${round} cleared! 🎉`, 2000);
         setTimeout(() => nextRound(), 400);
       } else {
         setPlayerIndex(nextIndex);
@@ -153,8 +160,10 @@ export default function PatternMatchGame() {
       setMistakes((m) => m + 1);
       // After 2 mistakes, end the game
       if (mistakes + 1 >= 2) {
+        heroReact('frustrated.png', "Don't worry, you'll get further next time! 💪", 3000);
         submitResult(round, mistakes + 1);
       } else {
+        heroReact('neutral.png', "Oops! Watch again carefully 👀", 2500);
         // Replay sequence from start
         playSequence(sequence);
       }

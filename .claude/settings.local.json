@@ -69,7 +69,10 @@
       "Bash(python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload)",
       "Bash(disown)",
       "Bash(grep -n \"add_node\\\\|add_edge\\\\|StateGraph\\\\|def .*node\" backend/agents/*.py)",
-      "Bash(ls backend/agents/*.py)"
+      "Bash(ls backend/agents/*.py)",
+      "Bash(tasklist //FI \"IMAGENAME eq node.exe\")",
+      "Bash(xargs grep *)",
+      "Bash(xargs ls *)"
     ]
   }
 }

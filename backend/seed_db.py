@@ -16,14 +16,15 @@ async def seed():
         "migrations/001_initial.sql",
         "migrations/002_question_bank.sql",
         "migrations/003_teacher_student_link.sql",
-        "migrations/004_gamification.sql",
         "migrations/005_grade_level.sql",
+        "migrations/004_gamification.sql",
         "migrations/006_rag_vectors.sql",
         "migrations/007_guardrails.sql",
         "migrations/007_pending_actions.sql",
         "migrations/008_parents_admin.sql",
         "migrations/009_communication_feedback.sql",
         "migrations/010_anti_addiction.sql",
+        "migrations/011_profile_enrichment.sql",
     ]
 
     for m in migration_files:
@@ -52,6 +53,7 @@ async def seed():
             "tags": ["visual_learner", "needs_repetition"],
             "xp": 50, "level": 1, "streak": 1,
             "ability": -0.3,
+            "vark": {"V": 0.563, "A": 0.125, "R": 0.125, "K": 0.188},
         },
         {
             "name": "Omar",
@@ -60,6 +62,7 @@ async def seed():
             "tags": ["short_attention", "gamification"],
             "xp": 320, "level": 3, "streak": 5,
             "ability": 0.8,
+            "vark": {"V": 0.188, "A": 0.125, "R": 0.125, "K": 0.563},
         },
         {
             "name": "Yassine",
@@ -68,6 +71,7 @@ async def seed():
             "tags": ["slow_reader", "audio_learner"],
             "xp": 180, "level": 2, "streak": 2,
             "ability": 0.2,
+            "vark": {"V": 0.125, "A": 0.5, "R": 0.25, "K": 0.125},
         },
     ]
 
@@ -99,6 +103,8 @@ async def seed():
             "current_frustration_level": 0.0,
             "ability_estimate": s["ability"],
             "mastery_by_topic": {},
+            "vark_scores": s.get("vark", {}),
+            "vark_completed": bool(s.get("vark")),
         }
         await pool.execute(
             "INSERT INTO learner_profiles (student_id, profile_data) VALUES ($1, $2) "

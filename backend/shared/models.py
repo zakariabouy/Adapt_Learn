@@ -59,6 +59,18 @@ class LearnerModel(BaseModel):
     current_frustration_level: float = 0.0
     ability_estimate: float = 0.0  # IRT theta
     mastery_by_topic: Dict[str, float] = {}
+    vark_scores: Dict[str, float] = {}  # {"V": 0.0-1.0, "A": 0.0-1.0, "R": 0.0-1.0, "K": 0.0-1.0}
+    vark_completed: bool = False
+    # Bartle player type from games (Achiever/Explorer/Socializer/Killer)
+    bartle_type: Optional[str] = None
+    bartle_scores: Dict[str, float] = {}  # {"achiever": 0-1, "explorer": 0-1, "socializer": 0-1, "killer": 0-1}
+    # Personal info (from parent onboarding or student self-report)
+    favorite_color: Optional[str] = None
+    favorite_subject: Optional[str] = None
+    favorite_animal: Optional[str] = None
+    hobbies: List[str] = []
+    # Teacher observations
+    personality_traits: List[str] = []  # ["dynamic", "shy", "curious", "leader", ...]
 
 # --- Telemetry & Commands ---
 class TelemetryEvent(BaseModel):
@@ -201,6 +213,12 @@ class ParentOnboardingRequest(BaseModel):
     interests: List[str] = []
     languages_spoken: List[str] = []
     additional_notes: Optional[str] = None
+    # Personal favorites (injected into learner profile)
+    favorite_color: Optional[str] = None
+    favorite_subject: Optional[str] = None
+    favorite_animal: Optional[str] = None
+    hobbies: List[str] = []
+    personality_observations: List[str] = []         # parent-observed: ['shy', 'curious', 'energetic']
 
 class ParentalControlsRequest(BaseModel):
     daily_time_limit_minutes: int = Field(default=60, ge=15, le=480)
@@ -272,4 +290,20 @@ class SessionCheckResponse(BaseModel):
     remaining_minutes: Optional[float] = None
     break_required: bool = False
     locked_until: Optional[str] = None
+
+
+# --- VARK Test ---
+class VARKAnswer(BaseModel):
+    question_id: int = Field(..., ge=1, le=16)
+    selected: str = Field(..., pattern=r'^[VARK]$')
+
+class VARKSubmitRequest(BaseModel):
+    answers: List[VARKAnswer] = Field(..., min_length=16, max_length=16)
+
+class VARKResult(BaseModel):
+    scores: Dict[str, float]          # {"V": 0.0-1.0, "A": ..., "R": ..., "K": ...}
+    dominant_style: str                # "V", "A", "R", or "K"
+    style_label: str                   # "Visual", "Auditory", etc.
+    profile_tags_updated: List[str]    # tags that were added/changed
+    modality_set: str                  # the preferred_modality that was auto-set
 

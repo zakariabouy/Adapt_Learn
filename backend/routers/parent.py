@@ -212,8 +212,9 @@ async def submit_onboarding(request: ParentOnboardingRequest, parent=Depends(get
 
     await pool.execute(
         """INSERT INTO parent_onboarding (parent_id, child_id, child_birth_date, known_conditions,
-               preferred_learning_time, attention_span_minutes, interests, languages_spoken, additional_notes)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+               preferred_learning_time, attention_span_minutes, interests, languages_spoken, additional_notes,
+               favorite_color, favorite_subject, favorite_animal, hobbies, personality_observations)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
            ON CONFLICT (parent_id, child_id) DO UPDATE SET
                child_birth_date = EXCLUDED.child_birth_date,
                known_conditions = EXCLUDED.known_conditions,
@@ -222,6 +223,11 @@ async def submit_onboarding(request: ParentOnboardingRequest, parent=Depends(get
                interests = EXCLUDED.interests,
                languages_spoken = EXCLUDED.languages_spoken,
                additional_notes = EXCLUDED.additional_notes,
+               favorite_color = EXCLUDED.favorite_color,
+               favorite_subject = EXCLUDED.favorite_subject,
+               favorite_animal = EXCLUDED.favorite_animal,
+               hobbies = EXCLUDED.hobbies,
+               personality_observations = EXCLUDED.personality_observations,
                updated_at = NOW()""",
         parent["id"], child_id,
         request.child_birth_date,
@@ -231,33 +237,55 @@ async def submit_onboarding(request: ParentOnboardingRequest, parent=Depends(get
         request.interests,
         request.languages_spoken,
         request.additional_notes,
+        request.favorite_color,
+        request.favorite_subject,
+        request.favorite_animal,
+        request.hobbies,
+        request.personality_observations,
     )
 
-    # Also inject known conditions into the learner profile tags
-    if request.known_conditions:
-        profile_row = await pool.fetchrow(
-            "SELECT profile_data FROM learner_profiles WHERE student_id = $1", child_id
+    # Inject parent data into learner profile
+    profile_row = await pool.fetchrow(
+        "SELECT profile_data FROM learner_profiles WHERE student_id = $1", child_id
+    )
+    if profile_row:
+        profile = json.loads(profile_row["profile_data"])
+
+        # Conditions → learning tags
+        condition_to_tag = {
+            "dyslexia": "slow_reader",
+            "ADHD": "short_attention",
+            "hearing_impairment": "visual_learner",
+            "visual_impairment": "audio_learner",
+        }
+        existing_tags = set(profile.get("learning_tags", []))
+        for cond in request.known_conditions:
+            tag = condition_to_tag.get(cond)
+            if tag:
+                existing_tags.add(tag)
+        profile["learning_tags"] = list(existing_tags)
+
+        if request.attention_span_minutes:
+            profile["chunk_size"] = min(request.attention_span_minutes * 8, 500)
+
+        # Personal favorites → profile fields
+        if request.favorite_color:
+            profile["favorite_color"] = request.favorite_color
+        if request.favorite_subject:
+            profile["favorite_subject"] = request.favorite_subject
+        if request.favorite_animal:
+            profile["favorite_animal"] = request.favorite_animal
+        if request.hobbies:
+            profile["hobbies"] = request.hobbies
+        if request.personality_observations:
+            existing_traits = set(profile.get("personality_traits", []))
+            existing_traits.update(request.personality_observations)
+            profile["personality_traits"] = list(existing_traits)
+
+        await pool.execute(
+            "UPDATE learner_profiles SET profile_data = $1, last_updated = NOW() WHERE student_id = $2",
+            json.dumps(profile), child_id,
         )
-        if profile_row:
-            profile = json.loads(profile_row["profile_data"])
-            existing_tags = set(profile.get("learning_tags", []))
-            condition_to_tag = {
-                "dyslexia": "slow_reader",
-                "ADHD": "short_attention",
-                "hearing_impairment": "visual_learner",
-                "visual_impairment": "audio_learner",
-            }
-            for cond in request.known_conditions:
-                tag = condition_to_tag.get(cond)
-                if tag:
-                    existing_tags.add(tag)
-            profile["learning_tags"] = list(existing_tags)
-            if request.attention_span_minutes:
-                profile["chunk_size"] = min(request.attention_span_minutes * 8, 500)
-            await pool.execute(
-                "UPDATE learner_profiles SET profile_data = $1, last_updated = NOW() WHERE student_id = $2",
-                json.dumps(profile), child_id,
-            )
 
     return {"status": "onboarding_saved", "child_id": str(child_id)}
 

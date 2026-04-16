@@ -3,10 +3,11 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime, timedelta, timezone
-from shared.models import LearnerModel, User, RedeemRewardRequest
+from shared.models import LearnerModel, User, RedeemRewardRequest, VARKSubmitRequest
 from routers.auth import get_current_user
 from agents.profile.agent import get_student_profile, update_student_profile, generate_profile_summary
 from agents.profile.game_profiler import process_game_result, get_available_games
+from agents.profile.vark import process_vark_submission, get_vark_questions
 from agents.adaptation.agent import chunk_content, transform_font, tts_convert, summarize_text, generate_visual_aid
 from orchestrator.graph import adapt_content
 from routers.gamification import _apply_xp
@@ -40,6 +41,232 @@ async def update_profile(profile: LearnerModel, current_user = Depends(get_curre
     await pool.execute("DELETE FROM adapted_content WHERE student_id = $1", current_user["id"])
 
     return updated_profile
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Unified Full Profile (merges all 4 sources)
+# ─────────────────────────────────────────────────────────────────────────────
+
+BARTLE_LABELS = {
+    "achiever": "Achiever",
+    "explorer": "Explorer",
+    "socializer": "Socializer",
+    "killer": "Challenger",
+}
+
+VARK_LABELS = {"V": "Visual", "A": "Auditory", "R": "Read/Write", "K": "Kinesthetic"}
+
+
+@router.get("/full-profile")
+async def get_full_profile(current_user=Depends(get_current_user)):
+    """
+    Aggregates the student's profile from all 4 sources:
+      1. VARK test scores
+      2. Parent onboarding data (favorites, conditions, personality)
+      3. Teacher corrections/observations
+      4. Game profiler (Bartle type, tag strengths)
+    Returns a unified view for the profile dashboard.
+    """
+    if current_user["role"] != "student":
+        raise HTTPException(status_code=403, detail="Students only")
+
+    pool = await get_pool()
+    student_id = current_user["id"]
+
+    # 1. Core learner profile
+    profile = await get_student_profile(student_id)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found. Complete onboarding first.")
+
+    # 2. Parent onboarding data
+    parent_data = await pool.fetchrow(
+        """SELECT po.*, u.name AS parent_name
+           FROM parent_onboarding po
+           JOIN parent_child_link pcl ON po.parent_id = pcl.parent_id AND po.child_id = pcl.child_id
+           JOIN users u ON po.parent_id = u.id
+           WHERE po.child_id = $1
+           ORDER BY po.updated_at DESC LIMIT 1""",
+        student_id,
+    )
+
+    # 3. Teacher corrections
+    corrections = await pool.fetch(
+        """SELECT tc.correction_type, tc.data, tc.created_at, u.name AS teacher_name
+           FROM teacher_corrections tc
+           JOIN users u ON tc.teacher_id = u.id
+           WHERE tc.student_id = $1
+           ORDER BY tc.created_at DESC LIMIT 10""",
+        student_id,
+    )
+
+    # 4. Game history (last 20 games)
+    games = await pool.fetch(
+        """SELECT questions, responses, score, taken_at
+           FROM assessments
+           WHERE student_id = $1 AND questions::text LIKE '%game_type%'
+           ORDER BY taken_at DESC LIMIT 20""",
+        student_id,
+    )
+
+    # 5. Gamification stats
+    gam = await pool.fetchrow(
+        "SELECT * FROM student_gamification WHERE student_id = $1", student_id
+    )
+
+    # 6. User basic info
+    user_row = await pool.fetchrow(
+        "SELECT name, email, grade_level, created_at FROM users WHERE id = $1", student_id
+    )
+
+    # Build unified response
+    # VARK section
+    vark_section = None
+    if profile.vark_completed and profile.vark_scores:
+        dominant = max(profile.vark_scores, key=profile.vark_scores.get)
+        vark_section = {
+            "completed": True,
+            "scores": profile.vark_scores,
+            "dominant": dominant,
+            "dominant_label": VARK_LABELS.get(dominant, dominant),
+        }
+
+    # Bartle section
+    bartle_section = None
+    if profile.bartle_scores:
+        bartle_section = {
+            "scores": profile.bartle_scores,
+            "type": profile.bartle_type,
+            "type_label": BARTLE_LABELS.get(profile.bartle_type or "", "Unknown"),
+        }
+
+    # Parent section
+    parent_section = None
+    if parent_data:
+        parent_section = {
+            "provided_by": parent_data["parent_name"],
+            "known_conditions": parent_data["known_conditions"] or [],
+            "interests": parent_data["interests"] or [],
+            "attention_span_minutes": parent_data["attention_span_minutes"],
+            "preferred_learning_time": parent_data["preferred_learning_time"],
+            "languages_spoken": parent_data["languages_spoken"] or [],
+            "favorite_color": parent_data.get("favorite_color"),
+            "favorite_subject": parent_data.get("favorite_subject"),
+            "favorite_animal": parent_data.get("favorite_animal"),
+            "hobbies": parent_data.get("hobbies") or [],
+            "personality_observations": parent_data.get("personality_observations") or [],
+        }
+
+    # Teacher section
+    teacher_section = []
+    for c in corrections:
+        data = json.loads(c["data"]) if isinstance(c["data"], str) else c["data"]
+        teacher_section.append({
+            "teacher_name": c["teacher_name"],
+            "type": c["correction_type"],
+            "data": data,
+            "date": c["created_at"].isoformat(),
+        })
+
+    # Games section
+    game_history = []
+    for g in games:
+        q = json.loads(g["questions"]) if isinstance(g["questions"], str) else g["questions"]
+        game_history.append({
+            "game_type": q.get("game_type", "unknown"),
+            "score": round(g["score"], 2) if g["score"] else 0,
+            "date": g["taken_at"].isoformat() if g["taken_at"] else None,
+        })
+
+    return {
+        "student": {
+            "name": user_row["name"] if user_row else None,
+            "email": user_row["email"] if user_row else None,
+            "grade_level": user_row["grade_level"] if user_row else None,
+            "member_since": user_row["created_at"].isoformat() if user_row else None,
+        },
+        "learning_profile": {
+            "tags": profile.learning_tags,
+            "tag_strength": profile.tag_strength,
+            "preferred_modality": profile.preferred_modality,
+            "reading_speed_wpm": profile.reading_speed_wpm,
+            "ability_estimate": profile.ability_estimate,
+            "personality_traits": profile.personality_traits,
+            "favorite_color": profile.favorite_color,
+            "favorite_subject": profile.favorite_subject,
+            "favorite_animal": profile.favorite_animal,
+            "hobbies": profile.hobbies,
+        },
+        "vark": vark_section,
+        "bartle": bartle_section,
+        "parent_insights": parent_section,
+        "teacher_observations": teacher_section,
+        "game_history": game_history,
+        "gamification": {
+            "xp": gam["current_xp"] if gam else 0,
+            "level": gam["current_level"] if gam else 1,
+            "streak": gam["current_streak"] if gam else 0,
+            "badges": json.loads(gam["badges_unlocked"]) if gam and gam["badges_unlocked"] else [],
+        },
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# VARK Learning Style Assessment
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get("/vark/questions")
+async def get_vark_test(current_user=Depends(get_current_user)):
+    """Returns the 16 VARK questions for the frontend questionnaire."""
+    return {"questions": get_vark_questions()}
+
+
+@router.post("/vark/submit")
+async def submit_vark_test(
+    request: VARKSubmitRequest,
+    current_user=Depends(get_current_user),
+):
+    """
+    Submit completed VARK test answers. Scores the test and updates
+    the student's learner profile with VARK scores, preferred modality,
+    and learning tags.
+    """
+    if current_user["role"] != "student":
+        raise HTTPException(status_code=403, detail="Only students can take the VARK test")
+
+    # Validate all 16 questions are answered
+    answered_ids = {a.question_id for a in request.answers}
+    expected_ids = set(range(1, 17))
+    if answered_ids != expected_ids:
+        missing = expected_ids - answered_ids
+        raise HTTPException(
+            status_code=400,
+            detail=f"Missing answers for questions: {sorted(missing)}",
+        )
+
+    answers = [(a.question_id, a.selected) for a in request.answers]
+    result = await process_vark_submission(current_user["id"], answers)
+    return result
+
+
+@router.get("/vark/status")
+async def get_vark_status(current_user=Depends(get_current_user)):
+    """Check if the current student has completed the VARK test."""
+    if current_user["role"] != "student":
+        raise HTTPException(status_code=403, detail="Only students have VARK status")
+
+    profile = await get_student_profile(current_user["id"])
+    if not profile:
+        return {"completed": False, "scores": None}
+
+    return {
+        "completed": profile.vark_completed,
+        "scores": profile.vark_scores if profile.vark_completed else None,
+        "dominant_style": (
+            max(profile.vark_scores, key=profile.vark_scores.get)
+            if profile.vark_scores
+            else None
+        ),
+    }
+
 
 @router.get("/workspace/{content_id}")
 async def get_adapted_workspace(

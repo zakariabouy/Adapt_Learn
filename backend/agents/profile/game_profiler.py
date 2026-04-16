@@ -30,6 +30,27 @@ logger = logging.getLogger(__name__)
 # Maps game types to the learning tags they measure.
 # Each entry has: tag, direction (positive = high score means tag applies),
 # and weight (how much this game affects the tag).
+# Maps game types to Bartle player types.
+# Achiever = loves completing goals, Explorer = loves discovering,
+# Socializer = loves interacting, Killer = loves competing/winning.
+GAME_BARTLE_MAP: Dict[str, Dict[str, float]] = {
+    "memory_cards":    {"achiever": 0.4, "explorer": 0.6},
+    "speed_tap":       {"killer": 0.8, "achiever": 0.3},
+    "story_listen":    {"explorer": 0.7, "socializer": 0.3},
+    "pattern_match":   {"explorer": 0.6, "achiever": 0.4},
+    "reading_race":    {"achiever": 0.5, "killer": 0.4},
+    "puzzle_solve":    {"explorer": 0.8, "achiever": 0.3},
+    "drag_and_sort":   {"achiever": 0.6, "explorer": 0.3},
+    "quiz":            {"achiever": 0.7, "killer": 0.2},
+}
+
+BARTLE_LABELS = {
+    "achiever": "Achiever",
+    "explorer": "Explorer",
+    "socializer": "Socializer",
+    "killer": "Challenger",
+}
+
 GAME_TAG_MAP: Dict[str, List[dict]] = {
     "memory_cards": [
         {"tag": "visual_learner", "direction": "positive", "weight": 0.8},
@@ -177,10 +198,26 @@ async def process_game_result(
         elif new_strength < 0.25 and tag in profile.learning_tags:
             profile.learning_tags.remove(tag)
 
-    # 4. Save updated profile
+    # 4. Update Bartle player type scores via EMA
+    bartle_weights = GAME_BARTLE_MAP.get(game_type, {})
+    if bartle_weights:
+        bartle = dict(profile.bartle_scores) if profile.bartle_scores else {
+            "achiever": 0.25, "explorer": 0.25, "socializer": 0.25, "killer": 0.25,
+        }
+        for btype, weight in bartle_weights.items():
+            signal = normalized * weight  # high score + high weight = strong signal
+            old_val = bartle.get(btype, 0.25)
+            bartle[btype] = round(old_val + LEARNING_RATE * (signal - old_val), 3)
+        # Normalize so they sum to ~1
+        total = sum(bartle.values()) or 1.0
+        bartle = {k: round(v / total, 3) for k, v in bartle.items()}
+        profile.bartle_scores = bartle
+        profile.bartle_type = max(bartle, key=bartle.get)
+
+    # 5. Save updated profile
     await update_student_profile(student_id, profile)
 
-    # 5. Log the game result for historical analysis
+    # 6. Log the game result for historical analysis
     pool = await get_pool()
     try:
         await pool.execute(
@@ -207,6 +244,8 @@ async def process_game_result(
         "tag_changes": tag_changes,
         "new_tag_strength": profile.tag_strength,
         "learning_tags": profile.learning_tags,
+        "bartle_type": profile.bartle_type,
+        "bartle_scores": profile.bartle_scores,
     }
 
 

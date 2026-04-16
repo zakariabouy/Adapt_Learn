@@ -12,7 +12,7 @@ export default function Login() {
   const { register, handleSubmit, formState: { errors } } = useForm();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-const [role, setRole] = useState<'student' | 'teacher' | 'parent' | 'admin'>('student');
+  const [role, setRole] = useState<'student' | 'teacher' | 'parent' | 'admin'>('student');
   const router = useRouter();
 
   const onSubmit = async (data: any) => {

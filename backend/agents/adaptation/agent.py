@@ -1,6 +1,7 @@
 import re
 import logging
 import tempfile
+import hashlib
 import textstat
 from pathlib import Path
 from typing import List
@@ -115,10 +116,40 @@ async def summarize_text(text: str) -> str:
         logger.warning("Gemini summarization failed: %s", e)
         return text
 
+_VISUAL_CACHE_DIR = Path(__file__).resolve().parents[2] / "cache" / "visuals"
+
+_PLACEHOLDER_SVG = (
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" role="img" '
+    'aria-label="Illustration unavailable">'
+    '<rect width="400" height="400" rx="24" fill="#f1f5f9"/>'
+    '<circle cx="200" cy="170" r="64" fill="#cbd5e1"/>'
+    '<rect x="110" y="250" width="180" height="20" rx="10" fill="#cbd5e1"/>'
+    '<rect x="140" y="285" width="120" height="14" rx="7" fill="#e2e8f0"/>'
+    '<text x="200" y="360" text-anchor="middle" font-family="sans-serif" '
+    'font-size="18" fill="#64748b">Illustration coming soon</text>'
+    '</svg>'
+)
+
+
+def _visual_cache_path(text: str) -> Path:
+    digest = hashlib.sha256(text.strip().encode("utf-8")).hexdigest()
+    return _VISUAL_CACHE_DIR / f"{digest}.svg"
+
+
 async def generate_visual_aid(text: str) -> str:
     """
     Generates a simple SVG diagram or illustration representing the text.
+    Cached on disk by sha256(text) so repeat chunk views never re-bill Gemini.
+    Returns a friendly placeholder SVG (never empty string) on failure so the
+    UI always has something to render.
     """
+    cache_path = _visual_cache_path(text)
+    if cache_path.exists():
+        try:
+            return cache_path.read_text(encoding="utf-8")
+        except OSError as e:
+            logger.warning("Visual cache read failed (%s); regenerating", e)
+
     input_check = await run_input_guardrails(text, endpoint="adaptation/visual")
     prompt = f"""
     Create a simple, high-contrast SVG illustration that represents the following educational concept for primary school children:
@@ -144,11 +175,17 @@ async def generate_visual_aid(text: str) -> str:
             if "```" in content:
                 content = content.split("<svg")[1].split("</svg>")[0]
                 content = "<svg" + content + "</svg>"
+            try:
+                _VISUAL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+                cache_path.write_text(content, encoding="utf-8")
+            except OSError as e:
+                logger.warning("Visual cache write failed: %s", e)
             return content
-        return ""
+        logger.warning("Gemini returned non-SVG content for visual aid; using placeholder")
+        return _PLACEHOLDER_SVG
     except Exception as e:
         logger.warning("Gemini visual aid generation failed: %s", e)
-        return ""
+        return _PLACEHOLDER_SVG
 
 async def transform_font(profile: LearnerModel) -> dict:
     """

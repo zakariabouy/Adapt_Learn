@@ -7,6 +7,8 @@ from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 from shared.database import get_pool
 from routers import auth, student, session, content, quiz, teacher, admin, gamification, exam
+from routers import guardrails as guardrails_router
+from middleware.guardrails import GuardrailMiddleware
 from orchestrator.scheduler import start_scheduler
 
 logging.basicConfig(
@@ -51,6 +53,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Guardrail middleware — rate limiting, input sanitization, audit headers
+app.add_middleware(GuardrailMiddleware)
+
 # Global exception handler — expose errors during development
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
@@ -75,6 +80,7 @@ app.include_router(teacher.router)
 app.include_router(admin.router)
 app.include_router(gamification.router)
 app.include_router(exam.router)
+app.include_router(guardrails_router.router)
 
 @app.get("/health")
 async def health_check():

@@ -9,6 +9,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage
 
 from shared.database import get_pool
+from shared.guardrails import run_output_guardrails, check_content_safety, log_guardrail_event
 
 logger = logging.getLogger(__name__)
 
@@ -251,6 +252,22 @@ async def generate_orientation_report(
     try:
         response = await get_llm().ainvoke([HumanMessage(content=prompt)])
         markdown_report = response.content
+
+        # ── Output guardrails ──
+        output_check = await run_output_guardrails(
+            markdown_report, endpoint="orientation/report"
+        )
+        markdown_report = output_check["filtered_text"]
+
+        if not output_check["safe"]:
+            await log_guardrail_event(
+                event_type="content_safety",
+                severity="warning",
+                action_taken="filtered",
+                endpoint="orientation/report",
+                output_snippet=markdown_report[:500],
+                details={"issues": output_check["issues"]},
+            )
     except Exception as e:
         logger.error(
             "Gemini orientation report failed for student %s: %s", student_id, e

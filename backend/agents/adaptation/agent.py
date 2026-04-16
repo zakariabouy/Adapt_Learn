@@ -5,6 +5,12 @@ import textstat
 from pathlib import Path
 from typing import List
 from shared.models import LearnerModel
+from shared.guardrails import (
+    run_input_guardrails,
+    run_output_guardrails,
+    check_content_safety,
+    filter_unsafe_content,
+)
 import os
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage
@@ -59,7 +65,12 @@ async def readability_score(text: str) -> float:
 async def simplify_text(text: str, profile: LearnerModel) -> str:
     """
     Calls Gemini 1.5 Flash to simplify text based on the student's profile.
+    Wrapped with input/output guardrails for safety.
     """
+    # ── Input guardrails ──
+    input_check = await run_input_guardrails(text, endpoint="adaptation/simplify")
+    text = input_check["sanitized_text"]
+
     # Build a natural-language description of the learner's profile
     tag_descriptions = []
     for tag in profile.learning_tags:
@@ -72,6 +83,8 @@ async def simplify_text(text: str, profile: LearnerModel) -> str:
     - Learning style: {profile_str}
     - Preferred modality: {profile.preferred_modality}
 
+    SAFETY: This content is for primary school children (ages 6-12). Do NOT include violence, profanity, or any inappropriate content.
+
     Original Text:
     {text}
 
@@ -80,10 +93,14 @@ async def simplify_text(text: str, profile: LearnerModel) -> str:
     2. Maintain core pedagogical concepts.
     3. Return ONLY the simplified text in Markdown.
     """
-    
+
     try:
         response = await get_llm().ainvoke([HumanMessage(content=prompt)])
-        return response.content
+        result = response.content
+
+        # ── Output guardrails ──
+        output_check = await run_output_guardrails(result, source_text=text, endpoint="adaptation/simplify")
+        return output_check["filtered_text"]
     except Exception as e:
         logger.warning("Gemini simplification failed: %s", e)
         return text
@@ -92,10 +109,12 @@ async def summarize_text(text: str) -> str:
     """
     Returns a one-sentence summary of the text chunk.
     """
-    prompt = f"Summarize the following text in exactly one clear, encouraging sentence for a student:\n\n{text}"
+    input_check = await run_input_guardrails(text, endpoint="adaptation/summarize")
+    prompt = f"Summarize the following text in exactly one clear, encouraging sentence for a primary school student:\n\n{input_check['sanitized_text']}"
     try:
         response = await get_llm().ainvoke([HumanMessage(content=prompt)])
-        return response.content
+        output_check = await run_output_guardrails(response.content, endpoint="adaptation/summarize")
+        return output_check["filtered_text"]
     except Exception as e:
         logger.warning("Gemini summarization failed: %s", e)
         return text
@@ -104,22 +123,28 @@ async def generate_visual_aid(text: str) -> str:
     """
     Generates a simple SVG diagram or illustration representing the text.
     """
+    input_check = await run_input_guardrails(text, endpoint="adaptation/visual")
     prompt = f"""
-    Create a simple, high-contrast SVG illustration that represents the following educational concept:
-    "{text}"
-    
+    Create a simple, high-contrast SVG illustration that represents the following educational concept for primary school children:
+    "{input_check['sanitized_text']}"
+
     Requirements:
     1. Use a clean, modern style with bold lines.
     2. Use accessible colors (high contrast).
     3. The SVG should be responsive (viewBox="0 0 400 400").
     4. Keep it very simple (icons, basic shapes).
-    5. Return ONLY the SVG code.
+    5. Content MUST be child-appropriate and educational.
+    6. Return ONLY the SVG code. No scripts or external references.
     """
     try:
         response = await get_llm().ainvoke([HumanMessage(content=prompt)])
         content = response.content.strip()
+
+        # Guardrail: strip any <script> tags from SVG (XSS prevention)
+        content = re.sub(r'<script[^>]*>.*?</script>', '', content, flags=re.DOTALL | re.IGNORECASE)
+        content = re.sub(r'\bon\w+\s*=\s*["\'][^"\']*["\']', '', content, flags=re.IGNORECASE)
+
         if "<svg" in content:
-            # Extract SVG part if Gemini wraps it in markdown
             if "```" in content:
                 content = content.split("<svg")[1].split("</svg>")[0]
                 content = "<svg" + content + "</svg>"

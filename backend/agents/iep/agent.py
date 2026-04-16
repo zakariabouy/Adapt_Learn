@@ -13,6 +13,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage
 from shared.database import get_pool
 from shared.models import LearnerModel
+from shared.guardrails import run_output_guardrails, log_guardrail_event
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -120,6 +121,22 @@ async def generate_iep_report(student_id: UUID, teacher_id: UUID) -> Dict[str, A
     try:
         response = await get_llm().ainvoke([HumanMessage(content=prompt)])
         markdown_content = response.content
+
+        # ── Output guardrails ──
+        output_check = await run_output_guardrails(
+            markdown_content, endpoint="iep/report"
+        )
+        markdown_content = output_check["filtered_text"]
+
+        if not output_check["safe"]:
+            await log_guardrail_event(
+                event_type="content_safety",
+                severity="warning",
+                action_taken="filtered",
+                endpoint="iep/report",
+                output_snippet=markdown_content[:500],
+                details={"issues": output_check["issues"]},
+            )
     except Exception as e:
         logger.error("Gemini IEP generation failed for student %s: %s", student_id, e)
         markdown_content = "# Error generating IEP Report\n\nCould not reach the AI agent."

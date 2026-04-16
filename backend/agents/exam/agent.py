@@ -9,6 +9,15 @@ from langchain_core.messages import HumanMessage
 
 from shared.database import get_pool
 from shared.rag import build_rag_context
+from shared.guardrails import (
+    run_input_guardrails,
+    run_output_guardrails,
+    validate_json_output,
+    validate_exam_output,
+    check_content_safety,
+    filter_unsafe_content,
+    log_guardrail_event,
+)
 from shared.models import (
     ExamType, ExamRequest, ExamQuestion, GeneratedExam, QuizOption,
 )
@@ -155,23 +164,46 @@ async def generate_exam(request: ExamRequest) -> GeneratedExam:
         class_avg_ability=class_avg,
     )
 
+    # ── Input guardrails ──
+    input_check = await run_input_guardrails(content_text, endpoint="exam/generate")
+
     try:
         response = await get_llm().ainvoke([HumanMessage(content=prompt)])
         raw = response.content.strip()
 
-        # Strip markdown fences if Gemini wraps it
-        if "```json" in raw:
-            raw = raw.split("```json")[1].split("```")[0].strip()
-        elif "```" in raw:
-            raw = raw.split("```")[1].split("```")[0].strip()
+        # Structured output validation via guardrails
+        json_check = validate_json_output(raw, required_keys=["questions"])
+        if not json_check["valid"]:
+            logger.error("Exam JSON validation failed: %s", json_check["errors"])
+            raise ValueError(f"AI returned invalid exam format: {json_check['errors']}")
 
-        exam_data = json.loads(raw)
+        exam_data = json_check["parsed"]
+
+        # Domain-specific exam validation
+        exam_validation = validate_exam_output(exam_data)
+        if not exam_validation["valid"]:
+            logger.warning("Exam validation errors: %s", exam_validation["errors"])
+            await log_guardrail_event(
+                event_type="output_validation",
+                severity="warning",
+                action_taken="flagged",
+                endpoint="exam/generate",
+                details={"errors": exam_validation["errors"], "warnings": exam_validation["warnings"]},
+            )
+        if exam_validation.get("warnings"):
+            logger.info("Exam validation warnings: %s", exam_validation["warnings"])
+
     except json.JSONDecodeError as e:
         logger.error("Gemini returned invalid JSON for exam: %s", e)
         raise ValueError("AI returned invalid exam format. Please retry.") from e
     except Exception as e:
         logger.error("Gemini exam generation failed: %s", e)
         raise ValueError(f"Exam generation failed: {e}") from e
+
+    # ── Output content safety ──
+    output_check = await run_output_guardrails(
+        json.dumps(exam_data), source_text=content_text, endpoint="exam/generate"
+    )
 
     # 4. Parse into typed model
     questions = []

@@ -4,6 +4,7 @@ import logging
 from typing import Optional
 from shared.models import LearnerModel
 from shared.database import get_pool
+from shared.guardrails import run_output_guardrails, validate_json_output
 from uuid import UUID
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage
@@ -123,12 +124,23 @@ RULES:
     try:
         response = await get_llm().ainvoke([HumanMessage(content=prompt)])
         raw = response.content.strip()
-        if "```json" in raw:
-            raw = raw.split("```json")[1].split("```")[0].strip()
-        elif "```" in raw:
-            raw = raw.split("```")[1].split("```")[0].strip()
 
-        result = json.loads(raw)
+        # Structured output validation
+        json_check = validate_json_output(raw, required_keys=["title", "summary"])
+        if json_check["valid"]:
+            result = json_check["parsed"]
+        else:
+            logger.warning("Profile summary JSON invalid: %s", json_check["errors"])
+            raise ValueError("Invalid JSON from Gemini")
+
+        # Output content safety
+        output_check = await run_output_guardrails(
+            result.get("summary", "") + " " + result.get("fun_fact", ""),
+            endpoint="profile/summary",
+        )
+        if not output_check["safe"]:
+            result["summary"] = output_check["filtered_text"]
+
     except Exception as e:
         logger.warning("Profile summary generation failed: %s", e)
         primary_tag = profile.learning_tags[0] if profile.learning_tags else "learner"

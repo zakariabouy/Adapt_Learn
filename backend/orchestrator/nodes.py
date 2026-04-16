@@ -8,6 +8,14 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from orchestrator.state import AgentState
 from shared.models import LearnerModel, ExamRequest, ExamType
 from shared.log_store import orchestrator_logs
+from shared.guardrails import (
+    run_input_guardrails,
+    run_output_guardrails,
+    check_content_safety,
+    filter_unsafe_content,
+    check_agent_autonomy,
+    log_guardrail_event,
+)
 from agents.adaptation.agent import simplify_text, summarize_text
 from agents.exam.agent import generate_exam
 from agents.orientation.agent import generate_orientation_report
@@ -71,6 +79,15 @@ async def content_adaptation_node(state: AgentState):
 
     orchestrator_logs.add_log("content_adaptation", "Generating adapted content via Adaptation Agent")
 
+    # ── Guardrail: input check before adaptation ──
+    input_check = await run_input_guardrails(raw_text, endpoint="orchestrator/adapt")
+    if not input_check["safe"]:
+        orchestrator_logs.add_log(
+            "guardrails", f"Input guardrail triggered: {input_check['issues']}",
+            {"action": "sanitized"}
+        )
+    raw_text = input_check["sanitized_text"]
+
     # RAG Enhancement: retrieve most relevant chunks for this student's profile
     if content_id:
         try:
@@ -115,7 +132,24 @@ async def validation_node(state: AgentState):
     adapted = state["adapted_content"]
     profile = state["learner_model"]
 
-    orchestrator_logs.add_log("validation", "Running WCAG accessibility checks")
+    orchestrator_logs.add_log("validation", "Running WCAG accessibility + guardrail checks")
+
+    # ── Guardrail: content safety check ──
+    safety = check_content_safety(adapted)
+    if not safety["is_safe"]:
+        orchestrator_logs.add_log(
+            "guardrails",
+            f"Content safety violation detected (severity={safety['severity']})",
+            {"violations": len(safety["violations"])}
+        )
+        adapted = filter_unsafe_content(adapted)
+        await log_guardrail_event(
+            event_type="content_safety",
+            severity=safety["severity"],
+            action_taken="filtered",
+            endpoint="orchestrator/validation",
+            output_snippet=adapted[:500],
+        )
 
     # Determine max acceptable grade level based on learning profile
     needs_simpler_text = any(t in profile.learning_tags for t in ["slow_reader", "short_attention", "needs_repetition"])
@@ -157,6 +191,13 @@ async def exam_generation_node(state: AgentState):
     """
     orchestrator_logs.add_log("exam_generation", "Starting exam generation")
 
+    # ── Guardrail: autonomy check ──
+    autonomy = check_agent_autonomy("generate_exam")
+    orchestrator_logs.add_log(
+        "guardrails",
+        f"Autonomy check for 'generate_exam': requires_review={autonomy['requires_review']}",
+    )
+
     content_id = state.get("content_id")
     grade_level = state.get("grade_level", 3)
 
@@ -197,6 +238,13 @@ async def orientation_report_node(state: AgentState):
     Only runs when flow_type == "orientation".
     """
     orchestrator_logs.add_log("orientation_report", "Starting orientation report generation")
+
+    # ── Guardrail: autonomy check (orientation is high-risk) ──
+    autonomy = check_agent_autonomy("orientation_report")
+    orchestrator_logs.add_log(
+        "guardrails",
+        f"Autonomy check for 'orientation_report': requires_review={autonomy['requires_review']}",
+    )
 
     profile = state["learner_model"]
     teacher_id = state.get("teacher_id")

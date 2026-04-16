@@ -3,6 +3,12 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from shared.database import get_pool
 from shared.rag import embed_and_store_content, retrieve_relevant_chunks, reembed_all_content
+from shared.guardrails import (
+    run_input_guardrails,
+    run_output_guardrails,
+    validate_json_output,
+    log_guardrail_event,
+)
 from routers.auth import get_current_user
 from uuid import uuid4, UUID
 import datetime
@@ -50,7 +56,29 @@ async def upload_content(file: UploadFile = File(...), current_user = Depends(ge
     
     if not text_content.strip():
          raise HTTPException(status_code=400, detail="File is empty or contains no readable text.")
-    
+
+    # --- Guardrails: sanitize uploaded content before LLM processing ---
+    input_check = await run_input_guardrails(
+        text_content,
+        user_id=current_user["id"],
+        endpoint="/content/upload",
+    )
+    if not input_check["safe"]:
+        await log_guardrail_event(
+            event_type="prompt_injection",
+            severity="critical",
+            action_taken="blocked",
+            user_id=current_user["id"],
+            endpoint="/content/upload",
+            input_snippet=text_content[:500],
+            details={"issues": input_check["issues"]},
+        )
+        raise HTTPException(
+            status_code=400,
+            detail="Uploaded content was flagged by security guardrails. Please review and resubmit.",
+        )
+    text_content = input_check["sanitized_text"]
+
     # --- AI Analysis Phase ---
     prompt = f"""
     Analyze the following educational content and extract metadata.

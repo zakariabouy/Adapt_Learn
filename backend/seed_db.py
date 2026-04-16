@@ -19,6 +19,7 @@ async def seed():
         "migrations/004_gamification.sql",
         "migrations/005_grade_level.sql",
         "migrations/006_rag_vectors.sql",
+        "migrations/007_guardrails.sql",
     ]
 
     for m in migration_files:

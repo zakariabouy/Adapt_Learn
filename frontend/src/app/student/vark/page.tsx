@@ -306,7 +306,8 @@ export default function VARKTestPage() {
             <span className="w-2.5 h-2.5 bg-[#FFB84D] rounded-full" />
             <span className="w-2.5 h-2.5 bg-[#00C896] rounded-full" />
           </div>
-          <span className="font-headline font-bold tracking-tighter text-on-surface ml-3 text-sm">
+          <img src="/logo.png" alt="AdaptLearn" className="w-7 h-7 object-contain ml-2" />
+          <span className="font-headline font-bold tracking-tighter text-on-surface ml-1 text-sm">
             AdaptLearn
           </span>
         </div>

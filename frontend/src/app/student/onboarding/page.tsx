@@ -111,7 +111,7 @@ export default function Onboarding() {
       {/* Header */}
       <header className="fixed top-0 w-full z-50 flex justify-between items-center px-6 h-14 border-b border-outline-variant/10 bg-surface-container">
         <div className="flex items-center gap-2">
-          <Brain size={18} className="text-primary" />
+          <img src="/logo.png" alt="AdaptLearn" className="w-7 h-7 object-contain" />
           <span className="font-headline font-bold text-sm tracking-tight">AdaptLearn</span>
         </div>
         <button className="text-on-surface-variant text-xs hover:text-on-surface transition-colors">

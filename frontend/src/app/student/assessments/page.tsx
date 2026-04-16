@@ -159,7 +159,7 @@ function AssessmentContent() {
       {/* Top bar */}
       <div className="fixed top-0 w-full z-50 flex items-center justify-between px-6 h-14 bg-surface-container border-b border-outline-variant/10">
         <div className="flex items-center gap-2">
-          <Brain size={18} className="text-primary" />
+          <img src="/logo.png" alt="AdaptLearn" className="w-7 h-7 object-contain" />
           <span className="text-sm font-bold tracking-tight">Assessment</span>
         </div>
         <button

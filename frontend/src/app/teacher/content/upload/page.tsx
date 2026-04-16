@@ -71,7 +71,7 @@ export default function ContentUpload() {
       <aside className="fixed left-0 top-0 h-full w-60 bg-surface-container border-r border-outline-variant/10 flex flex-col p-5 z-40">
         <div className="mb-8 px-2">
           <div className="flex items-center gap-2 mb-0.5">
-            <Brain size={16} className="text-primary" />
+            <img src="/logo.png" alt="AdaptLearn" className="w-7 h-7 object-contain" />
             <h1 className="font-headline font-bold text-base tracking-tight text-on-surface">AdaptLearn</h1>
           </div>
           <p className="text-[11px] text-on-surface-variant">Teacher Portal</p>

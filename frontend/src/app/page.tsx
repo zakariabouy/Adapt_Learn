@@ -18,7 +18,7 @@ export default function Home() {
       {/* Header */}
       <header className="fixed top-0 w-full z-50 flex justify-between items-center px-6 h-14 bg-surface/80 backdrop-blur-md border-b border-outline-variant/10">
         <div className="flex items-center gap-2">
-          <Brain className="w-5 h-5 text-primary" />
+          <img src="/logo.png" alt="AdaptLearn" className="w-7 h-7 object-contain" />
           <span className="font-headline font-bold text-sm tracking-tight text-on-surface">AdaptLearn</span>
         </div>
         <div className="flex items-center gap-3">

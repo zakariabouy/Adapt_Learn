@@ -334,7 +334,7 @@ function TopNavBar({ studentId, onLogout, contentList, contentId, onSelectConten
   return (
     <header className="fixed top-0 w-full z-50 flex justify-between items-center px-6 h-14 bg-surface-container border-b border-outline-variant/10">
       <div className="flex items-center gap-2">
-        <Brain size={18} className="text-primary" />
+        <img src="/logo.png" alt="AdaptLearn" className="w-7 h-7 object-contain" />
         <span className="text-sm font-bold tracking-tight text-on-surface">AdaptLearn</span>
       </div>
       <nav className="hidden md:flex gap-6 items-center text-sm" aria-label="Main Navigation">

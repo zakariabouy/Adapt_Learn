@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import axios from 'axios';
 import { API_URL } from '@/lib/api';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, GraduationCap, Presentation, Heart, ChevronUp } from 'lucide-react';
+import { Users, GraduationCap, Presentation, Heart, Shield, ChevronUp } from 'lucide-react';
 
 const DEMO_ACCOUNTS = [
   { label: 'Mme. Fatima', role: 'teacher', email: 'teacher@enset.edu', password: 'password123', path: '/teacher/dashboard' },
@@ -13,6 +13,7 @@ const DEMO_ACCOUNTS = [
   { label: 'Lina (G2)', role: 'student', email: 'lina@student.com', password: 'password123', path: '/student/workspace' },
   { label: 'Yassine (G5)', role: 'student', email: 'yassine@student.com', password: 'password123', path: '/student/workspace' },
   { label: 'M. Khalid', role: 'parent', email: 'parent@family.com', password: 'password123', path: '/parent/dashboard' },
+  { label: 'Admin ENSET', role: 'admin', email: 'admin@enset.edu', password: 'password123', path: '/admin/dashboard' },
 ];
 
 export default function DemoSwitcher() {
@@ -67,8 +68,8 @@ export default function DemoSwitcher() {
                 disabled={switching !== null}
                 className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-surface-container-high transition-colors disabled:opacity-40"
               >
-                <div className={`p-1 rounded-md ${a.role === 'teacher' ? 'bg-primary/10 text-primary' : a.role === 'parent' ? 'bg-orange-400/10 text-orange-400' : 'bg-secondary/10 text-secondary'}`}>
-                  {a.role === 'teacher' ? <Presentation size={13} /> : a.role === 'parent' ? <Heart size={13} /> : <GraduationCap size={13} />}
+                <div className={`p-1 rounded-md ${a.role === 'teacher' ? 'bg-primary/10 text-primary' : a.role === 'parent' ? 'bg-orange-400/10 text-orange-400' : a.role === 'admin' ? 'bg-purple-400/10 text-purple-400' : 'bg-secondary/10 text-secondary'}`}>
+                  {a.role === 'teacher' ? <Presentation size={13} /> : a.role === 'parent' ? <Heart size={13} /> : a.role === 'admin' ? <Shield size={13} /> : <GraduationCap size={13} />}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-xs font-medium text-on-surface truncate">{a.label}</div>

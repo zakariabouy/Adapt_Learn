@@ -1,0 +1,31 @@
+[gd_scene load_steps=5 format=3 uid="uid://740xbrrj5qlb"]
+
+[ext_resource type="Script" uid="uid://vxy35g2qrm4r" path="res://games/frogger/scenes/car.gd" id="1_qt2eu"]
+[ext_resource type="Texture2D" uid="uid://ded8huv3lr1a7" path="res://games/frogger/graphics/cars/yellow.png" id="1_svk5y"]
+[ext_resource type="AudioStream" uid="uid://bvhvwpwj444kf" path="res://games/frogger/audio/car.mp3" id="3_50v30"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_nhxoo"]
+size = Vector2(24, 10)
+
+[node name="Car" type="Area2D"]
+collision_layer = 4
+collision_mask = 2
+script = ExtResource("1_qt2eu")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture = ExtResource("1_svk5y")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(0, 1)
+shape = SubResource("RectangleShape2D_nhxoo")
+
+[node name="VisibleOnScreenNotifier2D" type="VisibleOnScreenNotifier2D" parent="."]
+
+[node name="AudioStreamPlayer2D" type="AudioStreamPlayer2D" parent="."]
+stream = ExtResource("3_50v30")
+volume_db = -20.0
+autoplay = true
+max_distance = 100.0
+parameters/looping = true
+
+[connection signal="screen_exited" from="VisibleOnScreenNotifier2D" to="." method="_on_visible_on_screen_notifier_2d_screen_exited"]

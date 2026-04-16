@@ -1,0 +1,50 @@
+[gd_scene load_steps=6 format=3 uid="uid://d1a15tilsrxbk"]
+
+[ext_resource type="Texture2D" uid="uid://doghmovcgeltw" path="res://games/frogger/graphics/map.png" id="1_uwrxv"]
+[ext_resource type="PackedScene" uid="uid://bdsm7hsurpwsc" path="res://games/frogger/scenes/player.tscn" id="2_yqjtg"]
+[ext_resource type="PackedScene" uid="uid://bq4e8jp5nvbf4" path="res://games/frogger/scenes/tree.tscn" id="3_lnu2h"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_lnu2h"]
+size = Vector2(20, 768)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_lbhrr"]
+size = Vector2(429, 44)
+
+[node name="Game" type="Node2D"]
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture = ExtResource("1_uwrxv")
+
+[node name="Player" parent="." instance=ExtResource("2_yqjtg")]
+position = Vector2(27, 36)
+
+[node name="ExerciseObject" parent="." instance=ExtResource("3_lnu2h")]
+position = Vector2(123, 211)
+
+[node name="Borders" type="Node2D" parent="."]
+
+[node name="StaticBody2D" type="StaticBody2D" parent="Borders"]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Borders/StaticBody2D"]
+position = Vector2(-202, 18)
+shape = SubResource("RectangleShape2D_lnu2h")
+
+[node name="StaticBody2D2" type="StaticBody2D" parent="Borders"]
+position = Vector2(405, 22)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Borders/StaticBody2D2"]
+position = Vector2(-203, 18)
+shape = SubResource("RectangleShape2D_lnu2h")
+
+[node name="StaticBody2D3" type="StaticBody2D" parent="Borders"]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Borders/StaticBody2D3"]
+position = Vector2(-17.5, -342)
+shape = SubResource("RectangleShape2D_lbhrr")
+
+[node name="StaticBody2D4" type="StaticBody2D" parent="Borders"]
+position = Vector2(14, 684)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Borders/StaticBody2D4"]
+position = Vector2(-17.5, -342)
+shape = SubResource("RectangleShape2D_lbhrr")

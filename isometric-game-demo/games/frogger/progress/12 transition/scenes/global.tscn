@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://komxq4xladlp"]
+
+[ext_resource type="Script" uid="uid://bynq175ssa30u" path="res://games/frogger/scenes/global.gd" id="1_4pk28"]
+
+[node name="Global" type="Node"]
+script = ExtResource("1_4pk28")

@@ -1,0 +1,13 @@
+[gd_scene load_steps=3 format=3 uid="uid://komxq4xladlp"]
+
+[ext_resource type="Script" uid="uid://bynq175ssa30u" path="res://games/frogger/scenes/global.gd" id="1_4pk28"]
+[ext_resource type="AudioStream" uid="uid://dsmu7jxxo46sy" path="res://games/frogger/audio/happy.mp3" id="2_nmxvb"]
+
+[node name="Global" type="Node"]
+script = ExtResource("1_4pk28")
+
+[node name="AudioStreamPlayer" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("2_nmxvb")
+volume_db = -10.0
+autoplay = true
+parameters/looping = true

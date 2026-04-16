@@ -1,0 +1,15 @@
+[gd_scene format=3 uid="uid://dgjg7jaublb7b"]
+
+[ext_resource type="Texture2D" uid="uid://d0so81ys3820n" path="res://games/frogger/graphics/objects/tree1.png" id="1_iphuf"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_jc6ku"]
+size = Vector2(10, 18)
+
+[node name="Tree" type="StaticBody2D"]
+collision_mask = 0
+
+[node name="Tree1" type="Sprite2D" parent="."]
+texture = ExtResource("1_iphuf")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_jc6ku")

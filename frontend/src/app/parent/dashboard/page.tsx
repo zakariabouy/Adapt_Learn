@@ -1,15 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { API_URL } from '@/lib/api';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Brain, Heart, Star, Flame, Trophy, BookOpen,
   Clock, BarChart3, Shield, LogOut, ChevronRight,
   Loader2, AlertCircle, Users, Compass, Gift,
-  Search, Palette, Wrench
+  Search, Palette, Wrench, Plus, Trash2, CheckCircle2,
+  XCircle, Coins, ShoppingBag,
 } from 'lucide-react';
 
 interface Child {
@@ -77,7 +78,7 @@ export default function ParentDashboard() {
   const [loading, setLoading] = useState(true);
   const [dashLoading, setDashLoading] = useState(false);
   const [parentName, setParentName] = useState('');
-  const [activeTab, setActiveTab] = useState<'overview' | 'orientation'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'orientation' | 'rewards'>('overview');
   const [orientationReport, setOrientationReport] = useState<any>(null);
   const [orientationLoading, setOrientationLoading] = useState(false);
   const router = useRouter();
@@ -221,12 +222,20 @@ export default function ParentDashboard() {
                 <Compass size={13} /> Orientation
                 {orientationReport && <span className="w-1.5 h-1.5 rounded-full bg-secondary" />}
               </button>
+              <button
+                onClick={() => setActiveTab('rewards')}
+                className={`px-4 py-2 rounded-md text-xs font-medium transition-all flex items-center gap-2 ${activeTab === 'rewards' ? 'bg-primary/10 text-primary' : 'text-on-surface-variant hover:bg-surface-container-high'}`}
+              >
+                <Gift size={13} /> Rewards Shop
+              </button>
             </div>
 
             {dashLoading ? (
               <div className="flex items-center justify-center py-20">
                 <Loader2 className="w-6 h-6 text-primary animate-spin" />
               </div>
+            ) : activeTab === 'rewards' && selectedChild ? (
+              <RewardsTab childId={selectedChild} childName={child?.name || ''} />
             ) : activeTab === 'orientation' ? (
               <OrientationTab report={orientationReport} childName={child?.name || ''} />
             ) : dashboard && child ? (
@@ -523,6 +532,271 @@ function OrientationTab({ report, childName }: { report: any; childName: string 
             <span className="text-[10px] text-primary uppercase tracking-widest font-medium">For You</span>
           </div>
           <p className="text-sm text-on-surface leading-relaxed italic">&ldquo;{r.parent_message}&rdquo;</p>
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
+/* ─── Rewards Tab ─── */
+
+const EMOJI_OPTIONS = [
+  { value: 'gift', label: '🎁 Gift' },
+  { value: 'ice_cream', label: '🍦 Ice cream' },
+  { value: 'book', label: '📚 Book' },
+  { value: 'game', label: '🎮 Game' },
+  { value: 'movie', label: '🎬 Movie' },
+  { value: 'pizza', label: '🍕 Pizza' },
+  { value: 'toy', label: '🧸 Toy' },
+  { value: 'trip', label: '🚗 Trip' },
+  { value: 'screen', label: '📱 Screen time' },
+  { value: 'candy', label: '🍬 Candy' },
+  { value: 'sport', label: '⚽ Sport' },
+  { value: 'art', label: '🎨 Art' },
+  { value: 'star', label: '⭐ Star' },
+  { value: 'music', label: '🎵 Music' },
+];
+
+const EMOJI_MAP: Record<string, string> = {
+  gift: '🎁', star: '⭐', ice_cream: '🍦', book: '📚', game: '🎮',
+  movie: '🎬', pizza: '🍕', toy: '🧸', trip: '🚗', screen: '📱',
+  candy: '🍬', sport: '⚽', art: '🎨', music: '🎵', pet: '🐾',
+};
+
+interface ParentReward {
+  id: string;
+  title: string;
+  description: string | null;
+  xp_cost: number;
+  icon: string;
+  is_active: boolean;
+  is_redeemed: boolean;
+  redeemed_at: string | null;
+}
+
+function RewardsTab({ childId, childName }: { childId: string; childName: string }) {
+  const [rewards, setRewards] = useState<ParentReward[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [xpCost, setXpCost] = useState(100);
+  const [icon, setIcon] = useState('gift');
+  const [saving, setSaving] = useState(false);
+
+  const headers = () => ({ Authorization: `Bearer ${localStorage.getItem('token')}` });
+
+  const fetchRewards = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API_URL}/parent/rewards/${childId}`, { headers: headers() });
+      setRewards(res.data);
+    } catch {
+    } finally {
+      setLoading(false);
+    }
+  }, [childId]);
+
+  useEffect(() => {
+    fetchRewards();
+  }, [fetchRewards]);
+
+  const createReward = async () => {
+    if (!title.trim()) return;
+    setSaving(true);
+    try {
+      await axios.post(`${API_URL}/parent/rewards/${childId}`, {
+        title: title.trim(),
+        description: description.trim() || null,
+        xp_cost: xpCost,
+        icon,
+      }, { headers: headers() });
+      setTitle('');
+      setDescription('');
+      setXpCost(100);
+      setIcon('gift');
+      setShowForm(false);
+      fetchRewards();
+    } catch {
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteReward = async (rewardId: string) => {
+    try {
+      await axios.delete(`${API_URL}/parent/rewards/${rewardId}`, { headers: headers() });
+      fetchRewards();
+    } catch {
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="w-6 h-6 text-primary animate-spin" />
+      </div>
+    );
+  }
+
+  const activeRewards = rewards.filter(r => r.is_active && !r.is_redeemed);
+  const redeemedRewards = rewards.filter(r => r.is_redeemed);
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-bold flex items-center gap-2">
+            <ShoppingBag size={18} className="text-primary" />
+            Rewards for {childName}
+          </h2>
+          <p className="text-xs text-on-surface-variant mt-1">
+            Create rewards your child can redeem with their earned XP
+          </p>
+        </div>
+        <button
+          onClick={() => setShowForm(!showForm)}
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-on-primary text-xs font-bold rounded-lg hover:brightness-110 transition-all"
+        >
+          <Plus size={14} />
+          Add Reward
+        </button>
+      </div>
+
+      {/* Create form */}
+      <AnimatePresence>
+        {showForm && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="bg-surface-container rounded-xl border border-outline-variant/8 p-5 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] text-on-surface-variant uppercase tracking-widest mb-1.5">Title</label>
+                  <input
+                    value={title}
+                    onChange={e => setTitle(e.target.value)}
+                    placeholder="e.g. 30 min screen time"
+                    className="w-full bg-surface-container-lowest border border-outline-variant/15 rounded-lg px-3 py-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/30 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] text-on-surface-variant uppercase tracking-widest mb-1.5">XP Cost</label>
+                  <input
+                    type="number"
+                    value={xpCost}
+                    onChange={e => setXpCost(e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
+                    min={1}
+                    className="w-full bg-surface-container-lowest border border-outline-variant/15 rounded-lg px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-[10px] text-on-surface-variant uppercase tracking-widest mb-1.5">Description (optional)</label>
+                <input
+                  value={description}
+                  onChange={e => setDescription(e.target.value)}
+                  placeholder="Details about the reward..."
+                  className="w-full bg-surface-container-lowest border border-outline-variant/15 rounded-lg px-3 py-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/30 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] text-on-surface-variant uppercase tracking-widest mb-1.5">Icon</label>
+                <div className="flex flex-wrap gap-2">
+                  {EMOJI_OPTIONS.map(opt => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setIcon(opt.value)}
+                      className={`px-3 py-1.5 rounded-lg text-sm transition-all ${
+                        icon === opt.value
+                          ? 'bg-primary/15 border border-primary/30'
+                          : 'bg-surface-container-high/50 border border-outline-variant/10 hover:border-outline-variant/20'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={createReward}
+                  disabled={!title.trim() || saving}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-primary text-on-primary text-xs font-bold rounded-lg hover:brightness-110 transition-all disabled:opacity-40"
+                >
+                  {saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                  Create
+                </button>
+                <button
+                  onClick={() => setShowForm(false)}
+                  className="px-4 py-2.5 text-on-surface-variant text-xs rounded-lg border border-outline-variant/10 hover:bg-surface-container-high transition-all"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Active rewards */}
+      {activeRewards.length === 0 && !showForm ? (
+        <div className="text-center py-16">
+          <Gift size={36} className="text-on-surface-variant/20 mx-auto mb-4" />
+          <h3 className="text-sm font-bold mb-1">No rewards yet</h3>
+          <p className="text-xs text-on-surface-variant max-w-sm mx-auto">
+            Create rewards that {childName} can exchange with XP earned from learning activities and games.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {activeRewards.map(reward => (
+            <div key={reward.id} className="bg-surface-container rounded-xl border border-outline-variant/8 p-4 flex items-start gap-3">
+              <div className="w-10 h-10 rounded-lg bg-amber-500/10 border border-amber-500/15 flex items-center justify-center text-xl shrink-0">
+                {EMOJI_MAP[reward.icon] || '🎁'}
+              </div>
+              <div className="flex-1 min-w-0">
+                <h4 className="text-sm font-bold truncate">{reward.title}</h4>
+                {reward.description && <p className="text-xs text-on-surface-variant mt-0.5 line-clamp-1">{reward.description}</p>}
+                <div className="flex items-center gap-1 mt-1">
+                  <Coins size={11} className="text-amber-400" />
+                  <span className="text-xs font-bold text-amber-300">{reward.xp_cost} XP</span>
+                </div>
+              </div>
+              <button
+                onClick={() => deleteReward(reward.id)}
+                className="p-1.5 text-on-surface-variant/30 hover:text-red-400 transition-colors rounded-lg hover:bg-red-400/10"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Redeemed rewards */}
+      {redeemedRewards.length > 0 && (
+        <div>
+          <h3 className="text-xs text-on-surface-variant uppercase tracking-widest mb-3 flex items-center gap-2">
+            <CheckCircle2 size={12} className="text-secondary" /> Redeemed
+          </h3>
+          <div className="space-y-2">
+            {redeemedRewards.map(reward => (
+              <div key={reward.id} className="flex items-center gap-3 p-3 rounded-lg bg-surface-container-high/30 border border-outline-variant/5">
+                <span className="text-lg">{EMOJI_MAP[reward.icon] || '🎁'}</span>
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm font-medium text-on-surface/60 line-through">{reward.title}</span>
+                  <span className="text-[10px] text-on-surface-variant ml-2">{reward.xp_cost} XP</span>
+                </div>
+                <span className="text-[10px] text-secondary font-bold">
+                  {reward.redeemed_at ? new Date(reward.redeemed_at).toLocaleDateString('fr-FR') : 'Redeemed'}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </motion.div>

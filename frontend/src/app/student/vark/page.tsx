@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import axios from 'axios';
 import { API_URL } from '@/lib/api';
 import {
@@ -174,7 +174,17 @@ function RadarChart({ scores }: { scores: VARKScores }) {
 
 /* ─── main page ─── */
 export default function VARKTestPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#0D0D0F] flex items-center justify-center"><Loader2 className="w-8 h-8 text-primary animate-spin" /></div>}>
+      <VARKTestInner />
+    </Suspense>
+  );
+}
+
+function VARKTestInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const forceRetake = searchParams.get('retake') === '1';
 
   const [phase, setPhase] = useState<'loading' | 'intro' | 'quiz' | 'submitting' | 'results'>('loading');
   const [questions, setQuestions] = useState<VARKQuestion[]>([]);
@@ -193,18 +203,20 @@ export default function VARKTestPage() {
 
     const init = async () => {
       try {
-        // Check if already completed
-        const statusRes = await axios.get(`${API_URL}/student/vark/status`, { headers });
-        if (statusRes.data.completed && statusRes.data.scores) {
-          setResult({
-            scores: statusRes.data.scores,
-            dominant_style: statusRes.data.dominant_style,
-            style_label: STYLE_META[statusRes.data.dominant_style]?.description ? statusRes.data.dominant_style : 'V',
-            profile_tags_updated: [],
-            modality_set: '',
-          });
-          setPhase('results');
-          return;
+        // Check if already completed (skip if retake requested)
+        if (!forceRetake) {
+          const statusRes = await axios.get(`${API_URL}/student/vark/status`, { headers });
+          if (statusRes.data.completed && statusRes.data.scores) {
+            setResult({
+              scores: statusRes.data.scores,
+              dominant_style: statusRes.data.dominant_style,
+              style_label: STYLE_META[statusRes.data.dominant_style]?.description ? statusRes.data.dominant_style : 'V',
+              profile_tags_updated: [],
+              modality_set: '',
+            });
+            setPhase('results');
+            return;
+          }
         }
 
         // Load questions

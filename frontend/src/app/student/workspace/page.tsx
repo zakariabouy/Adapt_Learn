@@ -341,6 +341,7 @@ function TopNavBar({ studentId, onLogout, contentList, contentId, onSelectConten
         <a className="text-on-surface font-medium border-b border-primary pb-0.5" href="/student/workspace">Workspace</a>
         <a className="text-on-surface-variant hover:text-on-surface transition-colors" href="/student/profile">Profile</a>
         <a className="text-on-surface-variant hover:text-on-surface transition-colors" href="/student/games">Games</a>
+        <a className="text-on-surface-variant hover:text-on-surface transition-colors" href="/student/shop">Shop</a>
         <a className="text-on-surface-variant hover:text-on-surface transition-colors" href="/student/orientation">Orientation</a>
       </nav>
       <div className="flex items-center gap-3">

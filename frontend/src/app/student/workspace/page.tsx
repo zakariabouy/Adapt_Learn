@@ -14,6 +14,7 @@ import { useAdaptation } from '@/hooks/useAdaptation';
 import { useTelemetry } from '@/hooks/useTelemetry';
 import GodModePanel from '@/components/workspace/GodModePanel';
 import AccessibilityController from '@/components/workspace/AccessibilityController';
+import GamificationWidget from '@/components/workspace/GamificationWidget';
 import { CssConfig } from '@/types/models';
 
 export default function Workspace() {
@@ -469,6 +470,9 @@ function AdaptationHUD({
         </div>
         {isConnected && <div className="h-2 w-2 rounded-full bg-secondary animate-pulse" />}
       </div>
+
+      {/* Gamification */}
+      <GamificationWidget />
 
       {/* Mode Switcher */}
       <div className="flex p-1 bg-surface-container-low rounded-lg gap-1">

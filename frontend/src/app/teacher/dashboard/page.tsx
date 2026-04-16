@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Users, BookOpen, BarChart2, AlertTriangle,
   Search, FileUp, LogOut, FileText, Activity, Zap, X, TrendingUp, UserPlus,
-  ShieldCheck, Sparkles, Loader2
+  ShieldCheck, Sparkles, Loader2, Shield
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
@@ -36,6 +36,7 @@ export default function TeacherDashboard() {
   const [examContentId, setExamContentId] = useState<string>('');
   const [examGenerating, setExamGenerating] = useState(false);
   const [examToast, setExamToast] = useState<{ kind: 'ok' | 'err'; msg: string } | null>(null);
+  const [guardrailStats, setGuardrailStats] = useState<any>(null);
   const router = useRouter();
 
   const fetchData = async () => {
@@ -46,13 +47,15 @@ export default function TeacherDashboard() {
     }
     const headers = { Authorization: `Bearer ${token}` };
     try {
-      const [studentsRes, statsRes, cohortRes, contentRes] = await Promise.all([
+      const [studentsRes, statsRes, cohortRes, contentRes, guardrailRes] = await Promise.all([
         axios.get(`${API_URL}/teacher/students`, { headers }),
         axios.get(`${API_URL}/content/teacher/dashboard/stats`, { headers }),
         axios.get(`${API_URL}/teacher/stats`, { headers }),
         axios.get(`${API_URL}/content/list`, { headers }),
+        axios.get(`${API_URL}/guardrails/stats`, { headers }).catch(() => ({ data: null })),
       ]);
       setContentList(contentRes.data ?? []);
+      setGuardrailStats(guardrailRes.data);
 
       const formatted = studentsRes.data.map((s: any) => {
         let dotColor = 'bg-green-400';
@@ -140,9 +143,9 @@ export default function TeacherDashboard() {
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      setExamToast({ kind: 'ok', msg: 'Exam drafted — sent to the review desk.' });
+      setExamToast({ kind: 'ok', msg: 'Exam drafted — sent to the review desk. Click here to review →' });
       fetchData();
-      setTimeout(() => setExamToast(null), 5000);
+      setTimeout(() => setExamToast(null), 8000);
     } catch (err: any) {
       setExamToast({
         kind: 'err',
@@ -310,6 +313,36 @@ export default function TeacherDashboard() {
               Update Lesson Plan
             </button>
           </motion.div>
+
+          {/* Guardrail Security Insights */}
+          {guardrailStats && (
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="lg:col-span-3 bg-surface-container-high p-6 rounded-2xl border border-outline-variant/10 shadow-sm">
+              <h3 className="font-headline font-bold text-on-surface flex items-center gap-2 mb-4">
+                <Shield size={18} className="text-green-400" /> AI Safety &amp; Guardrails
+                <span className="text-xs font-label text-on-surface-variant/60 uppercase tracking-widest ml-auto">Last 7 days</span>
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-surface-container-low p-4 rounded-xl border border-outline-variant/5">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Total Events</p>
+                  <p className="text-2xl font-black tabular-nums">{guardrailStats.total_events}</p>
+                </div>
+                <div className="bg-surface-container-low p-4 rounded-xl border border-outline-variant/5">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Blocked</p>
+                  <p className={`text-2xl font-black tabular-nums ${guardrailStats.blocked_requests > 0 ? 'text-red-400' : 'text-green-400'}`}>
+                    {guardrailStats.blocked_requests}
+                  </p>
+                </div>
+                {Object.entries(guardrailStats.by_type || {}).slice(0, 2).map(([type, count]) => (
+                  <div key={type} className="bg-surface-container-low p-4 rounded-xl border border-outline-variant/5">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">
+                      {type.replace(/_/g, ' ')}
+                    </p>
+                    <p className="text-2xl font-black tabular-nums">{count as number}</p>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )}
         </div>
 
         <div className="bg-surface-container-high rounded-3xl border border-outline-variant/10 p-8 mb-12 shadow-xl">
@@ -543,9 +576,10 @@ export default function TeacherDashboard() {
                         initial={{ opacity: 0, y: -4 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0 }}
+                        onClick={() => examToast.kind === 'ok' ? router.push('/teacher/pending') : null}
                         className={`mt-3 text-xs font-bold px-3 py-2 rounded-lg ${
                           examToast.kind === 'ok'
-                            ? 'bg-secondary/15 text-secondary'
+                            ? 'bg-secondary/15 text-secondary cursor-pointer hover:bg-secondary/25 transition-colors'
                             : 'bg-red-400/10 text-red-400'
                         }`}
                       >

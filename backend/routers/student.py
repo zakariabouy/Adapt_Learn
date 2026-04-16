@@ -335,3 +335,46 @@ async def list_content(
         }
         for r in rows
     ]
+
+
+@router.get("/exams")
+async def list_student_exams(current_user=Depends(get_current_user)):
+    """Returns exams that have been approved by the teacher and assigned to this student."""
+    if current_user["role"] != "student":
+        raise HTTPException(status_code=403, detail="Only students can view their exams")
+
+    pool = await get_pool()
+
+    # Check if the table exists (it's created on first approve)
+    table_exists = await pool.fetchval(
+        "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'student_exams')"
+    )
+    if not table_exists:
+        return []
+
+    rows = await pool.fetch(
+        """
+        SELECT se.id, se.exam_data, se.status, se.assigned_at, se.completed_at,
+               ci.title AS content_title, ci.subject
+        FROM student_exams se
+        LEFT JOIN content_items ci ON se.content_id = ci.id
+        WHERE se.student_id = $1
+        ORDER BY se.assigned_at DESC
+        """,
+        current_user["id"],
+    )
+    result = []
+    for r in rows:
+        exam_data = r["exam_data"]
+        if isinstance(exam_data, str):
+            exam_data = json.loads(exam_data)
+        result.append({
+            "id": str(r["id"]),
+            "exam": exam_data,
+            "content_title": r["content_title"],
+            "subject": r["subject"],
+            "status": r["status"],
+            "assigned_at": r["assigned_at"].isoformat() if r["assigned_at"] else None,
+            "completed_at": r["completed_at"].isoformat() if r["completed_at"] else None,
+        })
+    return result

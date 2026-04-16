@@ -364,17 +364,24 @@ export default function PendingReviewPage() {
     setBusy(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.post<PendingAction>(
+      const res = await axios.post<PendingAction & { guardrail_warnings?: string[] }>(
         `${API_URL}/teacher/pending/${selected.id}/${verb}`,
         body ?? { reviewer_notes: notes || null },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setItems((prev) => prev.map((it) => (it.id === selected.id ? res.data : it)));
-      flash(
-        verb === 'approve' ? 'Signed and approved.' :
-        verb === 'reject'  ? 'Returned with notes.' :
-        'Edits committed.'
-      );
+
+      // Surface guardrail warnings if present
+      const warnings = (res.data as Record<string, unknown>).guardrail_warnings as string[] | undefined;
+      if (warnings && warnings.length > 0) {
+        flash(`Committed with warnings: ${warnings.join('; ')}`);
+      } else {
+        flash(
+          verb === 'approve' ? 'Signed and approved.' :
+          verb === 'reject'  ? 'Returned with notes.' :
+          'Edits committed.'
+        );
+      }
       if (verb === 'modify') setEditingJson(false);
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { detail?: string } } };
@@ -466,7 +473,7 @@ export default function PendingReviewPage() {
         </div>
         <div className="flex items-center gap-5 ed-small-caps text-[0.7rem]">
           <span style={{ color: 'var(--ed-ink-faint)' }}>Kind:</span>
-          {(['all', 'exam_generation', 'orientation_report', 'iep_report'] as TypeFilter[]).map((t) => (
+          {(['all', 'exam_generation', 'orientation_report', 'iep_report', 'content_adaptation'] as TypeFilter[]).map((t) => (
             <button
               key={t}
               onClick={() => setTypeFilter(t)}

@@ -1,0 +1,20 @@
+[gd_scene format=3 uid="uid://df5u8p1hjfqxw"]
+
+[ext_resource type="Script" uid="uid://d3yq8l5b4nmc1" path="res://games/frogger/scenes/car.gd" id="1_car"]
+[ext_resource type="Texture2D" uid="uid://b8fq8sgkmu4dx" path="res://games/frogger/graphics/objects/green car.png" id="2_car_tex"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_car"]
+size = Vector2(28, 14)
+
+[node name="Car" type="Area2D" groups=["cars"]]
+script = ExtResource("1_car")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture = ExtResource("2_car_tex")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_car")
+
+[node name="VisibleOnScreenNotifier2D" type="VisibleOnScreenNotifier2D" parent="."]
+
+[connection signal="screen_exited" from="VisibleOnScreenNotifier2D" to="." method="_on_screen_exited"]

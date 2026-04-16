@@ -1,0 +1,16 @@
+[gd_scene load_steps=4 format=3 uid="uid://d1a15tilsrxbk"]
+
+[ext_resource type="Texture2D" uid="uid://doghmovcgeltw" path="res://games/frogger/graphics/map.png" id="1_uwrxv"]
+[ext_resource type="PackedScene" uid="uid://bdsm7hsurpwsc" path="res://games/frogger/scenes/player.tscn" id="2_yqjtg"]
+[ext_resource type="PackedScene" uid="uid://bq4e8jp5nvbf4" path="res://games/frogger/scenes/exercise_object.tscn" id="3_lnu2h"]
+
+[node name="Game" type="Node2D"]
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture = ExtResource("1_uwrxv")
+
+[node name="Player" parent="." instance=ExtResource("2_yqjtg")]
+position = Vector2(27, 36)
+
+[node name="ExerciseObject" parent="." instance=ExtResource("3_lnu2h")]
+position = Vector2(123, 211)

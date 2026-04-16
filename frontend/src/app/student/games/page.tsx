@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Brain, Zap, Shapes, Puzzle, Trophy, Star } from 'lucide-react';
+import { ArrowLeft, Brain, Zap, Shapes, Puzzle, Trophy, Star, Compass, Sparkles } from 'lucide-react';
 
 const GAMES = [
   {
@@ -84,6 +84,39 @@ export default function GamesHub() {
           <h1 className="text-2xl font-bold tracking-tight mb-2">Play & Learn</h1>
           <p className="text-sm text-on-surface-variant">Each game helps us understand how you learn best. Play them all to build your complete learning profile!</p>
         </div>
+
+        <motion.button
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          onClick={() => router.push('/student/adventure')}
+          className="w-full text-left p-6 mb-6 rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/15 via-purple-500/10 to-blue-500/15 hover:scale-[1.01] active:scale-[0.99] transition-all relative overflow-hidden group"
+        >
+          <div className="absolute top-0 right-0 w-40 h-40 bg-primary/10 rounded-full blur-3xl group-hover:bg-primary/20 transition-colors" />
+          <div className="relative flex items-start justify-between gap-4">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-[10px] px-2 py-0.5 rounded-md font-medium bg-primary/20 text-primary flex items-center gap-1">
+                  <Sparkles size={10} />
+                  NEW
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded-md font-medium bg-purple-400/10 text-purple-300">
+                  Explorer
+                </span>
+              </div>
+              <h3 className="text-xl font-bold mb-1 flex items-center gap-2">
+                <span className="text-2xl">🗺️</span>
+                Adventure World
+              </h3>
+              <p className="text-sm text-on-surface-variant leading-relaxed mb-3">
+                Step into an immersive isometric world. Wander, find arrow spots, and unlock the VARK learning-style quest.
+              </p>
+              <div className="flex items-center gap-1.5 text-xs text-primary">
+                <Compass size={12} />
+                <span>Launch the world →</span>
+              </div>
+            </div>
+          </div>
+        </motion.button>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {GAMES.map((game, i) => {

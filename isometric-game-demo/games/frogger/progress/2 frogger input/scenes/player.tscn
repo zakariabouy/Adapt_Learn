@@ -1,0 +1,11 @@
+[gd_scene load_steps=3 format=3 uid="uid://bdsm7hsurpwsc"]
+
+[ext_resource type="Texture2D" uid="uid://bkgrir378horu" path="res://games/frogger/graphics/player/player_simple.png" id="1_3vyb7"]
+[ext_resource type="Script" uid="uid://3wes2rlv7w3q" path="res://games/frogger/scenes/player.gd" id="1_g2els"]
+
+[node name="Player" type="Node2D"]
+script = ExtResource("1_g2els")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+scale = Vector2(6, 6)
+texture = ExtResource("1_3vyb7")

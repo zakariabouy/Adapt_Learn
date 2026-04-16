@@ -1,0 +1,16 @@
+[gd_scene format=3 uid="uid://c11o22hhkki1"]
+
+[ext_resource type="Script" path="res://games/frogger/scenes/coin.gd" id="1_coin"]
+[ext_resource type="Texture2D" path="res://games/frogger/graphics/coin.png" id="2_coin"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_coin"]
+radius = 8.0
+
+[node name="Coin" type="Area2D"]
+z_index = 5
+collision_layer = 4
+collision_mask = 2
+script = ExtResource("1_coin")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("CircleShape2D_coin")

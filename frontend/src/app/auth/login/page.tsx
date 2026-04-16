@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { API_URL } from '@/lib/api';
-import { Brain, AtSign, Lock, GraduationCap, Presentation, Users, Shield, Loader2, ArrowRight } from 'lucide-react';
+import { AtSign, Lock, GraduationCap, Presentation, Users, Shield, Loader2, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 
@@ -12,7 +12,7 @@ export default function Login() {
   const { register, handleSubmit, formState: { errors } } = useForm();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-const [role, setRole] = useState<'student' | 'teacher' | 'parent'>('student');
+const [role, setRole] = useState<'student' | 'teacher' | 'parent' | 'admin'>('student');
   const router = useRouter();
 
   const onSubmit = async (data: any) => {
@@ -64,7 +64,7 @@ const [role, setRole] = useState<'student' | 'teacher' | 'parent'>('student');
     <div className="min-h-screen bg-surface font-body text-on-surface flex items-center justify-center p-6">
       <main className="w-full max-w-md">
         <div className="flex flex-col items-center text-center mb-10">
-          <img src="/logo.png" alt="AdaptLearn" className="w-20 h-20 object-contain mb-3" />
+          <img src="/logo.png" alt="AdaptLearn" className="object-contain mb-3" style={{ width: 160, height: 160 }} />
           <h1 className="font-headline font-bold text-2xl tracking-tight text-on-surface mb-1">AdaptLearn</h1>
           <p className="text-on-surface-variant text-sm">Personalized learning for every student</p>
         </div>

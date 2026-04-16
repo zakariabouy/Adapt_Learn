@@ -1,15 +1,26 @@
+"""
+Orientation Agent — Aggregates all student data sources and generates
+a holistic cognitive profile report via Gemini structured outputs.
+
+Flow:
+  1. aggregate_student_data() — SQL joins across all tables → context JSON
+  2. compute_dispersion_index() — variance of IRT scores → Scanner/Diver float
+  3. infer_bartle_type() — gamification behavior → Bartle classification
+  4. generate_orientation_report() — Gemini call with structured output
+"""
+
 import os
 import json
+import math
 import logging
-from typing import Dict, Any, List, Optional
 from uuid import UUID
-from datetime import datetime, timedelta
 
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import HumanMessage, SystemMessage
 
 from shared.database import get_pool
-from shared.guardrails import run_output_guardrails, check_content_safety, log_guardrail_event
+from agents.orientation.schema import OrientationReportSchema
+from agents.orientation.prompt import SYSTEM_PROMPT
 
 logger = logging.getLogger(__name__)
 
@@ -26,290 +37,311 @@ def get_llm():
     return _llm
 
 
-async def _gather_student_history(student_id: UUID) -> Dict[str, Any]:
-    """
-    Aggregates ALL historical data for a student across their entire journey.
-    This is the core data that makes orientation reports valuable:
-    the more years of data, the more reliable the guidance.
-    """
+# ─────────────────────────────────────────────────────────────────────────────
+# Data Aggregation
+# ─────────────────────────────────────────────────────────────────────────────
+
+async def aggregate_student_data(student_id: UUID) -> dict:
+    """Pull every data source into a single context dict for the LLM."""
     pool = await get_pool()
 
-    # --- Basic info ---
-    user_row = await pool.fetchrow(
-        "SELECT name, email, created_at FROM users WHERE id = $1", student_id
+    # ── User basics ──
+    user = await pool.fetchrow(
+        "SELECT name, email, grade_level FROM users WHERE id = $1", student_id
     )
-    student_name = "Unknown"
-    months_on_platform = 0
-    if user_row:
-        student_name = (
-            user_row["name"]
-            if user_row["name"]
-            else user_row["email"].split("@")[0].capitalize()
-        )
-        months_on_platform = max(
-            1,
-            (datetime.now() - user_row["created_at"].replace(tzinfo=None)).days // 30,
-        )
+    if not user:
+        raise ValueError(f"Student {student_id} not found")
 
-    # --- Learning profile ---
+    # ── Learner profile (VARK, ability, learning tags) ──
     profile_row = await pool.fetchrow(
         "SELECT profile_data FROM learner_profiles WHERE student_id = $1", student_id
     )
     profile = json.loads(profile_row["profile_data"]) if profile_row else {}
 
-    # --- All assessments (entire history) ---
-    assessments = await pool.fetch(
+    # ── IRT scores by subject ──
+    irt_rows = await pool.fetch(
         """
-        SELECT a.score, a.theta_before, a.theta_after, a.responses,
-               a.taken_at, ci.subject, ci.title
+        SELECT ci.subject,
+               AVG(a.theta_after)                       AS avg_theta,
+               COUNT(*)                                  AS attempts,
+               MAX(a.theta_after) - MIN(a.theta_after)  AS theta_range
         FROM assessments a
-        LEFT JOIN sessions s ON a.session_id = s.id
-        LEFT JOIN content_items ci ON s.content_id = ci.id
+        JOIN sessions s  ON a.session_id = s.id
+        JOIN content_items ci ON s.content_id = ci.id
         WHERE a.student_id = $1
-        ORDER BY a.taken_at ASC
+        GROUP BY ci.subject
         """,
         student_id,
     )
+    irt_scores = {}
+    for row in irt_rows:
+        irt_scores[row["subject"]] = {
+            "avg_theta": round(float(row["avg_theta"] or 0), 2),
+            "attempts": row["attempts"],
+            "theta_range": round(float(row["theta_range"] or 0), 2),
+        }
 
-    # --- Performance by subject ---
-    subject_performance: Dict[str, List[float]] = {}
-    ability_over_time: List[Dict[str, Any]] = []
-
-    for a in assessments:
-        subj = a["subject"] or "General"
-        score = a["score"] if a["score"] is not None else 0.0
-        if subj not in subject_performance:
-            subject_performance[subj] = []
-        subject_performance[subj].append(score)
-
-        ability_over_time.append({
-            "date": a["taken_at"].strftime("%Y-%m-%d") if a["taken_at"] else "N/A",
-            "theta": float(a["theta_after"]) if a["theta_after"] else 0.0,
-            "subject": subj,
-        })
-
-    # Compute averages per subject
-    subject_averages = {
-        subj: round(sum(scores) / len(scores) * 100, 1)
-        for subj, scores in subject_performance.items()
-    }
-
-    # --- Session engagement data ---
-    sessions = await pool.fetch(
+    # ── Telemetry (recent 20 sessions) ──
+    telemetry_rows = await pool.fetch(
         """
-        SELECT s.telemetry_summary, s.started_at, s.ended_at, ci.subject
-        FROM sessions s
-        LEFT JOIN content_items ci ON s.content_id = ci.id
-        WHERE s.student_id = $1 AND s.ended_at IS NOT NULL
-        ORDER BY s.started_at ASC
+        SELECT telemetry_summary, started_at, ended_at
+        FROM sessions
+        WHERE student_id = $1 AND telemetry_summary IS NOT NULL
+        ORDER BY started_at DESC LIMIT 20
         """,
         student_id,
     )
+    total_session_minutes = 0.0
+    frustration_events = 0
+    avg_attention_score = 0.0
+    session_count = len(telemetry_rows)
 
-    total_study_minutes = 0.0
-    subject_engagement: Dict[str, List[float]] = {}
-
-    for s in sessions:
-        if s["started_at"] and s["ended_at"]:
-            duration = (
-                s["ended_at"].replace(tzinfo=None)
-                - s["started_at"].replace(tzinfo=None)
-            ).total_seconds() / 60.0
-            total_study_minutes += duration
-
-        summary = s["telemetry_summary"] or {}
+    for row in telemetry_rows:
+        summary = row["telemetry_summary"]
         if isinstance(summary, str):
             summary = json.loads(summary)
+        if row["started_at"] and row["ended_at"]:
+            delta = (row["ended_at"] - row["started_at"]).total_seconds() / 60.0
+            total_session_minutes += delta
+        frustration_events += summary.get("frustration_events", 0)
+        avg_attention_score += 1.0 - summary.get("current_frustration_level", 0.5)
 
-        subj = s["subject"] or "General"
-        frustration = summary.get("current_frustration_level", 0.5)
-        engagement = 1.0 - frustration
+    if session_count > 0:
+        avg_attention_score /= session_count
 
-        if subj not in subject_engagement:
-            subject_engagement[subj] = []
-        subject_engagement[subj].append(engagement)
-
-    # Average engagement per subject
-    engagement_by_subject = {
-        subj: round(sum(vals) / len(vals) * 100, 1)
-        for subj, vals in subject_engagement.items()
+    telemetry = {
+        "total_sessions": session_count,
+        "total_minutes": round(total_session_minutes, 1),
+        "avg_session_minutes": round(total_session_minutes / max(1, session_count), 1),
+        "frustration_events": frustration_events,
+        "avg_attention_score": round(avg_attention_score, 2),
     }
 
-    # --- Mastery data from profile ---
-    mastery_by_topic = profile.get("mastery_by_topic", {})
-
-    # --- Identify strengths and weaknesses ---
-    all_subjects = set(subject_averages.keys()) | set(engagement_by_subject.keys())
-    subject_scores = {}
-    for subj in all_subjects:
-        perf = subject_averages.get(subj, 50.0)
-        eng = engagement_by_subject.get(subj, 50.0)
-        # Combined score: 60% performance + 40% engagement
-        subject_scores[subj] = round(perf * 0.6 + eng * 0.4, 1)
-
-    sorted_subjects = sorted(subject_scores.items(), key=lambda x: x[1], reverse=True)
-    strengths = [s[0] for s in sorted_subjects[:3] if s[1] >= 50]
-    weaknesses = [s[0] for s in sorted_subjects if s[1] < 40]
-
-    return {
-        "student_name": student_name,
-        "months_on_platform": months_on_platform,
-        "learning_tags": profile.get("learning_tags", []),
-        "tag_strength": profile.get("tag_strength", {}),
-        "preferred_modality": profile.get("preferred_modality", "text"),
-        "current_ability": profile.get("ability_estimate", 0.0),
-        "total_assessments": len(assessments),
-        "total_study_minutes": round(total_study_minutes, 1),
-        "subject_averages": subject_averages,
-        "engagement_by_subject": engagement_by_subject,
-        "subject_combined_scores": subject_scores,
-        "mastery_by_topic": mastery_by_topic,
-        "strengths": strengths,
-        "weaknesses": weaknesses,
-        "ability_over_time": ability_over_time[-20:],  # last 20 data points
+    # ── Gamification ──
+    gam_row = await pool.fetchrow(
+        """SELECT current_xp, current_level, current_streak, max_streak, badges_unlocked
+           FROM student_gamification WHERE student_id = $1""",
+        student_id,
+    )
+    gamification = {
+        "xp": gam_row["current_xp"] if gam_row else 0,
+        "level": gam_row["current_level"] if gam_row else 1,
+        "streak": gam_row["current_streak"] if gam_row else 0,
+        "max_streak": gam_row["max_streak"] if gam_row else 0,
+        "badges": list(gam_row["badges_unlocked"] or []) if gam_row else [],
     }
 
+    rank_row = await pool.fetchrow(
+        "SELECT grade_rank, global_rank FROM leaderboard WHERE student_id = $1",
+        student_id,
+    )
+    gamification["grade_rank"] = rank_row["grade_rank"] if rank_row else None
+    gamification["global_rank"] = rank_row["global_rank"] if rank_row else None
 
-def _build_orientation_prompt(history: Dict[str, Any]) -> str:
-    return f"""You are an expert child education counselor specialized in primary school orientation.
-
-Based on the following longitudinal data for a student, generate a comprehensive orientation report.
-
-STUDENT: {history['student_name']}
-TIME ON PLATFORM: {history['months_on_platform']} months
-
-LEARNING PROFILE:
-- Learning style tags: {history['learning_tags']}
-- Tag strengths: {history['tag_strength']}
-- Preferred modality: {history['preferred_modality']}
-- Current ability estimate (IRT): {history['current_ability']:.2f}
-
-ACADEMIC PERFORMANCE:
-- Total assessments taken: {history['total_assessments']}
-- Total study time: {history['total_study_minutes']:.0f} minutes
-- Performance by subject (avg score %): {json.dumps(history['subject_averages'])}
-- Engagement by subject (avg %): {json.dumps(history['engagement_by_subject'])}
-- Combined scores (60% performance + 40% engagement): {json.dumps(history['subject_combined_scores'])}
-- Topic mastery: {json.dumps(history['mastery_by_topic'])}
-
-IDENTIFIED STRENGTHS: {history['strengths']}
-IDENTIFIED WEAKNESSES: {history['weaknesses']}
-
-ABILITY PROGRESSION OVER TIME:
-{json.dumps(history['ability_over_time'][-10:])}
-
-Generate an orientation report in Markdown with these sections:
-
-## Student Profile Summary
-A warm, encouraging 2-3 sentence overview of who this student is as a learner.
-
-## Academic Strengths
-What subjects and skills does this student excel at? Be specific with data.
-
-## Areas for Growth
-Where can this student improve? Frame positively — "opportunities" not "weaknesses".
-
-## Learning Style Insights
-Based on their learning tags and engagement patterns, what teaching approaches work best for them?
-
-## Recommended Academic Paths
-Based on ALL the accumulated data, suggest 2-3 academic/career directions this student shows natural aptitude for.
-Examples: STEM, Arts, Languages, Social Sciences, Sports/Physical, Technology, etc.
-Be specific about WHY each path fits based on the data.
-
-## Recommendations for Parents & Teachers
-3-5 actionable recommendations to support this student's development.
-
-## Confidence Level
-State how confident this assessment is based on data volume:
-- Less than 3 months data: "Preliminary — more data needed"
-- 3-12 months: "Developing — patterns are emerging"
-- 1-3 years: "Reliable — consistent patterns observed"
-- 3+ years: "High confidence — strong longitudinal evidence"
-
-IMPORTANT:
-- Be encouraging and positive — this is about a child
-- Use simple language that parents can understand
-- Base ALL recommendations on the actual data provided
-- Never make medical or psychological diagnoses
-- If data is limited, say so honestly
-"""
-
-
-async def generate_orientation_report(
-    student_id: UUID, teacher_id: UUID
-) -> Dict[str, Any]:
-    """
-    Main entry point: generates an orientation report for a student.
-    Called by the teacher route (Adam builds the route).
-    """
-    # 1. Gather all historical data
-    history = await _gather_student_history(student_id)
-
-    # 2. Generate report via Gemini
-    prompt = _build_orientation_prompt(history)
-
-    try:
-        response = await get_llm().ainvoke([HumanMessage(content=prompt)])
-        markdown_report = response.content
-
-        # ── Output guardrails ──
-        output_check = await run_output_guardrails(
-            markdown_report, endpoint="orientation/report"
-        )
-        markdown_report = output_check["filtered_text"]
-
-        if not output_check["safe"]:
-            await log_guardrail_event(
-                event_type="content_safety",
-                severity="warning",
-                action_taken="filtered",
-                endpoint="orientation/report",
-                output_snippet=markdown_report[:500],
-                details={"issues": output_check["issues"]},
-            )
-    except Exception as e:
-        logger.error(
-            "Gemini orientation report failed for student %s: %s", student_id, e
-        )
-        markdown_report = (
-            "# Orientation Report\n\n"
-            "Unable to generate report at this time. Please try again later."
-        )
-
-    # 3. Store in DB for future reference
-    pool = await get_pool()
-    report_id = await pool.fetchval(
+    # ── Parent context ──
+    parent_row = await pool.fetchrow(
         """
-        INSERT INTO iep_reports (student_id, teacher_id, report_data, week)
-        VALUES ($1, $2, $3, $4)
-        RETURNING id
+        SELECT po.known_conditions, po.preferred_learning_time,
+               po.attention_span_minutes, po.interests, po.languages_spoken,
+               po.additional_notes, po.favorite_color, po.favorite_subject,
+               po.favorite_animal, po.hobbies, po.personality_observations
+        FROM parent_onboarding po
+        WHERE po.child_id = $1
+        LIMIT 1
         """,
         student_id,
-        teacher_id,
-        json.dumps({
-            "type": "orientation",
-            "markdown": markdown_report,
-            "data_summary": {
-                "strengths": history["strengths"],
-                "weaknesses": history["weaknesses"],
-                "subject_scores": history["subject_combined_scores"],
-                "months_tracked": history["months_on_platform"],
-            },
-        }),
-        f"orientation-{datetime.now().strftime('%Y-%m-%d')}",
     )
+    parent_context = {}
+    if parent_row:
+        parent_context = {
+            "known_conditions": parent_row["known_conditions"] or [],
+            "preferred_learning_time": parent_row["preferred_learning_time"],
+            "attention_span_minutes": parent_row["attention_span_minutes"],
+            "interests": parent_row["interests"] or [],
+            "languages_spoken": parent_row["languages_spoken"] or [],
+            "notes": parent_row["additional_notes"],
+            "favorite_color": parent_row["favorite_color"],
+            "favorite_subject": parent_row["favorite_subject"],
+            "favorite_animal": parent_row["favorite_animal"],
+            "hobbies": parent_row["hobbies"],
+            "personality_observations": parent_row["personality_observations"],
+        }
+
+    # ── VARK profile ──
+    vark_keys = [
+        ("visual", ["vark_visual", "visual_score"]),
+        ("auditory", ["vark_auditory", "auditory_score"]),
+        ("reading", ["vark_reading", "reading_score"]),
+        ("kinesthetic", ["vark_kinesthetic", "kinesthetic_score"]),
+    ]
+    vark_profile = {}
+    for dim, candidates in vark_keys:
+        for key in candidates:
+            val = profile.get(key, 0)
+            if val:
+                vark_profile[dim] = val
+                break
+        else:
+            vark_profile[dim] = 0
+
+    # ── Assessment history (last 15) ──
+    assessment_rows = await pool.fetch(
+        """
+        SELECT a.score, a.theta_after, a.taken_at, ci.title, ci.subject
+        FROM assessments a
+        JOIN sessions s ON a.session_id = s.id
+        JOIN content_items ci ON s.content_id = ci.id
+        WHERE a.student_id = $1
+        ORDER BY a.taken_at DESC LIMIT 15
+        """,
+        student_id,
+    )
+    assessment_history = [
+        {
+            "title": r["title"],
+            "subject": r["subject"],
+            "score": round(float(r["score"] or 0), 2),
+            "theta": round(float(r["theta_after"] or 0), 2),
+            "date": r["taken_at"].isoformat() if r["taken_at"] else None,
+        }
+        for r in assessment_rows
+    ]
+
+    # ── Derived metrics (computed server-side, not by LLM) ──
+    dispersion_index = compute_dispersion_index(irt_scores)
+    bartle_type = infer_bartle_type(gamification, telemetry, profile)
 
     return {
-        "id": str(report_id),
-        "markdown": markdown_report,
-        "student_name": history["student_name"],
-        "data_summary": {
-            "strengths": history["strengths"],
-            "weaknesses": history["weaknesses"],
-            "subject_scores": history["subject_combined_scores"],
-            "total_assessments": history["total_assessments"],
-            "months_on_platform": history["months_on_platform"],
-            "total_study_minutes": history["total_study_minutes"],
-        },
+        "student_name": user["name"] or user["email"].split("@")[0].capitalize(),
+        "grade_level": user["grade_level"] or 3,
+        "irt_scores": irt_scores,
+        "telemetry": telemetry,
+        "vark_profile": vark_profile,
+        "gamification": gamification,
+        "parent_context": parent_context,
+        "dispersion_index": dispersion_index,
+        "inferred_bartle_type": bartle_type,
+        "assessment_history": assessment_history,
+        "learning_tags": profile.get("learning_tags", []),
+        "preferred_modality": profile.get("preferred_modality", "text"),
+        "ability_estimate": profile.get("ability_estimate", 0.0),
     }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Derived Metrics (deterministic — not delegated to LLM)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def compute_dispersion_index(irt_scores: dict) -> float:
+    """
+    Variance-based dispersion index.
+    Low variance → Scanner (0.0), high variance → Diver (1.0).
+    """
+    if len(irt_scores) < 2:
+        return 0.5
+
+    thetas = [s["avg_theta"] for s in irt_scores.values()]
+    mean = sum(thetas) / len(thetas)
+    variance = sum((t - mean) ** 2 for t in thetas) / len(thetas)
+
+    index = 1.0 - math.exp(-2.0 * variance)
+    return round(min(1.0, max(0.0, index)), 2)
+
+
+def infer_bartle_type(gamification: dict, telemetry: dict, profile: dict) -> str:
+    """
+    Infer Bartle player type from behavioral signals.
+    Each signal adds to a score; highest wins.
+    """
+    scores = {"achiever": 0.1, "explorer": 0.0, "socializer": 0.0, "challenger": 0.0}
+
+    xp = gamification.get("xp", 0)
+    max_streak = gamification.get("max_streak", 0)
+    badge_count = len(gamification.get("badges", []))
+
+    # ── Achiever: grind XP, long streaks, badge collector ──
+    if xp > 300:
+        scores["achiever"] += 0.3
+    if max_streak >= 5:
+        scores["achiever"] += 0.3
+    if badge_count >= 3:
+        scores["achiever"] += 0.2
+
+    # ── Explorer: multi-modal, many sessions, visual learner ──
+    modality = profile.get("preferred_modality", "text")
+    tags = profile.get("learning_tags", [])
+    if modality == "visual":
+        scores["explorer"] += 0.3
+    if len(tags) >= 3:
+        scores["explorer"] += 0.2
+    if telemetry.get("total_sessions", 0) >= 10:
+        scores["explorer"] += 0.2
+
+    # ── Socializer: leaderboard focus, group tags ──
+    grade_rank = gamification.get("grade_rank")
+    if grade_rank and grade_rank <= 5:
+        scores["socializer"] += 0.3
+    tag_text = " ".join(tags).lower()
+    if any(kw in tag_text for kw in ["collaborative", "social", "team"]):
+        scores["socializer"] += 0.3
+
+    # ── Challenger: high frustration tolerance + high ability ──
+    frustration = telemetry.get("frustration_events", 0)
+    attention = telemetry.get("avg_attention_score", 0.5)
+    if frustration > 5 and attention > 0.6:
+        scores["challenger"] += 0.4
+    ability = profile.get("ability_estimate", 0.0)
+    if ability > 1.0:
+        scores["challenger"] += 0.3
+
+    return max(scores, key=scores.get)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Report Generation
+# ─────────────────────────────────────────────────────────────────────────────
+
+async def generate_orientation_report(student_id: UUID) -> dict:
+    """
+    Main entry point.
+    1. Aggregate all data sources
+    2. Call Gemini with structured output (OrientationReportSchema)
+    3. Return the validated report dict
+    """
+    context = await aggregate_student_data(student_id)
+
+    llm = get_llm()
+    structured_llm = llm.with_structured_output(OrientationReportSchema)
+
+    context_json = json.dumps(context, ensure_ascii=False, default=str)
+
+    messages = [
+        SystemMessage(content=SYSTEM_PROMPT),
+        HumanMessage(content=(
+            "Generate an orientation report for this student. "
+            "Analyze ALL data sources provided and cross-reference them "
+            "to identify the cognitive archetype, dispersion axis, and "
+            "personalized reward suggestions.\n\n"
+            f"## Student Data\n```json\n{context_json}\n```"
+        )),
+    ]
+
+    logger.info("Generating orientation report for student %s", student_id)
+
+    result = await structured_llm.ainvoke(messages)
+
+    if isinstance(result, OrientationReportSchema):
+        report_dict = result.model_dump()
+    else:
+        report_dict = result
+
+    report_dict["_input_context"] = context
+
+    logger.info(
+        "Orientation report generated: archetype=%s, dispersion=%s, bartle=%s",
+        report_dict.get("archetype", {}).get("primary"),
+        report_dict.get("dispersion", {}).get("type"),
+        report_dict.get("psychometric_summary", {}).get("bartle_type"),
+    )
+
+    return report_dict

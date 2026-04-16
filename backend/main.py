@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from shared.database import get_pool
 from routers import auth, student, session, content, quiz, teacher, admin, gamification, exam
 from routers import guardrails as guardrails_router
-from routers import parent, messages, feedback, admin_reports
+from routers import parent, messages, feedback, admin_reports, orientation
 from middleware.guardrails import GuardrailMiddleware
 from routers import pending
 from orchestrator.scheduler import start_scheduler
@@ -88,6 +88,7 @@ app.include_router(parent.router)
 app.include_router(messages.router)
 app.include_router(feedback.router)
 app.include_router(admin_reports.router)
+app.include_router(orientation.router)
 
 @app.get("/health")
 async def health_check():

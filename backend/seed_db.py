@@ -26,6 +26,7 @@ async def seed():
         "migrations/009_communication_feedback.sql",
         "migrations/010_anti_addiction.sql",
         "migrations/011_profile_enrichment.sql",
+        "migrations/012_orientation.sql",
     ]
 
     for m in migration_files:

@@ -157,7 +157,7 @@ export default function MemoryGame() {
       {/* Header */}
       <header className="fixed top-0 w-full z-50 flex justify-between items-center px-6 sm:px-8 h-14 border-b border-outline-variant/10 bg-surface/60 backdrop-blur-xl">
         <div className="flex items-center gap-3">
-          <button onClick={() => router.back()} className="text-on-surface-variant hover:text-on-surface transition-colors">
+          <button onClick={() => router.push('/student/games')} className="text-on-surface-variant hover:text-on-surface transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <span className="font-headline font-bold tracking-tighter text-on-surface text-sm">
@@ -344,10 +344,10 @@ export default function MemoryGame() {
                   <RotateCcw className="w-4 h-4" /> Play Again
                 </button>
                 <button
-                  onClick={() => router.push('/student/profile')}
+                  onClick={() => router.push('/student/games')}
                   className="w-full py-3.5 border border-outline-variant/20 text-on-surface-variant font-headline font-semibold rounded-full hover:bg-surface-container-high/30 transition-all"
                 >
-                  View My Profile
+                  Back to Games
                 </button>
               </div>
             </div>

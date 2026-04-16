@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { API_URL } from '@/lib/api';
-import { Brain, AtSign, Lock, GraduationCap, Presentation, Loader2, ArrowRight } from 'lucide-react';
+import { Brain, AtSign, Lock, GraduationCap, Presentation, Users, Loader2, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 
@@ -12,6 +12,7 @@ export default function Login() {
   const { register, handleSubmit, formState: { errors } } = useForm();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [role, setRole] = useState('student');
   const router = useRouter();
 
   const onSubmit = async (data: any) => {
@@ -133,6 +134,10 @@ export default function Login() {
               <button onClick={() => setRole('teacher')} className={`px-4 py-2 border rounded-lg text-xs font-medium transition-all flex items-center gap-2 ${role === 'teacher' ? 'bg-primary/10 border-primary/30 text-primary' : 'border-outline-variant/10 text-on-surface-variant hover:bg-surface-container-high'}`}>
                 <Presentation className="w-3.5 h-3.5" />
                 Teacher
+              </button>
+              <button onClick={() => setRole('parent')} className={`px-4 py-2 border rounded-lg text-xs font-medium transition-all flex items-center gap-2 ${role === 'parent' ? 'bg-primary/10 border-primary/30 text-primary' : 'border-outline-variant/10 text-on-surface-variant hover:bg-surface-container-high'}`}>
+                <Users className="w-3.5 h-3.5" />
+                Parent
               </button>
             </div>
             <p className="text-center text-xs text-on-surface-variant">

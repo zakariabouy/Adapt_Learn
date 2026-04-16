@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Users, BookOpen, BarChart2, AlertTriangle,
   Search, FileUp, LogOut, FileText, Activity, Zap, X, TrendingUp, UserPlus,
-  ShieldCheck, Sparkles, Loader2, Shield
+  ShieldCheck, Sparkles, Loader2, Shield, Compass
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
@@ -31,6 +31,8 @@ export default function TeacherDashboard() {
   const [examGenerating, setExamGenerating] = useState(false);
   const [examToast, setExamToast] = useState<{ kind: 'ok' | 'err'; msg: string } | null>(null);
   const [guardrailStats, setGuardrailStats] = useState<any>(null);
+  const [orientationLoading, setOrientationLoading] = useState(false);
+  const [orientationStatus, setOrientationStatus] = useState<{ kind: 'ok' | 'err' | 'pending' | 'approved'; msg: string } | null>(null);
   const router = useRouter();
 
   const fetchData = async () => {
@@ -166,6 +168,58 @@ export default function TeacherDashboard() {
       link.click();
     } catch (error) {
       console.error('Failed to download IEP', error);
+    }
+  };
+
+  const handleGenerateOrientation = async () => {
+    if (!selectedStudent) return;
+    const token = localStorage.getItem('token');
+    setOrientationLoading(true);
+    setOrientationStatus(null);
+    try {
+      const existing = await axios.get(`${API_URL}/orientation/report/${selectedStudent.id}/latest`, {
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => null);
+
+      if (existing?.data?.status === 'pending') {
+        setOrientationStatus({ kind: 'pending', msg: 'Report already pending review. Check below.' });
+        setOrientationLoading(false);
+        return;
+      }
+      if (existing?.data?.status === 'approved') {
+        setOrientationStatus({ kind: 'approved', msg: 'Report already approved and visible to student.' });
+        setOrientationLoading(false);
+        return;
+      }
+
+      const res = await axios.post(`${API_URL}/orientation/generate/${selectedStudent.id}`, {}, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setOrientationStatus({ kind: 'ok', msg: `Report generated! Archetype: ${res.data.report?.archetype?.primary || 'unknown'}. Approve it to make visible.` });
+    } catch (err: any) {
+      setOrientationStatus({ kind: 'err', msg: err.response?.data?.detail || 'Generation failed' });
+    } finally {
+      setOrientationLoading(false);
+    }
+  };
+
+  const handleApproveOrientation = async () => {
+    if (!selectedStudent) return;
+    const token = localStorage.getItem('token');
+    try {
+      const latest = await axios.get(`${API_URL}/orientation/report/${selectedStudent.id}/latest`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (latest.data.status === 'approved') {
+        setOrientationStatus({ kind: 'approved', msg: 'Already approved.' });
+        return;
+      }
+      await axios.post(`${API_URL}/orientation/report/${latest.data.id}/approve`, { notes: null }, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setOrientationStatus({ kind: 'approved', msg: 'Report approved! Now visible to student and parent.' });
+    } catch {
+      setOrientationStatus({ kind: 'err', msg: 'Approval failed.' });
     }
   };
 
@@ -546,6 +600,54 @@ export default function TeacherDashboard() {
                 <button onClick={() => downloadIEP(selectedStudent.id)} className="w-full py-3 bg-primary text-on-primary font-medium rounded-xl flex items-center justify-center gap-2 hover:brightness-110 transition-all text-sm">
                   <FileText size={16} /> Generate Weekly IEP Report
                 </button>
+
+                {/* Orientation Report */}
+                <div className="mt-4 p-4 rounded-xl border border-outline-variant/10 bg-surface-container-low">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Compass size={14} className="text-primary" />
+                    <span className="text-sm font-medium">Orientation Report</span>
+                  </div>
+                  <p className="text-xs text-on-surface-variant mb-3 leading-relaxed">
+                    AI analyzes {selectedStudent.name}&apos;s cognitive profile, learning style, and personality to generate personalized orientation insights and reward suggestions.
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleGenerateOrientation}
+                      disabled={orientationLoading}
+                      className="flex-1 py-2.5 bg-primary text-on-primary font-medium text-xs rounded-lg flex items-center justify-center gap-2 hover:brightness-110 transition-all disabled:opacity-40"
+                    >
+                      {orientationLoading ? (
+                        <><Loader2 size={14} className="animate-spin" /> Generating...</>
+                      ) : (
+                        <><Compass size={14} /> Generate</>
+                      )}
+                    </button>
+                    <button
+                      onClick={handleApproveOrientation}
+                      disabled={orientationLoading}
+                      className="px-4 py-2.5 bg-secondary/10 text-secondary font-medium text-xs rounded-lg flex items-center justify-center gap-2 hover:bg-secondary/20 transition-all disabled:opacity-40"
+                    >
+                      <ShieldCheck size={14} /> Approve
+                    </button>
+                  </div>
+                  <AnimatePresence>
+                    {orientationStatus && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0 }}
+                        className={`mt-3 text-xs font-medium px-3 py-2 rounded-lg ${
+                          orientationStatus.kind === 'ok' ? 'bg-secondary/10 text-secondary' :
+                          orientationStatus.kind === 'approved' ? 'bg-green-400/10 text-green-400' :
+                          orientationStatus.kind === 'pending' ? 'bg-orange-400/10 text-orange-400' :
+                          'bg-red-400/10 text-red-400'
+                        }`}
+                      >
+                        {orientationStatus.msg}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               </div>
             </motion.div>
           </div>

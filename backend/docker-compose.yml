@@ -23,6 +23,7 @@ services:
       - ./migrations/008_parents_admin.sql:/docker-entrypoint-initdb.d/010_parents_admin.sql:ro
       - ./migrations/009_communication_feedback.sql:/docker-entrypoint-initdb.d/011_communication_feedback.sql:ro
       - ./migrations/010_anti_addiction.sql:/docker-entrypoint-initdb.d/012_anti_addiction.sql:ro
+      - ./migrations/012_orientation.sql:/docker-entrypoint-initdb.d/013_orientation.sql:ro
 
   redis:
     image: redis:7-alpine

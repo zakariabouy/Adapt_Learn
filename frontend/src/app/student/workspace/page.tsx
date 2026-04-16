@@ -316,7 +316,8 @@ function TopNavBar({ studentId, onLogout }: { studentId: string | null, onLogout
       <nav className="hidden md:flex gap-6 items-center text-sm" aria-label="Main Navigation">
         <a className="text-on-surface font-medium border-b border-primary pb-0.5" href="/student/workspace">Workspace</a>
         <a className="text-on-surface-variant hover:text-on-surface transition-colors" href="/student/profile">Profile</a>
-        <a className="text-on-surface-variant hover:text-on-surface transition-colors" href="/student/games/memory">Games</a>
+        <a className="text-on-surface-variant hover:text-on-surface transition-colors" href="/student/games">Games</a>
+        <a className="text-on-surface-variant hover:text-on-surface transition-colors" href="/student/orientation">Orientation</a>
       </nav>
       <div className="flex items-center gap-3">
         <span className="text-[11px] text-on-surface-variant/40 hidden lg:block tabular-nums">

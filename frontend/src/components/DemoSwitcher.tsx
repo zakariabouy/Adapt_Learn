@@ -20,7 +20,13 @@ export default function DemoSwitcher() {
   const router = useRouter();
   const pathname = usePathname();
 
-  if (pathname?.startsWith('/auth')) return null;
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'S') setOpen(prev => !prev);
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, []);
 
   const switchTo = async (account: typeof DEMO_ACCOUNTS[0]) => {
     setSwitching(account.email);
@@ -38,13 +44,7 @@ export default function DemoSwitcher() {
     }
   };
 
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'S') setOpen(prev => !prev);
-    };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, []);
+  if (pathname?.startsWith('/auth')) return null;
 
   return (
     <div className="fixed bottom-4 left-4 z-[9999] font-label">

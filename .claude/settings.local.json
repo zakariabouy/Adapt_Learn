@@ -18,7 +18,14 @@
       "Bash(./venv/Scripts/python.exe -c \"from agents.profile.agent import generate_profile_summary; print\\('Import OK'\\)\")",
       "Bash(./venv/Scripts/python.exe -c \"from agents.profile.game_profiler import process_game_result, get_available_games; print\\('Import OK'\\); print\\('Games:', [g['game_type'] for g in get_available_games\\(\\)]\\)\")",
       "Bash(./venv/Scripts/python.exe -c ':*)",
-      "Bash(python -c ':*)"
+      "Bash(python -c ':*)",
+      "Bash(python -m py_compile main.py shared/models.py shared/pending.py routers/pending.py routers/exam.py routers/teacher.py orchestrator/scheduler.py)",
+      "Bash(python3 -m py_compile main.py shared/models.py shared/pending.py routers/pending.py routers/exam.py routers/teacher.py orchestrator/scheduler.py seed_db.py)",
+      "Bash(python3 -m py_compile routers/pending.py)",
+      "Bash(python3 -m py_compile routers/pending.py main.py)",
+      "Bash(python3 -c \"import main; print\\('Import OK'\\); print\\([r.path for r in main.app.routes if '/teacher/pending' in r.path or '/exam' in r.path]\\)\")",
+      "Bash(python3 -c \"import sys; print\\(sys.prefix\\)\")",
+      "Read(//Users/daoudiadam/.claude/**)"
     ]
   }
 }

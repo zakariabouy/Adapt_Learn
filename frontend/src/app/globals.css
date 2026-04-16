@@ -71,3 +71,167 @@
   .glass-card { backdrop-filter: blur(24px); background-color: rgba(32,31,33,0.8); }
   .mac-shadow { box-shadow: 0 50px 100px -20px rgba(0,0,0,0.5); }
 }
+
+/* ─────────────────────────────────────────────────────────────
+   Editorial scope — scoped aesthetic for /teacher/pending only.
+   Cream paper, deep ink, vermilion for reject, sage for approve.
+   Fraunces display serif + IBM Plex Sans body.
+   ───────────────────────────────────────────────────────────── */
+.editorial-scope {
+  --ed-paper: #f5f0e8;
+  --ed-paper-raised: #fbf7ef;
+  --ed-paper-sunken: #ede6d7;
+  --ed-ink: #1a1612;
+  --ed-ink-muted: #4a433a;
+  --ed-ink-faint: #8a8175;
+  --ed-rule: #c9bfa9;
+  --ed-rule-faint: #e0d7c2;
+  --ed-vermilion: #d64430;
+  --ed-vermilion-soft: #f5dcd4;
+  --ed-sage: #6b8e6f;
+  --ed-sage-soft: #dfe8da;
+  --ed-amber: #b8862d;
+  --ed-amber-soft: #f0e4c4;
+
+  background-color: var(--ed-paper);
+  color: var(--ed-ink);
+  font-family: var(--font-ibm-plex-sans), "IBM Plex Sans", system-ui, sans-serif;
+  font-feature-settings: "ss01", "cv11";
+  -webkit-font-smoothing: antialiased;
+}
+
+.editorial-scope .ed-display {
+  font-family: var(--font-fraunces), "Fraunces", Georgia, serif;
+  font-feature-settings: "ss01", "ss02";
+  font-optical-sizing: auto;
+  font-variation-settings: "SOFT" 50, "opsz" 144;
+  letter-spacing: -0.02em;
+}
+
+.editorial-scope .ed-small-caps {
+  font-variant-caps: all-small-caps;
+  letter-spacing: 0.18em;
+  font-weight: 500;
+}
+
+.editorial-scope .ed-rule {
+  border: none;
+  border-top: 1px solid var(--ed-rule);
+  margin: 0;
+}
+
+.editorial-scope .ed-rule-dotted {
+  border: none;
+  border-top: 1px dotted var(--ed-rule);
+  margin: 0;
+}
+
+.editorial-scope .ed-hairline {
+  border: none;
+  border-top: 0.5px solid var(--ed-rule-faint);
+  margin: 0;
+}
+
+/* Grain overlay for tactile paper feel. SVG noise, no image asset needed. */
+.editorial-scope .ed-grain::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 40;
+  opacity: 0.35;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.1 0 0 0 0 0.08 0 0 0 0 0.06 0 0 0 0.12 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  background-size: 200px 200px;
+}
+
+.editorial-scope .ed-drop-cap::first-letter {
+  font-family: var(--font-fraunces), "Fraunces", Georgia, serif;
+  font-weight: 700;
+  float: left;
+  font-size: 4.5rem;
+  line-height: 0.85;
+  padding-right: 0.6rem;
+  padding-top: 0.5rem;
+  color: var(--ed-vermilion);
+}
+
+.editorial-scope .ed-underline {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-size: 100% 1px;
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  padding-bottom: 2px;
+  transition: background-size 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.editorial-scope .ed-underline:hover {
+  background-size: 100% 2px;
+}
+
+.editorial-scope .ed-btn-approve {
+  color: var(--ed-sage);
+  border-bottom: 1.5px solid var(--ed-sage);
+}
+.editorial-scope .ed-btn-approve:hover {
+  background-color: var(--ed-sage-soft);
+}
+
+.editorial-scope .ed-btn-edit {
+  color: var(--ed-ink);
+  border-bottom: 1.5px solid var(--ed-ink);
+}
+.editorial-scope .ed-btn-edit:hover {
+  background-color: var(--ed-paper-sunken);
+}
+
+.editorial-scope .ed-btn-reject {
+  color: var(--ed-vermilion);
+  border-bottom: 1.5px solid var(--ed-vermilion);
+}
+.editorial-scope .ed-btn-reject:hover {
+  background-color: var(--ed-vermilion-soft);
+}
+
+.editorial-scope .ed-chip-pending {
+  background: var(--ed-amber-soft);
+  color: var(--ed-amber);
+}
+.editorial-scope .ed-chip-approved {
+  background: var(--ed-sage-soft);
+  color: var(--ed-sage);
+}
+.editorial-scope .ed-chip-rejected {
+  background: var(--ed-vermilion-soft);
+  color: var(--ed-vermilion);
+}
+.editorial-scope .ed-chip-modified {
+  background: var(--ed-paper-sunken);
+  color: var(--ed-ink-muted);
+}
+
+.editorial-scope ::selection {
+  background: var(--ed-ink);
+  color: var(--ed-paper);
+}
+
+.editorial-scope textarea.ed-notes {
+  background: transparent;
+  border: none;
+  border-left: 2px solid var(--ed-rule);
+  padding-left: 1rem;
+  font-family: var(--font-fraunces), "Fraunces", Georgia, serif;
+  font-style: italic;
+  font-size: 0.95rem;
+  color: var(--ed-ink-muted);
+  resize: vertical;
+  width: 100%;
+  outline: none;
+}
+.editorial-scope textarea.ed-notes:focus {
+  border-left-color: var(--ed-ink);
+}
+.editorial-scope textarea.ed-notes::placeholder {
+  color: var(--ed-ink-faint);
+  font-style: italic;
+}

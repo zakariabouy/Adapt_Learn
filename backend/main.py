@@ -9,6 +9,7 @@ from shared.database import get_pool
 from routers import auth, student, session, content, quiz, teacher, admin, gamification, exam
 from routers import guardrails as guardrails_router
 from middleware.guardrails import GuardrailMiddleware
+from routers import pending
 from orchestrator.scheduler import start_scheduler
 
 logging.basicConfig(
@@ -81,6 +82,7 @@ app.include_router(admin.router)
 app.include_router(gamification.router)
 app.include_router(exam.router)
 app.include_router(guardrails_router.router)
+app.include_router(pending.router)
 
 @app.get("/health")
 async def health_check():

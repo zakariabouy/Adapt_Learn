@@ -3,6 +3,7 @@ from shared.database import get_pool
 from routers.auth import get_current_user
 from routers.teacher import get_current_teacher
 from orchestrator.graph import generate_exam_via_graph
+from shared.pending import enqueue_pending_action
 from pydantic import BaseModel
 from uuid import UUID
 import json
@@ -52,14 +53,33 @@ async def generate_exam(request: ExamGenerateRequest, current_teacher = Depends(
             content_id=str(request.content_id),
             grade_level=request.grade_level
         )
-        
+
         if not exam_data:
-             raise HTTPException(status_code=500, detail="Agent failed to generate exam data")
-             
+            raise HTTPException(status_code=500, detail="Agent failed to generate exam data")
+
+        # 5. HITL gate: park the generated exam in pending_actions.
+        # The teacher must review it via /teacher/pending before it can be delivered.
+        pending = await enqueue_pending_action(
+            action_type="exam_generation",
+            teacher_id=current_teacher["id"],
+            payload={
+                "content_title": content["title"],
+                "grade_level": request.grade_level,
+                "exam": exam_data,
+            },
+            student_id=request.student_id,
+            content_id=request.content_id,
+        )
+
         return {
             "student_id": request.student_id,
             "content_title": content["title"],
-            "exam": exam_data
+            "status": "pending_review",
+            "pending_id": pending["id"],
+            "message": "Exam generated — awaiting teacher approval before student delivery.",
+            "exam_preview": exam_data,
         }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Exam generation failed: {str(e)}")

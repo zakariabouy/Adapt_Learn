@@ -36,6 +36,10 @@ from shared.guardrails import (
     run_output_guardrails,
     validate_json_output,
 )
+from agents.personalizer.prompt_builder import build_v3_prompt
+
+# Feature flag — set PERSONALIZER_PROMPT_VERSION=v1 to fall back to the legacy inline prompt.
+PROMPT_VERSION = os.getenv("PERSONALIZER_PROMPT_VERSION", "v3")
 
 logger = logging.getLogger(__name__)
 
@@ -179,6 +183,33 @@ def _heuristic_bundle(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Legacy v1 prompt (kept for A/B testing via PERSONALIZER_PROMPT_VERSION=v1)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _legacy_prompt_v1(
+    profile_desc: str, title: str, subject: str, grade_level: int,
+    safe_text: str, target_chars: int, feedback_hint: str,
+) -> str:
+    return f"""You are a personalizer for a primary-school learning platform.
+
+## Learner profile
+{profile_desc}
+
+## Lesson metadata
+- title: {title}
+- subject: {subject}
+- target grade: {grade_level} (ages {grade_level + 5}-{grade_level + 6})
+
+## Original lesson (from the teacher)
+{safe_text[:4000]}
+{feedback_hint}
+
+Produce a JSON object with keys `child_content`, `quiz` (3-5 items with options/correct_index/explanation), `parent_summary`.
+Target child_content length: ~{target_chars} characters.
+Return ONLY the JSON object."""
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Main entry
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -200,48 +231,22 @@ async def personalize_content(
 
     profile_desc = _describe_profile(profile)
     feedback_hint = _feedback_hint(recent_feedback or [])
+    target_chars = max(400, int(profile.chunk_size or 200) * 4)
 
-    prompt = f"""You are a personalizer for a primary-school learning platform.
-Your job: turn ONE lesson into a bundle tailored to ONE specific child, and
-write a separate short summary for that child's parent.
-
-## Learner profile
-{profile_desc}
-
-## Lesson metadata
-- title: {title}
-- subject: {subject}
-- target grade: {grade_level} (ages {grade_level + 5}-{grade_level + 6})
-
-## Original lesson (from the teacher)
-{safe_text[:4000]}
-{feedback_hint}
-
-## Your task — produce a single JSON object (no markdown fences, no prose around it):
-
-{{
-  "child_content": "Markdown lesson rewritten for THIS child. Simpler vocabulary, \
-sentence length tuned to their reading speed, references to their interests when natural. \
-Keep all the teacher's pedagogical points. Target length ~{max(400, int(profile.chunk_size or 200) * 4)} characters.",
-  "quiz": [
-    {{
-      "question": "Clear, kid-friendly question tied to the lesson",
-      "options": ["A", "B", "C", "D"],
-      "correct_index": 0,
-      "explanation": "One-sentence gentle explanation (teach, don't just state)"
-    }}
-    // 3-5 items total. Mix of difficulties.
-  ],
-  "parent_summary": "2-3 sentences written TO the parent (not the child). \
-Say what the child is learning, what they may struggle with, and ONE concrete \
-thing the parent can do at home to reinforce it. No jargon."
-}}
-
-RULES:
-- Content MUST be safe for ages {grade_level + 5}-{grade_level + 6}. No violence, no scary themes.
-- Never invent facts outside the source lesson.
-- `correct_index` is 0-based (0..3).
-- Return ONLY the JSON object. No backticks, no commentary."""
+    if PROMPT_VERSION == "v3":
+        prompt = build_v3_prompt(
+            profile_desc=profile_desc,
+            title=title,
+            subject=subject,
+            grade_level=grade_level,
+            safe_text=safe_text,
+            target_chars=target_chars,
+            feedback_hint=feedback_hint,
+        )
+    else:
+        prompt = _legacy_prompt_v1(
+            profile_desc, title, subject, grade_level, safe_text, target_chars, feedback_hint,
+        )
 
     heuristic = _heuristic_bundle(safe_text, profile, title)
 

@@ -1,0 +1,207 @@
+{
+  "_meta": {
+    "source": "Référentiel MEN — Programmes de l'Enseignement Primaire (Maroc)",
+    "version": "2024-curriculum",
+    "notes": "Compétences de base par niveau et matière, alignées sur le cadre national marocain. Utilisé comme RAG statique par Agent 2 (Personnalisateur).",
+    "grades": {
+      "CE1": "2e année primaire — 7-8 ans",
+      "CE2": "3e année primaire — 8-9 ans",
+      "CM1": "4e année primaire — 9-10 ans",
+      "CM2": "5e année primaire — 10-11 ans",
+      "6AP": "6e année primaire — 11-12 ans"
+    }
+  },
+  "constitutional_guardrails": {
+    "source": "Constitution du Royaume du Maroc (2011)",
+    "rules": [
+      "Respecter le pluralisme linguistique (arabe, amazigh, français) — ne pas dévaloriser une langue.",
+      "Promouvoir l'égalité fille-garçon dans tous les exemples et rôles pédagogiques.",
+      "Valoriser la diversité culturelle marocaine (arabe, amazigh, hassani, judéo-marocaine, africaine, andalouse).",
+      "Éviter tout contenu contraire aux valeurs de tolérance, de modération et d'ouverture.",
+      "Ne pas présenter de contenus religieux contraires à l'Islam modéré officiel, ni prosélyter.",
+      "Respecter la dignité de la personne — aucun stéréotype régional, ethnique, socio-économique ou de genre.",
+      "Ancrer les exemples dans la réalité marocaine quand pertinent (villes, fêtes, géographie, monnaie en DH)."
+    ]
+  },
+  "subjects": {
+    "mathematiques": {
+      "CE1": {
+        "competencies": [
+          "Lire, écrire, comparer les nombres jusqu'à 999.",
+          "Maîtriser les tables d'addition et de soustraction.",
+          "Résoudre des problèmes additifs simples à une étape.",
+          "Reconnaître les figures géométriques de base (carré, rectangle, triangle, cercle).",
+          "Mesurer des longueurs en cm et m."
+        ],
+        "vocabulary": ["unité", "dizaine", "centaine", "somme", "différence", "plus grand que", "plus petit que"],
+        "avoid": ["multiplication à 2 chiffres", "fractions", "nombres décimaux"]
+      },
+      "CE2": {
+        "competencies": [
+          "Nombres jusqu'à 9 999.",
+          "Tables de multiplication jusqu'à 10.",
+          "Résoudre des problèmes à 1-2 étapes (addition, soustraction, multiplication).",
+          "Notion de moitié, tiers, quart.",
+          "Périmètres des figures simples."
+        ],
+        "vocabulary": ["millier", "produit", "double", "moitié", "périmètre"],
+        "avoid": ["équations", "fractions complexes"]
+      },
+      "CM1": {
+        "competencies": [
+          "Nombres jusqu'à 999 999 et décimaux simples.",
+          "Division euclidienne.",
+          "Fractions simples (1/2, 1/3, 1/4, 1/10).",
+          "Aires des rectangles et carrés.",
+          "Problèmes à plusieurs étapes avec les 4 opérations."
+        ],
+        "vocabulary": ["décimal", "quotient", "reste", "fraction", "numérateur", "dénominateur", "aire"],
+        "avoid": ["pourcentages avancés", "proportionnalité complexe"]
+      },
+      "CM2": {
+        "competencies": [
+          "Nombres décimaux, opérations complètes.",
+          "Proportionnalité, pourcentages simples.",
+          "Volumes (cube, pavé droit).",
+          "Angles et leur mesure en degrés.",
+          "Problèmes complexes ancrés dans la vie quotidienne marocaine (souk, dirham, distance entre villes)."
+        ],
+        "vocabulary": ["pourcentage", "proportionnel", "volume", "angle droit", "aigu", "obtus"],
+        "avoid": ["algèbre littérale", "trigonométrie"]
+      }
+    },
+    "arabe": {
+      "CE1": {
+        "competencies": [
+          "Lire des textes courts vocalisés (25-40 mots).",
+          "Écrire des phrases simples avec majuscule et point.",
+          "Reconnaître le nom, le verbe, l'adjectif dans une phrase simple.",
+          "Enrichir le vocabulaire autour de la famille, l'école, les aliments marocains."
+        ],
+        "themes_culturels": ["la famille élargie", "l'école", "les fêtes (Aïd)", "les métiers traditionnels"]
+      },
+      "CE2": {
+        "competencies": [
+          "Lire avec fluidité des textes de 60-100 mots.",
+          "Comprendre un récit simple et répondre à des questions littérales.",
+          "Accorder le verbe avec son sujet (singulier/pluriel).",
+          "Produire 3-5 phrases cohérentes sur un thème donné."
+        ],
+        "themes_culturels": ["villes du Maroc", "artisanat (zellige, tapis)", "contes populaires"]
+      },
+      "CM1": {
+        "competencies": [
+          "Lire et comprendre des textes descriptifs et narratifs (150 mots).",
+          "Conjuguer les verbes usuels au présent, passé et futur.",
+          "Produire un court paragraphe structuré (introduction, développement, conclusion simple)."
+        ],
+        "themes_culturels": ["géographie du Maroc", "patrimoine amazigh", "figures historiques"]
+      },
+      "CM2": {
+        "competencies": [
+          "Lire et analyser des textes variés (narratif, informatif, argumentatif court).",
+          "Maîtriser les temps composés.",
+          "Rédiger un texte de 10-15 lignes avec cohérence.",
+          "Distinguer fait et opinion."
+        ],
+        "themes_culturels": ["patrimoine UNESCO marocain", "auteurs marocains pour enfants", "diversité linguistique"]
+      }
+    },
+    "francais": {
+      "CE1": {
+        "competencies": [
+          "Découverte du français comme langue seconde.",
+          "Vocabulaire de base (couleurs, nombres, famille, école).",
+          "Phrases simples à l'oral et à l'écrit.",
+          "Lecture de textes courts (20-30 mots)."
+        ],
+        "pedagogical_note": "Le français est langue seconde au Maroc. Toujours expliquer le vocabulaire nouveau, éviter les idiomes, utiliser des contextes familiers (marché, école, maison)."
+      },
+      "CE2": {
+        "competencies": [
+          "Lire des textes simples (50-80 mots) avec compréhension globale.",
+          "Conjuguer être, avoir, verbes du 1er groupe au présent.",
+          "Produire 2-3 phrases correctes à l'écrit."
+        ],
+        "pedagogical_note": "Ancrer dans le réel marocain (Rabat, Casablanca, tajine, souk) plutôt que dans des contextes francophones étrangers."
+      },
+      "CM1": {
+        "competencies": [
+          "Lire des textes de 100-150 mots, identifier les idées principales.",
+          "Conjuguer au présent, passé composé, futur simple (verbes usuels).",
+          "Écrire un court récit (5-8 phrases)."
+        ]
+      },
+      "CM2": {
+        "competencies": [
+          "Lire et comprendre des textes variés (200+ mots).",
+          "Maîtriser l'accord en genre et en nombre.",
+          "Rédiger un texte structuré (10 lignes).",
+          "Résumer un texte en ses propres mots."
+        ]
+      }
+    },
+    "activite_scientifique": {
+      "CE1": {
+        "competencies": [
+          "Observer le vivant : animaux, plantes du Maroc.",
+          "Distinguer jour/nuit, saisons.",
+          "Identifier les 5 sens.",
+          "Hygiène corporelle et alimentaire."
+        ],
+        "examples_ancres": ["olivier", "palmier-dattier", "cigogne", "dromadaire", "saisons à Marrakech vs Ifrane"]
+      },
+      "CE2": {
+        "competencies": [
+          "Cycle de vie des plantes et des animaux.",
+          "États de la matière (solide, liquide, gaz).",
+          "Notion de chaîne alimentaire simple.",
+          "Respect de l'environnement (eau, déchets)."
+        ],
+        "examples_ancres": ["argan", "cycle de l'eau dans l'Atlas", "oasis"]
+      },
+      "CM1": {
+        "competencies": [
+          "Corps humain : squelette, muscles, digestion basique.",
+          "Énergies (solaire, éolienne) — lien avec les projets marocains (Noor, parcs éoliens).",
+          "Écosystèmes marocains (forêt, désert, côte)."
+        ]
+      },
+      "CM2": {
+        "competencies": [
+          "Système solaire, phases de la Lune.",
+          "Électricité simple (circuit).",
+          "Biodiversité et développement durable (lien avec stratégie nationale)."
+        ]
+      }
+    },
+    "education_islamique": {
+      "_note": "Enseigné dans le respect de l'Islam modéré officiel. Ton inclusif, bienveillant, pédagogique — jamais dogmatique ni prosélyte. Toujours contextualiser les valeurs (respect, partage, honnêteté) de manière universelle.",
+      "CE1": {
+        "competencies": ["Les 5 piliers de l'Islam (nommer)", "Valeurs : respect des parents, partage, honnêteté", "Récits prophétiques simples adaptés à l'âge"]
+      },
+      "CM1": {
+        "competencies": ["Comprendre les piliers", "Valeurs citoyennes et vivre-ensemble", "Respect de la diversité religieuse (tolérance)"]
+      }
+    },
+    "education_civique": {
+      "transversal": {
+        "competencies": [
+          "Symboles du Royaume (drapeau, hymne, devise : Allah, Al-Watan, Al-Malik).",
+          "Droits et devoirs de l'enfant (CIDE).",
+          "Vivre-ensemble, respect des différences.",
+          "Égalité fille-garçon.",
+          "Diversité culturelle et linguistique du Maroc."
+        ]
+      }
+    }
+  },
+  "pedagogical_principles": [
+    "Exemples concrets ancrés dans le quotidien marocain (souk, tajine, dirham, villes marocaines).",
+    "Valoriser les trois langues officielles et co-officielles sans hiérarchie.",
+    "Parité de genre dans les exemples : alterner prénoms féminins/masculins, rôles variés.",
+    "Respecter le rythme de l'enfant : phrases courtes au CE1, progression graduelle.",
+    "Éviter les contextes culturels étrangers sans explication (Noël, Thanksgiving, etc.).",
+    "Privilégier les prénoms marocains variés : Yasmine, Amine, Salma, Rayan, Ines, Ayoub, Lina, Omar, Sara, Hamza, Imane, Mehdi."
+  ]
+}

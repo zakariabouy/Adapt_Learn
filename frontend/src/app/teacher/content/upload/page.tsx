@@ -23,11 +23,12 @@ export default function ContentUpload() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
     if (selected) {
-      if (selected.name.endsWith('.md') || selected.name.endsWith('.txt')) {
+      const ext = selected.name.toLowerCase();
+      if (ext.endsWith('.md') || ext.endsWith('.txt') || ext.endsWith('.pdf') || ext.endsWith('.pptx') || ext.endsWith('.ppt')) {
         setFile(selected);
         setStatus('idle');
       } else {
-        alert('Only .md or .txt files are allowed.');
+        alert('Only .md, .txt, .pdf, or .pptx files are allowed.');
       }
     }
   };
@@ -100,9 +101,9 @@ export default function ContentUpload() {
           animate={{ opacity: 1, y: 0 }}
           className="max-w-3xl"
         >
-          <header className="mb-8">
-            <h1 className="text-2xl font-bold tracking-tight text-on-surface mb-1">Upload Content</h1>
-            <p className="text-on-surface-variant text-sm">Upload markdown or plain text files to the content pipeline.</p>
+          <header className="mb-12">
+            <h1 className="text-4xl font-headline font-bold tracking-tight text-on-surface mb-2">Knowledge Ingestion</h1>
+            <p className="text-on-surface-variant text-lg max-w-2xl font-body">Upload pedagogical materials to the AdaptLearn content pipeline. We support Markdown, plain text, PDF, and PowerPoint formats.</p>
           </header>
 
           <div className="bg-surface-container rounded-xl border border-outline-variant/8 overflow-hidden">
@@ -111,22 +112,23 @@ export default function ContentUpload() {
                 onClick={() => fileInputRef.current?.click()}
                 className="cursor-pointer"
               >
-                <div className="flex flex-col items-center justify-center border-2 border-dashed border-outline-variant/20 rounded-xl h-48 bg-surface-container-low hover:bg-surface-container-high hover:border-outline-variant/30 transition-all">
+                <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 to-secondary/20 rounded-xl blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
+                <div className="relative flex flex-col items-center justify-center border-2 border-dashed border-outline-variant/40 rounded-xl h-64 bg-surface-container-low/50 hover:bg-surface-container-low transition-all">
                   <input
                     type="file"
                     ref={fileInputRef}
                     onChange={handleFileChange}
                     className="hidden"
-                    accept=".md,.txt"
+                    accept=".md,.txt,.pdf,.pptx,.ppt"
                   />
                   <div className="w-12 h-12 rounded-lg bg-primary/8 flex items-center justify-center mb-4">
                     <Upload className="text-primary w-5 h-5" />
                   </div>
-                  <h3 className="text-sm font-medium text-on-surface mb-1">
-                    {file ? file.name : 'Drop your .md or .txt file here'}
+                  <h3 className="text-xl font-headline font-semibold text-on-surface mb-2">
+                    {file ? file.name : 'Drop your file here'}
                   </h3>
-                  <p className="text-on-surface-variant text-xs">
-                    {file ? `${(file.size / 1024).toFixed(1)} KB` : 'or click to browse'}
+                  <p className="text-on-surface-variant text-sm font-label">
+                    {file ? `${(file.size / 1024).toFixed(1)} KB` : '.md  .txt  .pdf  .pptx — click or drag to upload'}
                   </p>
                 </div>
               </div>

@@ -390,7 +390,7 @@ export default function StudentProfilePage() {
         {/* Quick actions */}
         <div className="grid grid-cols-2 gap-3 pt-2">
           <button
-            onClick={() => router.push('/student/games/memory')}
+            onClick={() => router.push('/student/games')}
             className="p-4 rounded-2xl border border-outline-variant/10 bg-surface-container-high/20 hover:bg-surface-container-high/40 transition-all text-center"
           >
             <Gamepad2 className="w-6 h-6 text-primary mx-auto mb-2" />

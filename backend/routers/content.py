@@ -19,6 +19,7 @@ from langchain_core.messages import HumanMessage
 
 import io
 import pdfplumber
+from pptx import Presentation
 
 logger = logging.getLogger(__name__)
 
@@ -35,23 +36,46 @@ def get_llm():
 @router.post("/upload")
 async def upload_content(file: UploadFile = File(...), current_user = Depends(get_current_user)):
     # Validate file type
-    allowed_extensions = [".md", ".txt", ".pdf"]
-    if not any(file.filename.endswith(ext) for ext in allowed_extensions):
-        raise HTTPException(status_code=400, detail="Only .md, .txt or .pdf files are allowed.")
-    
+    allowed_extensions = [".md", ".txt", ".pdf", ".pptx", ".ppt"]
+    if not any(file.filename.lower().endswith(ext) for ext in allowed_extensions):
+        raise HTTPException(status_code=400, detail="Only .md, .txt, .pdf, or .pptx files are allowed.")
+
     # Check if user is a teacher
     if current_user["role"] != "teacher":
          raise HTTPException(status_code=403, detail="Only teachers can upload content.")
 
-    if file.filename.endswith(".pdf"):
-        content = await file.read()
+    content = await file.read()
+    filename_lower = file.filename.lower()
+
+    if filename_lower.endswith(".pdf"):
         try:
             with pdfplumber.open(io.BytesIO(content)) as pdf:
                 text_content = "\n".join(page.extract_text() or "" for page in pdf.pages)
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Failed to extract text from PDF: {str(e)}")
+    elif filename_lower.endswith(".pptx") or filename_lower.endswith(".ppt"):
+        try:
+            prs = Presentation(io.BytesIO(content))
+            slides_text = []
+            for i, slide in enumerate(prs.slides, 1):
+                parts = [f"--- Slide {i} ---"]
+                for shape in slide.shapes:
+                    if shape.has_text_frame:
+                        for paragraph in shape.text_frame.paragraphs:
+                            text = paragraph.text.strip()
+                            if text:
+                                parts.append(text)
+                    if shape.has_table:
+                        table = shape.table
+                        for row in table.rows:
+                            row_text = " | ".join(cell.text.strip() for cell in row.cells)
+                            if row_text.strip(" |"):
+                                parts.append(row_text)
+                slides_text.append("\n".join(parts))
+            text_content = "\n\n".join(slides_text)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Failed to extract text from PowerPoint: {str(e)}")
     else:
-        content = await file.read()
         text_content = content.decode("utf-8")
     
     if not text_content.strip():

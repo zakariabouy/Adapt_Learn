@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { API_URL } from '@/lib/api';
 import { ArrowLeft, Trophy, RotateCcw, Sparkles, Timer, Zap } from 'lucide-react';
+import { useHeroStore } from '@/hooks/useHeroStore';
 
 /* ─── card data ─── */
 const EMOJI_PAIRS = [
@@ -17,6 +18,17 @@ interface Card {
   emoji: string;
   flipped: boolean;
   matched: boolean;
+}
+
+interface GameResult {
+  xp_earned?: number;
+  bartle_type?: string;
+  tag_changes?: Record<string, unknown>;
+  error?: boolean;
+}
+
+function pick<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
 }
 
 function shuffleCards(): Card[] {
@@ -37,7 +49,7 @@ export default function MemoryGame() {
   const [matches, setMatches] = useState(0);
   const [attempts, setAttempts] = useState(0);
   const [timeElapsed, setTimeElapsed] = useState(0);
-  const [gameResult, setGameResult] = useState<Record<string, unknown> | null>(null);
+  const [gameResult, setGameResult] = useState<GameResult | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lockRef = useRef(false);
   const startTimeRef = useRef(0);
@@ -46,8 +58,25 @@ export default function MemoryGame() {
   const headers = { Authorization: `Bearer ${token}` };
 
   useEffect(() => {
-    if (!token) router.push('/auth/login');
-  }, [token, router]);
+    if (!token) {
+      router.push('/auth/login');
+      return;
+    }
+    // Verify role is student — games require a student account
+    axios.get(`${API_URL}/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => {
+        if (res.data?.role !== 'student') {
+          // Wrong role — likely a stale parent/teacher/admin token
+          localStorage.removeItem('token');
+          router.push('/auth/login');
+        }
+      })
+      .catch(() => {
+        localStorage.removeItem('token');
+        router.push('/auth/login');
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
 
   // Timer
   useEffect(() => {
@@ -60,6 +89,8 @@ export default function MemoryGame() {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [phase]);
 
+  const heroReact = useHeroStore((s) => s.react);
+
   const startGame = useCallback(() => {
     setCards(shuffleCards());
     setSelected([]);
@@ -68,12 +99,14 @@ export default function MemoryGame() {
     setTimeElapsed(0);
     setGameResult(null);
     setPhase('playing');
-  }, []);
+    heroReact('happy.png', "Let's flip some cards! 🃏", 2500);
+  }, [heroReact]);
 
   const submitResult = useCallback(async (finalMatches: number, finalAttempts: number) => {
     if (timerRef.current) clearInterval(timerRef.current);
     const elapsed = (Date.now() - startTimeRef.current) / 1000;
     setPhase('submitting');
+    heroReact('thinking.png', 'Analyzing your memory skills... 🔍', 5000);
 
     // Score: perfect = 8 attempts (one per pair), max tracked = 24
     const rawScore = Math.max(0, 24 - finalAttempts);
@@ -89,10 +122,18 @@ export default function MemoryGame() {
       }, { headers });
       setGameResult(res.data);
     } catch (err) {
+      const status = axios.isAxiosError(err) ? err.response?.status : undefined;
       console.error('Failed to submit game result', err);
+      if (status === 401 || status === 403) {
+        // Stale or non-student token — send back to login
+        localStorage.removeItem('token');
+        router.push('/auth/login');
+        return;
+      }
       setGameResult({ error: true });
     }
     setPhase('results');
+    heroReact('happy.png', 'You did it! Amazing memory! 🏆', 5000);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -115,6 +156,7 @@ export default function MemoryGame() {
 
         if (cardA.emoji === cardB.emoji) {
           // Match!
+          heroReact('happy.png', pick(['Nice match! 🎉', 'You found a pair! ⭐', 'Great memory! 🧠']), 2000);
           setTimeout(() => {
             setCards((p) => p.map((c, i) => (i === a || i === b ? { ...c, matched: true } : c)));
             setMatches((m) => {
@@ -129,6 +171,7 @@ export default function MemoryGame() {
           }, 500);
         } else {
           // No match — flip back
+          heroReact('frustrated.png', pick(["Not quite... try again! 🤔", "Keep looking! 👀", "Almost! You'll get it! 💪"]), 2000);
           setTimeout(() => {
             setCards((p) => p.map((c, i) => (i === a || i === b ? { ...c, flipped: false } : c)));
             setSelected([]);
@@ -312,11 +355,11 @@ export default function MemoryGame() {
               </div>
 
               {/* Profile impact */}
-              {gameResult && !('error' in gameResult) && (
+              {gameResult && !gameResult.error && (
                 <div className="p-4 rounded-xl bg-primary/5 border border-primary/10 mb-6 text-left">
                   <p className="text-xs font-label font-bold text-primary uppercase tracking-widest mb-2">Profile Updated</p>
-                  {gameResult.xp_earned && (
-                    <p className="text-sm text-on-surface">+{gameResult.xp_earned as number} XP earned</p>
+                  {gameResult.xp_earned !== undefined && (
+                    <p className="text-sm text-on-surface">+{gameResult.xp_earned} XP earned</p>
                   )}
                   {gameResult.bartle_type && (
                     <p className="text-sm text-on-surface-variant mt-1">
@@ -327,9 +370,9 @@ export default function MemoryGame() {
                       }</span>
                     </p>
                   )}
-                  {gameResult.tag_changes && Object.keys(gameResult.tag_changes as object).length > 0 && (
+                  {gameResult.tag_changes && Object.keys(gameResult.tag_changes).length > 0 && (
                     <p className="text-xs text-on-surface-variant/60 mt-1">
-                      Learning tags adjusted: {Object.keys(gameResult.tag_changes as object).join(', ')}
+                      Learning tags adjusted: {Object.keys(gameResult.tag_changes).join(', ')}
                     </p>
                   )}
                 </div>

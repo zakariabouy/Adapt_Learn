@@ -6,8 +6,8 @@ import axios from 'axios';
 import { API_URL } from '@/lib/api';
 import {
   ChevronLeft, ChevronRight, Brain,
-  BookOpen, Headphones, Eye, Pause,
-  Sparkles, Zap, LogOut, Loader2
+  BookOpen, Headphones, Eye, Play, Pause,
+  Sparkles, Zap, LogOut, Loader2, ChevronDown, FileText
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAdaptation } from '@/hooks/useAdaptation';
@@ -33,6 +33,8 @@ export default function Workspace() {
   const [chunkVisual, setChunkVisual] = useState<string | null>(null);
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [isGeneratingVisual, setIsGeneratingVisual] = useState(false);
+  const [contentList, setContentList] = useState<Array<{ id: string; title: string; subject: string; grade_level: number }>>([]);
+  const [isLoadingContent, setIsLoadingContent] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
 
   const router = useRouter();
@@ -95,6 +97,30 @@ export default function Workspace() {
     });
   }, []);
 
+  const loadContent = useCallback(async (cid: string, title: string) => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    setIsLoadingContent(true);
+    setContentId(cid);
+    setContentTitle(title);
+    setChunks([]);
+    setCurrentChunk(0);
+    setChunkSummary(null);
+    setChunkVisual(null);
+    try {
+      const res = await axios.get(`${API_URL}/student/workspace/${cid}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setChunks(res.data.chunks);
+      setCssConfig(res.data.css_config);
+    } catch (err) {
+      console.error('Failed to load content', err);
+      setChunks(['Failed to load this lesson. Please try again.']);
+    } finally {
+      setIsLoadingContent(false);
+    }
+  }, []);
+
   const refetchAdaptedContent = useCallback(async (forced = false) => {
     if (!contentId) return;
     const token = localStorage.getItem('token');
@@ -139,26 +165,16 @@ export default function Workspace() {
           headers: { Authorization: `Bearer ${token}` }
         });
 
+        setContentList(listRes.data);
+
         if (listRes.data.length === 0) {
           setContentTitle('No Content Available');
           setChunks(['No lessons have been uploaded yet.']);
           return;
         }
 
-        const cid = listRes.data[0].id;
-        setContentId(cid);
-        setContentTitle(listRes.data[0].title);
-
-        const workspaceRes = await axios.get(`${API_URL}/student/workspace/${cid}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-
-        setChunks(workspaceRes.data.chunks);
-        setCssConfig(workspaceRes.data.css_config);
-
-        if (profile.preferred_modality === 'visual') {
-          fetchChunkVisual();
-        }
+        const first = listRes.data[0];
+        await loadContent(first.id, first.title);
       } catch (error) {
         console.error('Failed to initialize workspace', error);
       }
@@ -265,8 +281,8 @@ export default function Workspace() {
   return (
     <div data-theme={theme} className="flex flex-col h-screen overflow-hidden bg-surface font-label text-on-surface selection:bg-primary/20 transition-colors duration-500">
       <audio ref={audioRef} aria-hidden="true" />
-      <TopNavBar studentId={studentId} onLogout={handleLogout} />
-      <main className="flex-1 flex overflow-hidden pt-14">
+      <TopNavBar studentId={studentId} onLogout={handleLogout} contentList={contentList} contentId={contentId} onSelectContent={loadContent} isLoadingContent={isLoadingContent} />
+      <main className="flex-1 flex overflow-hidden pt-16">
         <ReadingZone
           chunks={chunks}
           currentChunk={currentChunk}
@@ -306,7 +322,15 @@ export default function Workspace() {
   );
 }
 
-function TopNavBar({ studentId, onLogout }: { studentId: string | null, onLogout: () => void }) {
+function TopNavBar({ studentId, onLogout, contentList, contentId, onSelectContent, isLoadingContent }: {
+  studentId: string | null;
+  onLogout: () => void;
+  contentList: Array<{ id: string; title: string; subject: string; grade_level: number }>;
+  contentId: string;
+  onSelectContent: (id: string, title: string) => void;
+  isLoadingContent: boolean;
+}) {
+  const [showPicker, setShowPicker] = useState(false);
   return (
     <header className="fixed top-0 w-full z-50 flex justify-between items-center px-6 h-14 bg-surface-container border-b border-outline-variant/10">
       <div className="flex items-center gap-2">
@@ -326,7 +350,7 @@ function TopNavBar({ studentId, onLogout }: { studentId: string | null, onLogout
         <button onClick={onLogout} aria-label="Logout" className="text-on-surface-variant hover:text-red-400 p-1.5 rounded-lg transition-colors">
           <LogOut size={16} />
         </button>
-        <div className="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center text-primary font-bold text-[10px]">
+        <div className="w-8 h-8 rounded-full border border-outline-variant bg-primary/20 flex items-center justify-center text-primary font-bold text-xs">
           {studentId?.substring(0, 2).toUpperCase() || '??'}
         </div>
       </div>

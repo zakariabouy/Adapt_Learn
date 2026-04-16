@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Users, BookOpen, BarChart2, AlertTriangle,
   Search, FileUp, LogOut, FileText, Activity, Zap, X, TrendingUp, UserPlus,
-  ShieldCheck
+  ShieldCheck, Sparkles, Loader2
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
@@ -32,6 +32,10 @@ export default function TeacherDashboard() {
   const [linkStatus, setLinkStatus] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [cohortStats, setCohortStats] = useState<any>(null);
+  const [contentList, setContentList] = useState<{ id: string; title: string; subject?: string; grade_level?: number }[]>([]);
+  const [examContentId, setExamContentId] = useState<string>('');
+  const [examGenerating, setExamGenerating] = useState(false);
+  const [examToast, setExamToast] = useState<{ kind: 'ok' | 'err'; msg: string } | null>(null);
   const router = useRouter();
 
   const fetchData = async () => {
@@ -42,11 +46,13 @@ export default function TeacherDashboard() {
     }
     const headers = { Authorization: `Bearer ${token}` };
     try {
-      const [studentsRes, statsRes, cohortRes] = await Promise.all([
+      const [studentsRes, statsRes, cohortRes, contentRes] = await Promise.all([
         axios.get(`${API_URL}/teacher/students`, { headers }),
         axios.get(`${API_URL}/content/teacher/dashboard/stats`, { headers }),
         axios.get(`${API_URL}/teacher/stats`, { headers }),
+        axios.get(`${API_URL}/content/list`, { headers }),
       ]);
+      setContentList(contentRes.data ?? []);
 
       const formatted = studentsRes.data.map((s: any) => {
         let dotColor = 'bg-green-400';
@@ -106,6 +112,8 @@ export default function TeacherDashboard() {
 
   const handleStudentClick = async (student: any) => {
     setSelectedStudent(student);
+    setExamContentId('');
+    setExamToast(null);
     const token = localStorage.getItem('token');
     try {
       const res = await axios.get(`${API_URL}/teacher/student/${student.id}/growth`, {
@@ -114,6 +122,35 @@ export default function TeacherDashboard() {
       setGrowthData(res.data);
     } catch (error) {
       console.error('Failed to fetch growth data', error);
+    }
+  };
+
+  const handleGenerateExam = async () => {
+    if (!selectedStudent || !examContentId) return;
+    const token = localStorage.getItem('token');
+    setExamGenerating(true);
+    setExamToast(null);
+    try {
+      await axios.post(
+        `${API_URL}/exam/generate`,
+        {
+          student_id: selectedStudent.id,
+          content_id: examContentId,
+          grade_level: selectedStudent.grade_level ?? 4,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setExamToast({ kind: 'ok', msg: 'Exam drafted — sent to the review desk.' });
+      fetchData();
+      setTimeout(() => setExamToast(null), 5000);
+    } catch (err: any) {
+      setExamToast({
+        kind: 'err',
+        msg: err.response?.data?.detail || 'Exam generation failed. Try again.',
+      });
+      setTimeout(() => setExamToast(null), 6000);
+    } finally {
+      setExamGenerating(false);
     }
   };
 
@@ -458,6 +495,64 @@ export default function TeacherDashboard() {
                       </LineChart>
                     </ResponsiveContainer>
                   </div>
+                </div>
+
+                <div className="mb-6 p-5 rounded-2xl border-2 border-secondary/30 bg-secondary/5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Sparkles size={16} className="text-secondary" />
+                    <span className="text-xs font-bold uppercase tracking-widest text-secondary">Draft a personalized exam</span>
+                  </div>
+                  <p className="text-xs text-on-surface-variant mb-4 leading-relaxed">
+                    The exam agent will calibrate questions to {selectedStudent.name}&apos;s ability score
+                    and learning profile. The draft lands in your review queue — nothing reaches the
+                    student until you sign off.
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <select
+                      value={examContentId}
+                      onChange={(e) => setExamContentId(e.target.value)}
+                      disabled={examGenerating}
+                      className="flex-1 bg-surface-container-lowest border border-outline-variant/15 rounded-xl px-4 py-3 text-sm focus:ring-1 focus:ring-secondary outline-none transition-all disabled:opacity-50"
+                    >
+                      <option value="">Pick a course…</option>
+                      {contentList.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.title}{c.subject ? ` — ${c.subject}` : ''}{c.grade_level ? ` (G${c.grade_level})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={handleGenerateExam}
+                      disabled={!examContentId || examGenerating}
+                      className="px-6 py-3 bg-secondary text-on-secondary font-black uppercase tracking-widest text-xs rounded-xl flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
+                    >
+                      {examGenerating ? (
+                        <>
+                          <Loader2 size={16} className="animate-spin" /> Drafting…
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles size={16} /> Generate Exam
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  <AnimatePresence>
+                    {examToast && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0 }}
+                        className={`mt-3 text-xs font-bold px-3 py-2 rounded-lg ${
+                          examToast.kind === 'ok'
+                            ? 'bg-secondary/15 text-secondary'
+                            : 'bg-red-400/10 text-red-400'
+                        }`}
+                      >
+                        {examToast.msg}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
 
                 <div className="flex gap-4">

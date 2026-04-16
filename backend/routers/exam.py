@@ -4,6 +4,7 @@ from routers.auth import get_current_user
 from routers.teacher import get_current_teacher
 from orchestrator.graph import generate_exam_via_graph
 from shared.pending import enqueue_pending_action
+from shared.models import LearnerModel
 from pydantic import BaseModel
 from uuid import UUID
 import json
@@ -44,7 +45,8 @@ async def generate_exam(request: ExamGenerateRequest, current_teacher = Depends(
     if not profile_row:
         raise HTTPException(status_code=404, detail="Student profile not found")
     
-    learner_model = json.loads(profile_row["profile_data"])
+    profile_dict = json.loads(profile_row["profile_data"])
+    learner_model = LearnerModel(**profile_dict)
     
     # 4. Trigger Orchestrator
     try:

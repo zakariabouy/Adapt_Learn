@@ -41,16 +41,16 @@ async def list_pending_actions(
     """List pending actions for the current teacher, newest first."""
     pool = await get_pool()
 
-    clauses = ["teacher_id = $1"]
+    clauses = ["pa.teacher_id = $1"]
     params = [current_teacher["id"]]
 
     if status is not None:
         params.append(status.value)
-        clauses.append(f"status = ${len(params)}")
+        clauses.append(f"pa.status = ${len(params)}")
 
     if action_type:
         params.append(action_type)
-        clauses.append(f"action_type = ${len(params)}")
+        clauses.append(f"pa.action_type = ${len(params)}")
 
     params.append(limit)
     query = f"""

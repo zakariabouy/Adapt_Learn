@@ -20,7 +20,7 @@ async def seed():
         "migrations/005_grade_level.sql",
         "migrations/006_rag_vectors.sql",
         "migrations/007_guardrails.sql",
-        "migrations/007_pending_actions.sql",
+        "migrations/008_pending_actions.sql",
     ]
 
     for m in migration_files:
@@ -249,6 +249,100 @@ async def seed():
             json.dumps([{"text": "Demo question", "type": "mcq"}]),
             json.dumps([{"answer": "A", "correct": True}]),
             score, t_before, t_after
+        )
+
+    # 6. Seed demo pending actions so the review queue is populated on first login
+    print("Seeding demo pending actions...")
+    demo_pending = [
+        {
+            "action_type": "exam_generation",
+            "student": "Omar",
+            "content_idx": 1,
+            "payload": {
+                "content_title": "Adventures in Geometry",
+                "grade_level": 4,
+                "exam": {
+                    "title": "Geometry Mastery Check — Grade 4",
+                    "questions": [
+                        {
+                            "type": "mcq",
+                            "topic": "Perimeter",
+                            "difficulty": "easy",
+                            "question": "What is the perimeter of a square with sides of 5 cm?",
+                            "options": ["10 cm", "15 cm", "20 cm", "25 cm"],
+                            "correct_index": 2,
+                        },
+                        {
+                            "type": "mcq",
+                            "topic": "Shapes",
+                            "difficulty": "medium",
+                            "question": "Which shape has 3 sides and 3 corners?",
+                            "options": ["Square", "Triangle", "Circle", "Rectangle"],
+                            "correct_index": 1,
+                        },
+                        {
+                            "type": "open",
+                            "topic": "Area",
+                            "difficulty": "medium",
+                            "question": "Explain in your own words how to find the area of a rectangle.",
+                        },
+                    ],
+                },
+            },
+        },
+        {
+            "action_type": "orientation_report",
+            "student": "Lina",
+            "content_idx": 0,
+            "payload": {
+                "student_name": "Lina",
+                "grade_level": 2,
+                "report": {
+                    "strengths": "Lina shows strong visual recognition skills and engages deeply when content is paired with imagery. She remembers vocabulary best when introduced through illustrations and color-coding.",
+                    "growth_areas": "Reading fluency lags slightly behind grade peers. Lina benefits from repetition and benefits when text is broken into smaller, narrated chunks.",
+                    "recommended_path": "Continue with the visual-first track. Introduce paired audio narration for new lessons. Schedule short, daily 10-minute review sessions to reinforce retention.",
+                    "guardian_notes": "Encourage shared picture-book reading at home. Celebrate small wins — Lina responds powerfully to specific praise.",
+                },
+            },
+        },
+        {
+            "action_type": "iep_report",
+            "student": "Yassine",
+            "content_idx": 2,
+            "payload": {
+                "student_name": "Yassine",
+                "week": "2026-W15",
+                "auto_generated": True,
+                "report_markdown": (
+                    "# Weekly IEP — Yassine\n\n"
+                    "## Summary\n"
+                    "Yassine completed 4 sessions this week with steady engagement. "
+                    "Audio-first delivery continues to outperform text-only by ~22% in retention checks.\n\n"
+                    "## Mastery progress\n"
+                    "- Water cycle vocabulary: **mastered**\n"
+                    "- Evaporation vs. condensation: **emerging**\n"
+                    "- Diagram interpretation: needs scaffolding\n\n"
+                    "## Recommended next steps\n"
+                    "- Pair next science unit with narrated walkthrough\n"
+                    "- Extend chunk size cautiously from 250 → 300 words\n"
+                    "- Re-assess theta in 7 days\n\n"
+                    "## Notes for guardian\n"
+                    "Yassine is gaining confidence with longer passages. "
+                    "Brief at-home listening exercises would reinforce this trajectory."
+                ),
+            },
+        },
+    ]
+
+    for item in demo_pending:
+        s_id = student_ids.get(item["student"])
+        c_idx = item.get("content_idx")
+        c_id = content_ids[c_idx] if c_idx is not None and c_idx < len(content_ids) else None
+        await pool.execute(
+            """INSERT INTO pending_actions
+               (action_type, student_id, teacher_id, content_id, payload, status)
+               VALUES ($1, $2, $3, $4, $5, 'pending')""",
+            item["action_type"], s_id, teacher_id, c_id, json.dumps(item["payload"])
         )
 
     print("Seeding complete!")

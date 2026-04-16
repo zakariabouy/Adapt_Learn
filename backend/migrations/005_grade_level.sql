@@ -25,3 +25,18 @@ BEGIN
             CHECK (grade_level >= 1 AND grade_level <= 6);
     END IF;
 END $$;
+
+-- Leaderboard View: created here (not in 004) because it depends on users.grade_level
+CREATE OR REPLACE VIEW leaderboard AS
+SELECT
+    u.id as student_id,
+    u.name,
+    u.grade_level,
+    sg.current_xp,
+    sg.current_level,
+    sg.current_streak,
+    RANK() OVER (PARTITION BY u.grade_level ORDER BY sg.current_xp DESC) as grade_rank,
+    RANK() OVER (ORDER BY sg.current_xp DESC) as global_rank
+FROM users u
+JOIN student_gamification sg ON u.id = sg.student_id
+WHERE u.role = 'student';

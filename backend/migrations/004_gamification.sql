@@ -31,20 +31,8 @@ CREATE TABLE IF NOT EXISTS badges (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Leaderboard View: for class/global ranking
-CREATE OR REPLACE VIEW leaderboard AS
-SELECT 
-    u.id as student_id,
-    u.name,
-    u.grade_level,
-    sg.current_xp,
-    sg.current_level,
-    sg.current_streak,
-    RANK() OVER (PARTITION BY u.grade_level ORDER BY sg.current_xp DESC) as grade_rank,
-    RANK() OVER (ORDER BY sg.current_xp DESC) as global_rank
-FROM users u
-JOIN student_gamification sg ON u.id = sg.student_id
-WHERE u.role = 'student';
+-- NOTE: leaderboard VIEW is created in 005_grade_level.sql,
+-- after the users.grade_level column exists.
 
 -- Performance indexes
 CREATE INDEX IF NOT EXISTS idx_xp_logs_student_id ON xp_logs(student_id);

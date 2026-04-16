@@ -25,7 +25,9 @@
       "Bash(python3 -m py_compile routers/pending.py main.py)",
       "Bash(python3 -c \"import main; print\\('Import OK'\\); print\\([r.path for r in main.app.routes if '/teacher/pending' in r.path or '/exam' in r.path]\\)\")",
       "Bash(python3 -c \"import sys; print\\(sys.prefix\\)\")",
-      "Read(//Users/daoudiadam/.claude/**)"
+      "Read(//Users/daoudiadam/.claude/**)",
+      "Bash(curl -sf http://localhost:8000/auth/login -X POST -H \"Content-Type: application/json\" -d '{\"email\":\"teacher@enset.edu\",\"password\":\"password123\"}')",
+      "Bash(curl -s -X POST http://localhost:8000/auth/login -H \"Content-Type: application/json\" -d '{\"email\":\"teacher@enset.edu\",\"password\":\"password123\"}')"
     ]
   }
 }

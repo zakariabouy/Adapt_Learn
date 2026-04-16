@@ -111,30 +111,46 @@ async def get_approved_report(student_id: UUID, current_user=Depends(get_current
         if not parent_link:
             raise HTTPException(status_code=403, detail="Not your child")
 
-    row = await pool.fetchrow(
-        """
-        SELECT id, report_data, status, teacher_notes, created_at
-        FROM orientation_reports
-        WHERE student_id = $1 AND status = 'approved'
-        ORDER BY created_at DESC LIMIT 1
-        """,
-        student_id,
-    )
+    if is_self:
+        row = await pool.fetchrow(
+            """
+            SELECT id, report_data, status, teacher_notes, created_at
+            FROM orientation_reports
+            WHERE student_id = $1
+            ORDER BY created_at DESC LIMIT 1
+            """,
+            student_id,
+        )
+    else:
+        row = await pool.fetchrow(
+            """
+            SELECT id, report_data, status, teacher_notes, created_at
+            FROM orientation_reports
+            WHERE student_id = $1 AND status = 'approved'
+            ORDER BY created_at DESC LIMIT 1
+            """,
+            student_id,
+        )
 
     if not row:
-        raise HTTPException(status_code=404, detail="No approved orientation report found")
+        raise HTTPException(status_code=404, detail="No orientation report found")
 
     report_data = row["report_data"]
     if isinstance(report_data, str):
         report_data = json.loads(report_data)
 
-    return {
+    result: dict = {
         "id": str(row["id"]),
-        "report": report_data,
-        "teacher_notes": row["teacher_notes"],
         "status": row["status"],
+        "teacher_notes": row["teacher_notes"],
         "created_at": row["created_at"].isoformat(),
     }
+    if row["status"] == "approved":
+        result["report"] = report_data
+    else:
+        result["report"] = None
+
+    return result
 
 
 @router.get("/report/{student_id}/latest")

@@ -153,11 +153,11 @@ export default function StudentExamsPage() {
   return (
     <div className="min-h-screen bg-surface text-on-surface font-label selection:bg-primary/30">
       {/* Top bar */}
-      <header className="sticky top-0 z-50 flex items-center justify-between px-6 h-14 bg-surface-container/80 backdrop-blur-xl border-b border-outline-variant/15">
+      <header className="sticky top-0 z-50 flex items-center justify-between px-6 h-14 bg-surface-container border-b border-outline-variant/10">
         <button onClick={handleBack} className="flex items-center gap-2 text-sm text-on-surface-variant hover:text-on-surface transition-colors">
           <ArrowLeft size={16} /> {activeExam ? 'Back' : 'Workspace'}
         </button>
-        <span className="text-[10px] font-bold uppercase tracking-[0.25em] text-on-surface-variant/50">
+        <span className="text-xs font-medium text-on-surface-variant/60">
           {activeExam ? activeExam.exam.title : 'My Exams'}
         </span>
         {timeLeft !== null && timeLeft > 0 && (

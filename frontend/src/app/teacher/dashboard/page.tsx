@@ -15,12 +15,6 @@ import axios from 'axios';
 import { useRouter } from 'next/navigation';
 import { API_URL } from '@/lib/api';
 
-const springTransition = {
-  type: 'spring' as const,
-  stiffness: 120,
-  damping: 14,
-};
-
 export default function TeacherDashboard() {
   const [students, setStudents] = useState<any[]>([]);
   const [stats, setStats] = useState({ student_count: 0, content_count: 0, active_sessions: 0, risk_alerts: 0 });
@@ -58,14 +52,14 @@ export default function TeacherDashboard() {
       setGuardrailStats(guardrailRes.data);
 
       const formatted = studentsRes.data.map((s: any) => {
-        let dotColor = 'bg-green-400';
-        let riskColor = 'text-green-400';
+        let dotColor = 'bg-green-500/80';
+        let riskColor = 'text-green-500';
         if (s.riskLevel === 'high') {
-          dotColor = 'bg-red-400 shadow-[0_0_12px_rgba(241,97,97,0.5)]';
-          riskColor = 'text-red-400';
+          dotColor = 'bg-red-500/80';
+          riskColor = 'text-red-500';
         } else if (s.riskLevel === 'medium') {
-          dotColor = 'bg-primary';
-          riskColor = 'text-primary';
+          dotColor = 'bg-amber-500/80';
+          riskColor = 'text-amber-500';
         }
         return {
           ...s,
@@ -143,7 +137,7 @@ export default function TeacherDashboard() {
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      setExamToast({ kind: 'ok', msg: 'Exam drafted — sent to the review desk. Click here to review →' });
+      setExamToast({ kind: 'ok', msg: 'Exam drafted and sent to review queue.' });
       fetchData();
       setTimeout(() => setExamToast(null), 8000);
     } catch (err: any) {
@@ -182,180 +176,147 @@ export default function TeacherDashboard() {
 
   if (loading) return (
     <div className="min-h-screen bg-surface flex items-center justify-center">
-        <Activity className="text-primary animate-spin" size={48} />
+      <Loader2 className="text-primary animate-spin" size={32} />
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-surface text-on-surface font-body selection:bg-primary/30 flex">
-      <aside className="fixed left-0 top-0 h-full w-64 bg-surface-container border-r border-outline-variant/15 flex flex-col p-6 z-40">
-        <div className="flex gap-2 mb-8">
-          <span className="w-3 h-3 rounded-full bg-[#FF6B6B]"></span>
-          <span className="w-3 h-3 rounded-full bg-[#FFB84D]"></span>
-          <span className="w-3 h-3 rounded-full bg-[#00C896]"></span>
+    <div className="min-h-screen bg-surface text-on-surface font-body selection:bg-primary/20 flex">
+      {/* Sidebar */}
+      <aside className="fixed left-0 top-0 h-full w-60 bg-surface-container border-r border-outline-variant/10 flex flex-col p-5 z-40">
+        <div className="mb-8 px-2">
+          <h1 className="font-headline font-bold text-base tracking-tight text-on-surface">AdaptLearn</h1>
+          <p className="text-[11px] text-on-surface-variant mt-0.5">Teacher Dashboard</p>
         </div>
-        <div className="mb-8">
-          <h1 className="font-headline font-bold text-lg tracking-tight text-on-surface">Instructor Portal</h1>
-          <p className="font-label text-xs text-on-surface-variant uppercase tracking-widest mt-1">Adaptive Logic v2.5</p>
-        </div>
-        <nav className="flex-1 space-y-2">
-          <a href="#" className="flex items-center gap-3 px-4 py-3 bg-primary/15 text-primary font-semibold rounded-xl transition-all duration-200">
-            <LayoutDashboard size={20} />
-            <span className="font-label text-sm">Dashboard</span>
+        <nav className="flex-1 space-y-1">
+          <a href="#" className="flex items-center gap-3 px-3 py-2.5 bg-primary/10 text-primary font-medium rounded-lg text-sm transition-all">
+            <LayoutDashboard size={18} />
+            Dashboard
           </a>
-          <button onClick={() => router.push('/teacher/content/upload')} className="w-full flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-white/5 rounded-xl transition-all duration-200 text-left">
-            <BookOpen size={20} />
-            <span className="font-label text-sm">Library</span>
+          <button onClick={() => router.push('/teacher/content/upload')} className="w-full flex items-center gap-3 px-3 py-2.5 text-on-surface-variant hover:bg-surface-container-high rounded-lg text-sm transition-all text-left">
+            <BookOpen size={18} />
+            Library
           </button>
           <button
             onClick={() => router.push('/teacher/pending')}
-            className="w-full flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-white/5 rounded-xl transition-all duration-200 text-left relative"
+            className="w-full flex items-center gap-3 px-3 py-2.5 text-on-surface-variant hover:bg-surface-container-high rounded-lg text-sm transition-all text-left"
           >
-            <ShieldCheck size={20} />
-            <span className="font-label text-sm">Review Queue</span>
+            <ShieldCheck size={18} />
+            Review Queue
             {(cohortStats?.pendingReviews ?? 0) > 0 && (
-              <span className="ml-auto inline-flex items-center justify-center min-w-[1.5rem] h-6 px-2 rounded-full bg-primary text-on-primary text-xs font-bold tabular-nums">
+              <span className="ml-auto inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary text-on-primary text-[10px] font-bold">
                 {cohortStats.pendingReviews}
               </span>
             )}
           </button>
-          <a href="#" className="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-white/5 rounded-xl transition-all duration-200">
-            <BarChart2 size={20} />
-            <span className="font-label text-sm">Analytics</span>
+          <a href="#" className="flex items-center gap-3 px-3 py-2.5 text-on-surface-variant hover:bg-surface-container-high rounded-lg text-sm transition-all">
+            <BarChart2 size={18} />
+            Analytics
           </a>
         </nav>
-        <div className="mt-auto pt-6 border-t border-outline-variant/10">
-          <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-red-400/10 rounded-xl transition-all">
-            <LogOut size={20} />
-            <span className="font-label text-sm">Logout</span>
+        <div className="mt-auto pt-4 border-t border-outline-variant/8">
+          <button onClick={handleLogout} className="w-full flex items-center gap-3 px-3 py-2.5 text-on-surface-variant hover:text-red-400 hover:bg-red-400/5 rounded-lg text-sm transition-all">
+            <LogOut size={18} />
+            Sign out
           </button>
         </div>
       </aside>
 
-      <main className="ml-64 flex-1 p-8 lg:p-12 overflow-y-auto">
+      {/* Main Content */}
+      <main className="ml-60 flex-1 p-8 lg:p-10 overflow-y-auto">
+        {/* HITL Banner */}
         {(cohortStats?.pendingReviews ?? 0) > 0 && (
           <motion.button
-            initial={{ opacity: 0, y: -8 }}
+            initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
             onClick={() => router.push('/teacher/pending')}
-            className="w-full mb-8 flex items-center gap-5 px-6 py-5 rounded-2xl border-2 border-primary/30 bg-primary/10 hover:bg-primary/15 transition-all text-left group"
+            className="w-full mb-8 flex items-center gap-4 px-5 py-4 rounded-xl border border-primary/20 bg-primary/5 hover:bg-primary/8 transition-all text-left group"
           >
-            <div className="p-3 rounded-xl bg-primary/20 text-primary">
-              <ShieldCheck size={24} />
-            </div>
+            <ShieldCheck size={20} className="text-primary shrink-0" />
             <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-xs font-bold uppercase tracking-widest text-primary">Human-in-the-loop</span>
-                <span className="inline-flex items-center justify-center min-w-[1.75rem] h-5 px-2 rounded-full bg-primary text-on-primary text-[0.65rem] font-black tabular-nums">
-                  {cohortStats.pendingReviews}
-                </span>
-              </div>
-              <p className="font-headline font-bold text-lg text-on-surface">
+              <p className="font-medium text-sm text-on-surface">
                 {cohortStats.pendingReviews === 1
-                  ? 'An AI-drafted item is awaiting your review.'
-                  : `${cohortStats.pendingReviews} AI-drafted items are awaiting your review.`}
+                  ? '1 AI-drafted item awaiting review'
+                  : `${cohortStats.pendingReviews} AI-drafted items awaiting review`}
               </p>
-              <p className="text-xs text-on-surface-variant/80 mt-0.5">
-                Exams, orientation reports, and weekly plans cannot reach students or parents until you sign off.
+              <p className="text-xs text-on-surface-variant mt-0.5">
+                Nothing reaches students until you approve.
               </p>
             </div>
-            <div className="text-primary font-label text-xs uppercase tracking-widest opacity-60 group-hover:opacity-100 transition-opacity">
-              Open the desk →
-            </div>
+            <span className="text-xs text-primary opacity-60 group-hover:opacity-100 transition-opacity">
+              Review &rarr;
+            </span>
           </motion.button>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
-          <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-surface-container-high p-6 rounded-2xl border border-outline-variant/10 shadow-sm">
-              <div className="flex items-center gap-4 mb-2">
-                <div className="p-2 bg-primary/10 rounded-lg text-primary"><Users size={20}/></div>
-                <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Total Students</span>
-              </div>
-              <div className="text-3xl font-black">{loading ? '—' : (cohortStats?.totalStudents ?? 0)}</div>
-              <div className="text-xs text-on-surface-variant/60 font-bold mt-1">Cohort Size</div>
+        {/* Stats Row */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          <div className="bg-surface-container p-5 rounded-xl border border-outline-variant/8">
+            <div className="flex items-center gap-3 mb-3">
+              <Users size={16} className="text-primary" />
+              <span className="text-xs text-on-surface-variant">Students</span>
             </div>
-            <div className="bg-surface-container-high p-6 rounded-2xl border border-outline-variant/10 shadow-sm">
-              <div className="flex items-center gap-4 mb-2">
-                <div className="p-2 bg-secondary/10 rounded-lg text-secondary"><Activity size={20}/></div>
-                <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Avg Engagement</span>
-              </div>
-              <div className="text-3xl font-black">{loading ? '—' : (cohortStats?.avgEngagement ?? 0)}%</div>
-              <div className="text-xs text-on-surface-variant/60 font-bold mt-1">Cohort Average</div>
+            <div className="text-2xl font-bold tabular-nums">{cohortStats?.totalStudents ?? 0}</div>
+          </div>
+          <div className="bg-surface-container p-5 rounded-xl border border-outline-variant/8">
+            <div className="flex items-center gap-3 mb-3">
+              <Activity size={16} className="text-secondary" />
+              <span className="text-xs text-on-surface-variant">Avg Engagement</span>
             </div>
-            <div className="bg-surface-container-high p-6 rounded-2xl border border-outline-variant/10 shadow-sm">
-              <div className="flex items-center gap-4 mb-2">
-                <div className="p-2 bg-red-400/10 rounded-lg text-red-400"><AlertTriangle size={20}/></div>
-                <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Risk Alerts</span>
-              </div>
-              <div className={`text-3xl font-black ${(cohortStats?.riskAlerts ?? 0) > 0 ? 'text-red-400' : 'text-green-400'}`}>{loading ? '—' : (cohortStats?.riskAlerts ?? 0)}</div>
-              <div className="text-xs text-red-400/60 font-bold mt-1">{(cohortStats?.riskAlerts ?? 0) > 0 ? 'Attention needed' : 'All students on track'}</div>
+            <div className="text-2xl font-bold tabular-nums">{cohortStats?.avgEngagement ?? 0}%</div>
+          </div>
+          <div className="bg-surface-container p-5 rounded-xl border border-outline-variant/8">
+            <div className="flex items-center gap-3 mb-3">
+              <AlertTriangle size={16} className={(cohortStats?.riskAlerts ?? 0) > 0 ? 'text-red-400' : 'text-green-500'} />
+              <span className="text-xs text-on-surface-variant">Risk Alerts</span>
+            </div>
+            <div className={`text-2xl font-bold tabular-nums ${(cohortStats?.riskAlerts ?? 0) > 0 ? 'text-red-400' : 'text-green-500'}`}>
+              {cohortStats?.riskAlerts ?? 0}
             </div>
           </div>
-
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-primary/10 border-2 border-primary/20 p-6 rounded-2xl relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-4 opacity-10"><Zap size={80} className="text-primary"/></div>
-            <h3 className="font-headline font-bold text-primary flex items-center gap-2 mb-4">
-              <TrendingUp size={18}/> Teaching Insight
-            </h3>
-            <p className="text-sm text-on-surface mb-4 leading-relaxed">
-              {cohortStats?.avgEngagement !== null
-                ? `Cohort avg engagement: ${cohortStats?.avgEngagement}% over the last 7 days.`
-                : 'Start sessions to see cohort engagement data.'}
-              {(cohortStats?.riskAlerts ?? 0) > 0
-                ? ` ${cohortStats?.riskAlerts} student(s) need attention.`
-                : ' All students are on track.'}
-            </p>
-            <button 
-              onClick={() => document.getElementById('student-roster')?.scrollIntoView({ behavior: 'smooth' })}
-              className="w-full py-2 bg-primary text-on-primary rounded-lg font-bold text-xs uppercase tracking-widest hover:bg-primary/90 transition-colors"
-            >
-              Update Lesson Plan
-            </button>
-          </motion.div>
-
-          {/* Guardrail Security Insights */}
-          {guardrailStats && (
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="lg:col-span-3 bg-surface-container-high p-6 rounded-2xl border border-outline-variant/10 shadow-sm">
-              <h3 className="font-headline font-bold text-on-surface flex items-center gap-2 mb-4">
-                <Shield size={18} className="text-green-400" /> AI Safety &amp; Guardrails
-                <span className="text-xs font-label text-on-surface-variant/60 uppercase tracking-widest ml-auto">Last 7 days</span>
-              </h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-surface-container-low p-4 rounded-xl border border-outline-variant/5">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Total Events</p>
-                  <p className="text-2xl font-black tabular-nums">{guardrailStats.total_events}</p>
-                </div>
-                <div className="bg-surface-container-low p-4 rounded-xl border border-outline-variant/5">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Blocked</p>
-                  <p className={`text-2xl font-black tabular-nums ${guardrailStats.blocked_requests > 0 ? 'text-red-400' : 'text-green-400'}`}>
-                    {guardrailStats.blocked_requests}
-                  </p>
-                </div>
-                {Object.entries(guardrailStats.by_type || {}).slice(0, 2).map(([type, count]) => (
-                  <div key={type} className="bg-surface-container-low p-4 rounded-xl border border-outline-variant/5">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">
-                      {type.replace(/_/g, ' ')}
-                    </p>
-                    <p className="text-2xl font-black tabular-nums">{count as number}</p>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          )}
         </div>
 
-        <div className="bg-surface-container-high rounded-3xl border border-outline-variant/10 p-8 mb-12 shadow-xl">
-          <div className="flex justify-between items-center mb-10">
+        {/* Guardrails Row */}
+        {guardrailStats && (
+          <div className="bg-surface-container p-5 rounded-xl border border-outline-variant/8 mb-8">
+            <div className="flex items-center gap-2 mb-4">
+              <Shield size={16} className="text-green-500" />
+              <span className="text-sm font-medium text-on-surface">AI Safety</span>
+              <span className="text-xs text-on-surface-variant ml-auto">Last 7 days</span>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="bg-surface-container-low p-3 rounded-lg">
+                <p className="text-[11px] text-on-surface-variant mb-1">Total Events</p>
+                <p className="text-lg font-bold tabular-nums">{guardrailStats.total_events}</p>
+              </div>
+              <div className="bg-surface-container-low p-3 rounded-lg">
+                <p className="text-[11px] text-on-surface-variant mb-1">Blocked</p>
+                <p className={`text-lg font-bold tabular-nums ${guardrailStats.blocked_requests > 0 ? 'text-red-400' : 'text-green-500'}`}>
+                  {guardrailStats.blocked_requests}
+                </p>
+              </div>
+              {Object.entries(guardrailStats.by_type || {}).slice(0, 2).map(([type, count]) => (
+                <div key={type} className="bg-surface-container-low p-3 rounded-lg">
+                  <p className="text-[11px] text-on-surface-variant mb-1">{type.replace(/_/g, ' ')}</p>
+                  <p className="text-lg font-bold tabular-nums">{count as number}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Chart */}
+        <div className="bg-surface-container rounded-xl border border-outline-variant/8 p-6 mb-8">
+          <div className="flex justify-between items-center mb-6">
             <div>
-              <h2 className="text-2xl font-black tracking-tight mb-1">Impact Analysis</h2>
-              <p className="text-sm text-on-surface-variant font-medium">Cohort engagement vs frustration over time.</p>
+              <h2 className="text-lg font-bold tracking-tight">Engagement Trends</h2>
+              <p className="text-xs text-on-surface-variant mt-0.5">Cohort engagement vs frustration over time</p>
             </div>
           </div>
 
-          <div className="h-[400px] w-full">
+          <div className="h-[320px] w-full">
             {trendData.length === 0 ? (
-              <div className="h-full flex items-center justify-center text-on-surface-variant/40 text-sm uppercase tracking-widest">
+              <div className="h-full flex items-center justify-center text-on-surface-variant/40 text-sm">
                 No session data in the last 7 days
               </div>
             ) : (
@@ -363,44 +324,43 @@ export default function TeacherDashboard() {
                 <AreaChart data={trendData}>
                   <defs>
                     <linearGradient id="colorEng" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#c4c0ff" stopOpacity={0.3}/>
+                      <stop offset="5%" stopColor="#c4c0ff" stopOpacity={0.15}/>
                       <stop offset="95%" stopColor="#c4c0ff" stopOpacity={0}/>
                     </linearGradient>
                     <linearGradient id="colorFru" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#f87171" stopOpacity={0.3}/>
+                      <stop offset="5%" stopColor="#f87171" stopOpacity={0.15}/>
                       <stop offset="95%" stopColor="#f87171" stopOpacity={0}/>
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#464555" vertical={false} opacity={0.2} />
-                  <XAxis dataKey="time" stroke="#c7c4d8" fontSize={12} tickLine={false} axisLine={false} dy={10} />
-                  <YAxis stroke="#c7c4d8" fontSize={12} tickLine={false} axisLine={false} />
-                  <Tooltip contentStyle={{ backgroundColor: '#201f21', border: '1px solid #464555', borderRadius: '12px' }} />
-                  <Area type="monotone" dataKey="engagement" stroke="#c4c0ff" strokeWidth={3} fillOpacity={1} fill="url(#colorEng)" />
-                  <Area type="monotone" dataKey="frustration" stroke="#f87171" strokeWidth={3} fillOpacity={1} fill="url(#colorFru)" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#464555" vertical={false} opacity={0.15} />
+                  <XAxis dataKey="time" stroke="#c7c4d8" fontSize={11} tickLine={false} axisLine={false} dy={10} />
+                  <YAxis stroke="#c7c4d8" fontSize={11} tickLine={false} axisLine={false} />
+                  <Tooltip contentStyle={{ backgroundColor: '#201f21', border: '1px solid #353437', borderRadius: '8px', fontSize: '12px' }} />
+                  <Area type="monotone" dataKey="engagement" stroke="#c4c0ff" strokeWidth={2} fillOpacity={1} fill="url(#colorEng)" />
+                  <Area type="monotone" dataKey="frustration" stroke="#f87171" strokeWidth={2} fillOpacity={1} fill="url(#colorFru)" />
                 </AreaChart>
               </ResponsiveContainer>
             )}
           </div>
         </div>
 
-        {/* Student Roster */}
-        <div id="student-roster" className="flex items-center justify-between mb-8 flex-wrap gap-4">
-          <h2 className="text-2xl font-black tracking-tight">Active Learners</h2>
+        {/* Student Roster Header */}
+        <div id="student-roster" className="flex items-center justify-between mb-6 flex-wrap gap-4">
+          <h2 className="text-lg font-bold tracking-tight">Students</h2>
           <div className="flex gap-3 flex-wrap items-center">
             <div className="relative">
-              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/40" />
-              <input 
-                type="text" 
-                placeholder="Filter students..." 
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/40" />
+              <input
+                type="text"
+                placeholder="Search..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="bg-surface-container-lowest border border-outline-variant/10 rounded-full pl-10 pr-10 py-2 text-sm focus:ring-1 focus:ring-primary outline-none transition-all w-52" 
+                className="bg-surface-container-lowest border border-outline-variant/10 rounded-lg pl-9 pr-8 py-2 text-sm focus:ring-1 focus:ring-primary/30 outline-none transition-all w-44"
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant/40 hover:text-on-surface-variant transition-colors"
-                  aria-label="Clear filter"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant/40 hover:text-on-surface-variant"
                 >
                   <X size={14} />
                 </button>
@@ -413,141 +373,139 @@ export default function TeacherDashboard() {
                 onChange={e => setLinkEmail(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleLinkStudent()}
                 placeholder="student@email.com"
-                className="bg-surface-container-lowest border border-outline-variant/10 rounded-full px-4 py-2 text-sm focus:ring-1 focus:ring-primary outline-none transition-all w-52"
+                className="bg-surface-container-lowest border border-outline-variant/10 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-primary/30 outline-none transition-all w-48"
               />
               <button
                 onClick={handleLinkStudent}
-                className="flex items-center gap-2 px-4 py-2 bg-primary text-on-primary rounded-full text-xs font-bold uppercase tracking-widest hover:opacity-90 transition-all"
+                className="flex items-center gap-1.5 px-3 py-2 bg-primary text-on-primary rounded-lg text-xs font-medium hover:brightness-110 transition-all"
               >
                 <UserPlus size={14} /> Link
               </button>
             </div>
             {linkStatus && (
-              <span className={`text-xs font-bold px-3 py-1 rounded-full ${linkStatus.includes('success') ? 'bg-green-400/10 text-green-400' : 'bg-red-400/10 text-red-400'}`}>
+              <span className={`text-xs font-medium px-3 py-1.5 rounded-lg ${linkStatus.includes('success') ? 'bg-green-500/10 text-green-500' : 'bg-red-400/10 text-red-400'}`}>
                 {linkStatus}
               </span>
             )}
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-12">
+        {/* Student Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-10">
           {filteredStudents.map((student, idx) => (
-            <motion.div 
-              key={student.id} 
-              initial={{ opacity: 0, y: 20 }} 
-              animate={{ opacity: 1, y: 0 }} 
-              transition={{ ...springTransition, delay: idx * 0.1 }} 
+            <motion.div
+              key={student.id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: idx * 0.05 }}
               onClick={() => handleStudentClick(student)}
-              className="bg-surface-container-high rounded-2xl p-6 border border-outline-variant/15 hover:border-primary/30 transition-all group relative cursor-pointer"
+              className="bg-surface-container rounded-xl p-5 border border-outline-variant/8 hover:border-primary/25 transition-all cursor-pointer group"
             >
-              <div className="absolute top-0 right-0 p-3">
-                <div className={`h-3 w-3 rounded-full ${student.dotColor}`}></div>
-              </div>
-              <div className="flex items-center gap-4 mb-6">
-                <div className="h-12 w-12 rounded-full bg-primary/20 flex items-center justify-center font-headline font-bold text-lg text-primary">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center font-bold text-sm text-primary">
                   {student.displayId}
                 </div>
-                <div>
-                  <h3 className="font-headline font-bold text-on-surface group-hover:text-primary transition-colors">{student.name}</h3>
-                  <p className="text-[10px] text-on-surface-variant font-medium uppercase tracking-widest">{student.email.split('@')[1]}</p>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-medium text-sm text-on-surface group-hover:text-primary transition-colors truncate">{student.name}</h3>
+                  <p className="text-[11px] text-on-surface-variant truncate">{student.email}</p>
                 </div>
+                <div className={`h-2 w-2 rounded-full ${student.dotColor}`}></div>
               </div>
-              <div className="flex items-center justify-between text-xs font-bold uppercase tracking-widest mb-6">
-                <span className={student.riskColor}>Risk: {student.risk}</span>
-                <span className="text-on-surface-variant opacity-60">{student.modules}</span>
+              <div className="flex items-center justify-between text-xs mb-4">
+                <span className={`font-medium ${student.riskColor}`}>{student.risk} risk</span>
+                <span className="text-on-surface-variant">{student.modules}</span>
               </div>
               <button
                 onClick={(e) => { e.stopPropagation(); downloadIEP(student.id); }}
-                className="w-full py-3 bg-surface-container-highest border border-outline-variant/10 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-primary hover:text-on-primary transition-all"
+                className="w-full py-2 bg-surface-container-high border border-outline-variant/8 rounded-lg text-xs font-medium flex items-center justify-center gap-2 hover:bg-primary hover:text-on-primary hover:border-primary transition-all"
               >
-                <FileText size={14} /> Download IEP
+                <FileText size={13} /> Download IEP
               </button>
             </motion.div>
           ))}
         </div>
         {filteredStudents.length === 0 && searchQuery && (
-          <div className="text-center py-16 text-on-surface-variant/50 text-sm uppercase tracking-widest">
-            No students match "{searchQuery}"
+          <div className="text-center py-12 text-on-surface-variant/50 text-sm">
+            No students match &ldquo;{searchQuery}&rdquo;
           </div>
         )}
       </main>
 
-      {/* Student Growth Modal */}
+      {/* Student Modal */}
       <AnimatePresence>
         {selectedStudent && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-surface/80 backdrop-blur-sm">
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.9 }} 
-              animate={{ opacity: 1, scale: 1 }} 
-              exit={{ opacity: 0, scale: 0.9 }}
-              className="bg-surface-container-high w-full max-w-4xl rounded-3xl border border-outline-variant/20 shadow-2xl overflow-hidden"
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.96 }}
+              className="bg-surface-container w-full max-w-3xl rounded-2xl border border-outline-variant/15 shadow-xl overflow-hidden max-h-[90vh] overflow-y-auto"
             >
-              <div className="flex justify-between items-center p-8 border-b border-outline-variant/10">
-                <div className="flex items-center gap-4">
-                  <div className="h-14 w-14 rounded-2xl bg-primary/20 flex items-center justify-center font-headline font-black text-2xl text-primary">
+              <div className="flex justify-between items-center p-6 border-b border-outline-variant/8">
+                <div className="flex items-center gap-3">
+                  <div className="h-11 w-11 rounded-xl bg-primary/10 flex items-center justify-center font-bold text-lg text-primary">
                     {selectedStudent.displayId}
                   </div>
                   <div>
-                    <h2 className="text-2xl font-black">{selectedStudent.name}</h2>
-                    <p className="text-sm text-on-surface-variant">{selectedStudent.email}</p>
+                    <h2 className="text-lg font-bold">{selectedStudent.name}</h2>
+                    <p className="text-xs text-on-surface-variant">{selectedStudent.email}</p>
                   </div>
                 </div>
-                <button onClick={() => setSelectedStudent(null)} className="p-2 hover:bg-white/5 rounded-full text-on-surface-variant transition-colors">
-                  <X size={24} />
+                <button onClick={() => setSelectedStudent(null)} className="p-2 hover:bg-surface-container-high rounded-lg text-on-surface-variant transition-colors">
+                  <X size={20} />
                 </button>
               </div>
-              
-              <div className="p-8">
-                <div className="grid grid-cols-3 gap-6 mb-10">
-                    <div className="bg-surface-container-low p-4 rounded-2xl border border-outline-variant/5">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Ability Score (Theta)</p>
-                        <p className="text-2xl font-black text-primary">{selectedStudent.ability}</p>
-                    </div>
-                    <div className="bg-surface-container-low p-4 rounded-2xl border border-outline-variant/5">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Last Active</p>
-                        <p className="text-lg font-bold">{selectedStudent.lastActive ? new Date(selectedStudent.lastActive).toLocaleDateString() : 'No sessions yet'}</p>
-                    </div>
-                    <div className="bg-surface-container-low p-4 rounded-2xl border border-outline-variant/5">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Risk Status</p>
-                        <p className={`text-lg font-bold ${selectedStudent.riskColor}`}>{selectedStudent.risk}</p>
-                    </div>
+
+              <div className="p-6">
+                <div className="grid grid-cols-3 gap-4 mb-8">
+                  <div className="bg-surface-container-low p-4 rounded-xl">
+                    <p className="text-[11px] text-on-surface-variant mb-1">Ability (Theta)</p>
+                    <p className="text-xl font-bold text-primary tabular-nums">{selectedStudent.ability}</p>
+                  </div>
+                  <div className="bg-surface-container-low p-4 rounded-xl">
+                    <p className="text-[11px] text-on-surface-variant mb-1">Last Active</p>
+                    <p className="text-sm font-medium">{selectedStudent.lastActive ? new Date(selectedStudent.lastActive).toLocaleDateString() : 'No sessions'}</p>
+                  </div>
+                  <div className="bg-surface-container-low p-4 rounded-xl">
+                    <p className="text-[11px] text-on-surface-variant mb-1">Risk</p>
+                    <p className={`text-sm font-medium ${selectedStudent.riskColor}`}>{selectedStudent.risk}</p>
+                  </div>
                 </div>
 
-                <div className="mb-10">
-                  <h3 className="text-sm font-bold uppercase tracking-widest text-on-surface-variant mb-6 flex items-center gap-2">
-                    <TrendingUp size={16} /> IRT Ability Growth (Theta)
+                <div className="mb-8">
+                  <h3 className="text-sm font-medium text-on-surface-variant mb-4 flex items-center gap-2">
+                    <TrendingUp size={14} /> Ability Growth
                   </h3>
-                  <div className="h-[300px] w-full">
+                  <div className="h-[240px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart data={growthData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#464555" vertical={false} opacity={0.2} />
-                        <XAxis dataKey="date" stroke="#c7c4d8" fontSize={12} tickLine={false} axisLine={false} />
-                        <YAxis stroke="#c7c4d8" fontSize={12} tickLine={false} axisLine={false} domain={[-3, 3]} />
-                        <Tooltip contentStyle={{ backgroundColor: '#201f21', border: '1px solid #464555', borderRadius: '12px' }} />
-                        <Line type="monotone" dataKey="ability" stroke="#c4c0ff" strokeWidth={4} dot={{ r: 6, fill: '#c4c0ff', strokeWidth: 2, stroke: '#121214' }} activeDot={{ r: 8 }} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="#464555" vertical={false} opacity={0.15} />
+                        <XAxis dataKey="date" stroke="#c7c4d8" fontSize={11} tickLine={false} axisLine={false} />
+                        <YAxis stroke="#c7c4d8" fontSize={11} tickLine={false} axisLine={false} domain={[-3, 3]} />
+                        <Tooltip contentStyle={{ backgroundColor: '#201f21', border: '1px solid #353437', borderRadius: '8px', fontSize: '12px' }} />
+                        <Line type="monotone" dataKey="ability" stroke="#c4c0ff" strokeWidth={2} dot={{ r: 4, fill: '#c4c0ff', strokeWidth: 2, stroke: '#121214' }} activeDot={{ r: 6 }} />
                       </LineChart>
                     </ResponsiveContainer>
                   </div>
                 </div>
 
-                <div className="mb-6 p-5 rounded-2xl border-2 border-secondary/30 bg-secondary/5">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Sparkles size={16} className="text-secondary" />
-                    <span className="text-xs font-bold uppercase tracking-widest text-secondary">Draft a personalized exam</span>
+                {/* Exam Generation */}
+                <div className="mb-6 p-4 rounded-xl border border-outline-variant/10 bg-surface-container-low">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Sparkles size={14} className="text-secondary" />
+                    <span className="text-sm font-medium">Generate Exam</span>
                   </div>
-                  <p className="text-xs text-on-surface-variant mb-4 leading-relaxed">
-                    The exam agent will calibrate questions to {selectedStudent.name}&apos;s ability score
-                    and learning profile. The draft lands in your review queue — nothing reaches the
-                    student until you sign off.
+                  <p className="text-xs text-on-surface-variant mb-3 leading-relaxed">
+                    Calibrated to {selectedStudent.name}&apos;s ability. Draft goes to your review queue.
                   </p>
-                  <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <select
                       value={examContentId}
                       onChange={(e) => setExamContentId(e.target.value)}
                       disabled={examGenerating}
-                      className="flex-1 bg-surface-container-lowest border border-outline-variant/15 rounded-xl px-4 py-3 text-sm focus:ring-1 focus:ring-secondary outline-none transition-all disabled:opacity-50"
+                      className="flex-1 bg-surface-container-lowest border border-outline-variant/10 rounded-lg px-3 py-2.5 text-sm focus:ring-1 focus:ring-primary/30 outline-none transition-all disabled:opacity-50"
                     >
-                      <option value="">Pick a course…</option>
+                      <option value="">Select content...</option>
                       {contentList.map((c) => (
                         <option key={c.id} value={c.id}>
                           {c.title}{c.subject ? ` — ${c.subject}` : ''}{c.grade_level ? ` (G${c.grade_level})` : ''}
@@ -557,16 +515,12 @@ export default function TeacherDashboard() {
                     <button
                       onClick={handleGenerateExam}
                       disabled={!examContentId || examGenerating}
-                      className="px-6 py-3 bg-secondary text-on-secondary font-black uppercase tracking-widest text-xs rounded-xl flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
+                      className="px-5 py-2.5 bg-secondary text-on-secondary font-medium text-xs rounded-lg flex items-center justify-center gap-2 hover:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       {examGenerating ? (
-                        <>
-                          <Loader2 size={16} className="animate-spin" /> Drafting…
-                        </>
+                        <><Loader2 size={14} className="animate-spin" /> Drafting...</>
                       ) : (
-                        <>
-                          <Sparkles size={16} /> Generate Exam
-                        </>
+                        <><Sparkles size={14} /> Generate</>
                       )}
                     </button>
                   </div>
@@ -577,9 +531,9 @@ export default function TeacherDashboard() {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0 }}
                         onClick={() => examToast.kind === 'ok' ? router.push('/teacher/pending') : null}
-                        className={`mt-3 text-xs font-bold px-3 py-2 rounded-lg ${
+                        className={`mt-3 text-xs font-medium px-3 py-2 rounded-lg ${
                           examToast.kind === 'ok'
-                            ? 'bg-secondary/15 text-secondary cursor-pointer hover:bg-secondary/25 transition-colors'
+                            ? 'bg-secondary/10 text-secondary cursor-pointer hover:bg-secondary/15 transition-colors'
                             : 'bg-red-400/10 text-red-400'
                         }`}
                       >
@@ -589,20 +543,22 @@ export default function TeacherDashboard() {
                   </AnimatePresence>
                 </div>
 
-                <div className="flex gap-4">
-                  <button onClick={() => downloadIEP(selectedStudent.id)} className="flex-1 py-4 bg-primary text-on-primary font-black uppercase tracking-widest rounded-2xl flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-[0.98] transition-all">
-                    <FileText size={20} /> Generate Weekly IEP Report
-                  </button>
-                </div>
+                <button onClick={() => downloadIEP(selectedStudent.id)} className="w-full py-3 bg-primary text-on-primary font-medium rounded-xl flex items-center justify-center gap-2 hover:brightness-110 transition-all text-sm">
+                  <FileText size={16} /> Generate Weekly IEP Report
+                </button>
               </div>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
 
-      <motion.button whileHover={{ scale: 1.1, rotate: 5 }} whileTap={{ scale: 0.9 }} onClick={() => router.push('/teacher/content/upload')} className="fixed bottom-8 right-8 h-16 w-16 bg-primary rounded-full shadow-[0_0_30px_rgba(196,192,255,0.4)] flex items-center justify-center text-on-primary z-50">
-        <FileUp size={28} />
-      </motion.button>
+      {/* Upload FAB */}
+      <button
+        onClick={() => router.push('/teacher/content/upload')}
+        className="fixed bottom-6 right-6 h-12 w-12 bg-primary rounded-xl shadow-lg flex items-center justify-center text-on-primary z-50 hover:brightness-110 transition-all"
+      >
+        <FileUp size={20} />
+      </button>
     </div>
   );
 }

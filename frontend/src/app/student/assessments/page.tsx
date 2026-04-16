@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Star, Check, Flag, ArrowRight, Lightbulb, X, RotateCcw } from 'lucide-react';
+import { Star, Check, Flag, ArrowRight, Lightbulb, X, RotateCcw, Brain } from 'lucide-react';
 import axios from 'axios';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { API_URL } from '@/lib/api';
@@ -10,7 +10,7 @@ import { API_URL } from '@/lib/api';
 function AssessmentContent() {
   const searchParams = useSearchParams();
   const CONTENT_ID = searchParams.get('content_id') ?? '';
-  
+
   const [questions, setQuestions] = useState<any[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
@@ -25,7 +25,7 @@ function AssessmentContent() {
 
   useEffect(() => {
     if (CONTENT_ID) {
-      fetchNextQuestion([]); // Initial fetch
+      fetchNextQuestion([]);
     }
   }, [CONTENT_ID]);
 
@@ -37,7 +37,6 @@ function AssessmentContent() {
       const res = await axios.get(`${API_URL}/student/quiz/${CONTENT_ID}/next?answered=${answeredParam}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      // Replace the current active question (questions array will just hold 1 question at a time)
       setQuestions([res.data]);
       setCurrentQuestion(0);
       setSelectedOption(null);
@@ -47,8 +46,7 @@ function AssessmentContent() {
     } catch (error: any) {
       console.error('Failed to fetch quiz', error);
       if (error.response?.status === 404) {
-          // If no more questions, trigger result screen
-          setShowResult(true);
+        setShowResult(true);
       }
       setLoading(false);
     }
@@ -57,18 +55,18 @@ function AssessmentContent() {
   const handleAnswer = async () => {
     if (!selectedOption) return;
 
-    const q = questions[0]; // We always just have 1 active question in the array
+    const q = questions[0];
     const token = localStorage.getItem('token');
     const answeredParam = answeredIds.join(',');
 
     try {
       const res = await axios.post(
-        `${API_URL}/student/quiz/answer?answered=${answeredParam}&responses_json=${encodeURIComponent(responsesJson)}&current_score=${score}`, 
+        `${API_URL}/student/quiz/answer?answered=${answeredParam}&responses_json=${encodeURIComponent(responsesJson)}&current_score=${score}`,
         {
           question_id: q.id,
           selected_option: selectedOption,
           content_id: CONTENT_ID
-        }, 
+        },
         {
           headers: { Authorization: `Bearer ${token}` }
         }
@@ -78,12 +76,11 @@ function AssessmentContent() {
       setIsCorrect(responseData.is_correct);
       setExplanation(responseData.explanation);
       setResponsesJson(responseData.responses_json);
-      
+
       const newAnsweredIds = [...answeredIds, q.id];
       setAnsweredIds(newAnsweredIds);
       setScore(responseData.is_correct ? score + 1 : score);
 
-      // Wait 3.5 seconds to read the explanation before moving on
       setTimeout(() => {
         if (responseData.quiz_complete) {
           setShowResult(true);
@@ -93,58 +90,61 @@ function AssessmentContent() {
           setSelectedOption(null);
           setExplanation(null);
         } else {
-          // Fallback if no next question returned
           fetchNextQuestion(newAnsweredIds);
         }
       }, 3500);
 
     } catch (error) {
-       console.error("Failed to submit answer", error);
-       alert("Error submitting answer.");
+      console.error("Failed to submit answer", error);
+      alert("Error submitting answer.");
     }
   };
 
   if (!CONTENT_ID) return (
-    <div className="min-h-screen bg-[#0e0e10] flex items-center justify-center text-[#c7c4d8] flex-col gap-4">
-      <p>No content selected. Please go back to the workspace.</p>
-      <button 
-          onClick={() => router.push('/student/workspace')}
-          className="px-6 py-2 bg-primary text-on-primary rounded-xl font-bold"
+    <div className="min-h-screen bg-surface flex items-center justify-center text-on-surface-variant flex-col gap-4">
+      <p className="text-sm">No content selected.</p>
+      <button
+        onClick={() => router.push('/student/workspace')}
+        className="px-5 py-2 bg-primary text-on-primary rounded-lg font-medium text-sm"
       >
         Go to Workspace
       </button>
     </div>
   );
 
-  if (loading) return <div className="min-h-screen bg-[#0e0e10] flex items-center justify-center text-primary">Loading Assessment...</div>;
+  if (loading) return (
+    <div className="min-h-screen bg-surface flex items-center justify-center text-primary text-sm">
+      Loading assessment...
+    </div>
+  );
 
   if (showResult) {
     return (
-      <div className="min-h-screen bg-[#0e0e10] text-[#e5e1e4] flex flex-col items-center justify-center p-6">
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.9 }}
+      <div className="min-h-screen bg-surface text-on-surface flex flex-col items-center justify-center p-6">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="glass-card max-w-lg w-full p-12 text-center rounded-[2rem] border border-[#464555]/20"
+          className="bg-surface-container max-w-md w-full p-10 text-center rounded-2xl border border-outline-variant/10"
         >
-          <div className="w-24 h-24 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-8">
-            <Star className="w-12 h-12 text-primary fill-primary" />
+          <div className="w-16 h-16 bg-primary/10 rounded-xl flex items-center justify-center mx-auto mb-6">
+            <Star className="w-8 h-8 text-primary" />
           </div>
-          <h1 className="text-4xl font-bold mb-4">Assessment Complete!</h1>
-          <p className="text-[#c7c4d8] mb-8 text-lg">
+          <h1 className="text-2xl font-bold mb-2">Assessment Complete</h1>
+          <p className="text-on-surface-variant mb-8 text-sm">
             You scored {Math.round((score / Math.max(1, answeredIds.length)) * 100)}% on {questions[0]?.topic || 'this module'}.
           </p>
-          <div className="flex gap-4">
-            <button 
-                onClick={() => router.push('/student/workspace')}
-                className="flex-1 py-4 bg-primary text-on-primary rounded-xl font-bold hover:scale-105 transition-transform"
+          <div className="flex gap-3">
+            <button
+              onClick={() => router.push('/student/workspace')}
+              className="flex-1 py-3 bg-primary text-on-primary rounded-xl font-medium text-sm hover:brightness-110 transition-all"
             >
               Back to Workspace
             </button>
-            <button 
-                onClick={() => window.location.reload()}
-                className="px-6 py-4 border border-outline-variant/20 rounded-xl hover:bg-white/5 transition-colors"
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-3 border border-outline-variant/15 rounded-xl hover:bg-surface-container-high transition-colors"
             >
-              <RotateCcw size={24} />
+              <RotateCcw size={18} />
             </button>
           </div>
         </motion.div>
@@ -153,151 +153,138 @@ function AssessmentContent() {
   }
 
   const q = questions[currentQuestion];
-  const springConfig = { type: 'spring' as const, stiffness: 120, damping: 14 };
 
   return (
-    <div className="min-h-screen bg-[#0e0e10] text-[#e5e1e4] font-body selection:bg-[#c4c0ff]/30 overflow-hidden flex flex-col items-center justify-center relative">
-      <div className="absolute top-[-10%] right-[-10%] w-[600px] h-[600px] bg-[#c4c0ff]/10 blur-[120px] rounded-full pointer-events-none"></div>
-      <div className="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] bg-[#01c896]/5 blur-[120px] rounded-full pointer-events-none"></div>
-
-      <div className="fixed top-8 left-8 flex items-center gap-4 z-50">
-        <div className="flex gap-2">
-          <div className="w-3 h-3 rounded-full bg-[#FF6B6B]"></div>
-          <div className="w-3 h-3 rounded-full bg-[#FFB84D]"></div>
-          <div className="w-3 h-3 rounded-full bg-[#00C896]"></div>
+    <div className="min-h-screen bg-surface text-on-surface font-body selection:bg-primary/20 flex flex-col items-center justify-center relative">
+      {/* Top bar */}
+      <div className="fixed top-0 w-full z-50 flex items-center justify-between px-6 h-14 bg-surface-container border-b border-outline-variant/10">
+        <div className="flex items-center gap-2">
+          <Brain size={18} className="text-primary" />
+          <span className="text-sm font-bold tracking-tight">Assessment</span>
         </div>
-        <span className="font-headline text-xs tracking-widest uppercase text-[#c7c4d8] cursor-pointer hover:text-primary transition-colors" onClick={() => router.push('/student/workspace')}>Exit Assessment</span>
+        <button
+          className="text-on-surface-variant text-xs hover:text-on-surface transition-colors"
+          onClick={() => router.push('/student/workspace')}
+        >
+          Exit
+        </button>
       </div>
 
-      <main className="w-full max-w-4xl px-6 relative z-10 mt-16 md:mt-0">
-        <motion.div 
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={springConfig}
-          className="mb-12 flex flex-col md:flex-row md:items-center justify-between gap-6"
-        >
-          <div className="flex flex-col gap-2">
-            <span className="font-headline text-xs tracking-widest uppercase text-[#c7c4d8] font-semibold">{q?.topic || 'Assessment'}</span>
-            <div className="flex items-center gap-4">
-              <div className="h-1.5 w-48 bg-[#201f21] rounded-full overflow-hidden">
-                <motion.div 
-                  className="h-full bg-[#c4c0ff]"
+      <main className="w-full max-w-3xl px-6 relative z-10 mt-20">
+        {/* Progress */}
+        <div className="mb-8 flex items-center justify-between">
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs text-on-surface-variant">{q?.topic || 'Assessment'}</span>
+            <div className="flex items-center gap-3">
+              <div className="h-1.5 w-40 bg-surface-container rounded-full overflow-hidden">
+                <motion.div
+                  className="h-full bg-primary"
                   animate={{ width: `${Math.min(100, Math.max(0, (answeredIds.length / 5) * 100))}%` }}
-                ></motion.div>
+                />
               </div>
-              <span className="font-headline text-xs text-[#c7c4d8]">Question {answeredIds.length + 1}</span>
+              <span className="text-xs text-on-surface-variant">Q{answeredIds.length + 1}</span>
             </div>
           </div>
-          <div className="flex items-center gap-2 px-4 py-2 bg-[#201f21] rounded-full shadow-[inset_0_1px_0_0_rgba(70,69,85,0.2)]">
-            <Star className="w-4 h-4 text-[#c4c0ff] fill-[#c4c0ff]" />
-            <span className="font-headline text-sm font-bold text-[#e5e1e4]">{score * 100} PTS</span>
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-surface-container rounded-lg">
+            <Star className="w-3.5 h-3.5 text-primary" />
+            <span className="text-sm font-bold tabular-nums">{score * 100} pts</span>
           </div>
-        </motion.div>
+        </div>
 
-        <motion.div 
+        {/* Question card */}
+        <motion.div
           key={answeredIds.length}
-          initial={{ opacity: 0, scale: 0.95, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          className="bg-[#2a2a2c]/70 backdrop-blur-xl rounded-[2rem] p-8 md:p-12 border border-[#464555]/20 shadow-[0_12px_40px_rgba(0,0,0,0.6),inset_0_1px_0_0_rgba(70,69,85,0.2)] relative overflow-hidden"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-surface-container rounded-2xl p-8 md:p-10 border border-outline-variant/10"
         >
-          <div className="flex flex-col gap-8 max-w-2xl pt-4 md:pt-0">
-            <div className="flex items-center gap-3">
-              <span className="px-3 py-1 bg-[#c4c0ff]/10 text-[#e3dfff] font-headline text-[10px] font-bold tracking-widest uppercase rounded-full border border-[#c4c0ff]/20">
+          <div className="flex flex-col gap-6 max-w-2xl">
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-1 bg-primary/8 text-primary text-[11px] font-medium rounded-md">
                 {q?.topic || 'Subject'}
               </span>
-              <span className="px-3 py-1 bg-surface-container-high text-on-surface-variant font-headline text-[10px] font-bold tracking-widest uppercase rounded-full border border-[#464555]/20">
-                Difficulty: {q?.difficulty?.toFixed(1) || '0.0'} θ
+              <span className="px-2.5 py-1 bg-surface-container-high text-on-surface-variant text-[11px] font-medium rounded-md">
+                Difficulty: {q?.difficulty?.toFixed(1) || '0.0'} &theta;
               </span>
             </div>
-            
-            <h1 className="text-3xl md:text-4xl font-semibold text-[#e5e1e4] leading-tight pr-16 md:pr-0">
+
+            <h1 className="text-xl md:text-2xl font-semibold text-on-surface leading-snug">
               {q?.text}
             </h1>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
               {q?.options?.map((opt: any) => {
                 const isSelected = selectedOption === opt.id;
-                let bgClass = 'bg-[#1b1b1d] border-[#464555]/10';
+                let styles = 'bg-surface-container-low border-outline-variant/8';
                 if (isSelected) {
-                    if (isCorrect === true) bgClass = 'bg-[#01c896] text-[#003828] shadow-[0_0_20px_rgba(1,200,150,0.3)]';
-                    else if (isCorrect === false) bgClass = 'bg-[#f16161] text-white shadow-[0_0_20px_rgba(241,97,97,0.3)]';
-                    else bgClass = 'bg-[#c4c0ff] text-[#2000a4] shadow-[0_0_20px_rgba(196,192,255,0.3)]';
+                  if (isCorrect === true) styles = 'bg-green-500/10 border-green-500/30 text-green-400';
+                  else if (isCorrect === false) styles = 'bg-red-400/10 border-red-400/30 text-red-400';
+                  else styles = 'bg-primary/10 border-primary/30 text-primary';
                 }
 
                 return (
-                  <motion.button
+                  <button
                     key={opt.id}
                     onClick={() => !isCorrect && setSelectedOption(opt.id)}
-                    whileHover={!isCorrect ? { scale: 1.02 } : {}}
-                    whileTap={!isCorrect ? { scale: 0.98 } : {}}
-                    className={`group flex items-center justify-between px-6 py-5 rounded-2xl transition-all duration-300 ${bgClass}`}
+                    className={`flex items-center justify-between px-5 py-4 rounded-xl transition-all border ${styles} ${!isCorrect ? 'hover:bg-surface-container-high' : ''}`}
                   >
-                    <div className="flex items-center gap-4">
-                      <span className={`w-8 h-8 flex items-center justify-center rounded-full font-headline font-bold text-sm transition-colors ${
-                        isSelected ? 'bg-black/10' : 'bg-[#353437]'
+                    <div className="flex items-center gap-3">
+                      <span className={`w-7 h-7 flex items-center justify-center rounded-md text-xs font-medium ${
+                        isSelected ? 'bg-current/10' : 'bg-surface-container-highest'
                       }`}>
                         {opt.id}
                       </span>
-                      <span className="font-headline text-lg font-semibold">{opt.label}</span>
+                      <span className="text-sm font-medium">{opt.label}</span>
                     </div>
                     {isSelected && isCorrect !== null && (
-                      <motion.div 
-                        initial={{ scale: 0 }} animate={{ scale: 1 }}
-                        className="w-8 h-8 rounded-full bg-black/10 flex items-center justify-center"
-                      >
-                        {isCorrect ? <Check size={20} /> : <X size={20} />}
+                      <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
+                        {isCorrect ? <Check size={16} /> : <X size={16} />}
                       </motion.div>
                     )}
-                  </motion.button>
+                  </button>
                 );
               })}
             </div>
           </div>
 
-          <div className="mt-12 pt-8 border-t border-[#464555]/20 flex flex-col sm:flex-row items-center justify-between gap-6">
-            <button className="flex items-center gap-2 px-4 py-2 rounded-full text-[#c7c4d8] hover:text-[#e5e1e4] font-headline font-medium transition-colors">
-              <Flag className="w-5 h-5" />
-              <span>Report Issue</span>
+          <div className="mt-8 pt-6 border-t border-outline-variant/8 flex items-center justify-between">
+            <button className="flex items-center gap-2 text-on-surface-variant text-xs hover:text-on-surface transition-colors">
+              <Flag className="w-4 h-4" />
+              Report
             </button>
-            <button 
+            <button
               onClick={handleAnswer}
               disabled={!selectedOption || isCorrect !== null}
-              className={`w-full sm:w-auto flex items-center justify-center gap-3 px-8 py-4 bg-[#c4c0ff] text-[#2000a4] rounded-xl font-headline font-bold shadow-[0_8px_20px_rgba(196,192,255,0.2)] hover:shadow-[0_8px_25px_rgba(196,192,255,0.4)] transition-all disabled:opacity-50 disabled:cursor-not-allowed`}
+              className="flex items-center gap-2 px-5 py-2.5 bg-primary text-on-primary rounded-lg font-medium text-sm hover:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              <span>Submit Answer</span>
-              <ArrowRight className="w-5 h-5" />
+              Submit <ArrowRight className="w-4 h-4" />
             </button>
           </div>
         </motion.div>
 
         {explanation ? (
-             <motion.div 
-               initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-               className={`mt-6 p-4 rounded-xl border ${isCorrect ? 'bg-[#01c896]/10 border-[#01c896]/20 text-[#01c896]' : 'bg-[#f16161]/10 border-[#f16161]/20 text-[#f16161]'} flex items-start gap-3 text-sm`}
-             >
-                <div className="mt-1">{isCorrect ? <Check size={16} /> : <X size={16} />}</div>
-                <p><strong>{isCorrect ? 'Correct!' : 'Incorrect.'}</strong> {explanation}</p>
-             </motion.div>
+          <motion.div
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={`mt-4 p-4 rounded-xl border flex items-start gap-3 text-sm ${isCorrect ? 'bg-green-500/5 border-green-500/15 text-green-400' : 'bg-red-400/5 border-red-400/15 text-red-400'}`}
+          >
+            <div className="mt-0.5">{isCorrect ? <Check size={14} /> : <X size={14} />}</div>
+            <p><strong>{isCorrect ? 'Correct!' : 'Incorrect.'}</strong> {explanation}</p>
+          </motion.div>
         ) : (
-             <div className="mt-8 flex items-center justify-center gap-3 text-[#c7c4d8]/60 text-sm">
-                <Lightbulb className="w-4 h-4 animate-pulse text-[#c4c0ff]" />
-                <p>Tip: {q?.hint || 'Think carefully about the concepts covered.'}</p>
-             </div>
+          <div className="mt-6 flex items-center justify-center gap-2 text-on-surface-variant/50 text-xs">
+            <Lightbulb className="w-3.5 h-3.5 text-primary/60" />
+            <p>{q?.hint || 'Think carefully about the concepts covered.'}</p>
+          </div>
         )}
       </main>
-
-      <footer className="w-full py-8 mt-auto flex flex-col items-center gap-4 text-center z-10">
-        <p className="font-headline text-[10px] uppercase tracking-widest text-[#c7c4d8]/40">
-          © 2026 ADAPTLEARN. INCLUSIVE EDUCATION FOR ALL.
-        </p>
-      </footer>
     </div>
   );
 }
 
 export default function Assessment() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#0e0e10] flex items-center justify-center text-primary">Loading...</div>}>
+    <Suspense fallback={<div className="min-h-screen bg-surface flex items-center justify-center text-primary text-sm">Loading...</div>}>
       <AssessmentContent />
     </Suspense>
   );

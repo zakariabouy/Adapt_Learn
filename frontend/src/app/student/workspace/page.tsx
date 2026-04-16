@@ -4,9 +4,9 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { API_URL } from '@/lib/api';
-import { 
-  ChevronLeft, ChevronRight, Brain, 
-  BookOpen, Headphones, Eye, Play, Pause,
+import {
+  ChevronLeft, ChevronRight, Brain,
+  BookOpen, Headphones, Eye, Pause,
   Sparkles, Zap, LogOut, Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -74,9 +74,9 @@ export default function Workspace() {
     setCurrentChunk((c) => {
       const next = Math.min(c + 1, chunks.length - 1);
       if (next !== c) {
-          setAnnouncement(`Showing chunk ${next + 1} of ${chunks.length}`);
-          setChunkSummary(null);
-          setChunkVisual(null);
+        setAnnouncement(`Showing chunk ${next + 1} of ${chunks.length}`);
+        setChunkSummary(null);
+        setChunkVisual(null);
       }
       return next;
     });
@@ -86,9 +86,9 @@ export default function Workspace() {
     setCurrentChunk((c) => {
       const prev = Math.max(c - 1, 0);
       if (prev !== c) {
-          setAnnouncement(`Back to chunk ${prev + 1}`);
-          setChunkSummary(null);
-          setChunkVisual(null);
+        setAnnouncement(`Back to chunk ${prev + 1}`);
+        setChunkSummary(null);
+        setChunkVisual(null);
       }
       return prev;
     });
@@ -99,15 +99,14 @@ export default function Workspace() {
     const token = localStorage.getItem('token');
     try {
       const url = `${API_URL}/student/workspace/${contentId}${forced ? '?force_refresh=true' : ''}`;
-      const res = await axios.get(url, { 
-        headers: { Authorization: `Bearer ${token}` } 
+      const res = await axios.get(url, {
+        headers: { Authorization: `Bearer ${token}` }
       });
       setChunks(res.data.chunks);
       setCssConfig(res.data.css_config);
-      // Only reset currentChunk if it's a forced refresh from an adaptation
       if (forced) {
-          setCurrentChunk(0);
-          setAnnouncement('Content has been adapted for better accessibility.');
+        setCurrentChunk(0);
+        setAnnouncement('Content has been adapted for better accessibility.');
       }
     } catch (err) {
       console.error('Failed to refetch adapted content', err);
@@ -156,9 +155,8 @@ export default function Workspace() {
         setChunks(workspaceRes.data.chunks);
         setCssConfig(workspaceRes.data.css_config);
 
-        // Auto-fetch visual aid if visual learner
         if (profile.preferred_modality === 'visual') {
-            fetchChunkVisual();
+          fetchChunkVisual();
         }
       } catch (error) {
         console.error('Failed to initialize workspace', error);
@@ -170,7 +168,6 @@ export default function Workspace() {
   const { isConnected, lastCommand, sendTelemetry } = useAdaptation(studentId, contentId);
   useTelemetry(sendTelemetry);
 
-  // Auto-fetch visual aid when chunk changes for visual learners
   useEffect(() => {
     if (preferredModality === 'visual' && chunks.length > 0) {
       fetchChunkVisual();
@@ -179,7 +176,6 @@ export default function Workspace() {
 
   const toggleListen = useCallback(async () => {
     if (listeningPhase !== 'idle') {
-      // Stop playback
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current.src = '';
@@ -227,20 +223,18 @@ export default function Workspace() {
       setAnnouncement('Now playing neural audio for this chunk.');
     } catch (err) {
       console.warn('TTS unavailable, falling back to animation:', err);
-      // Graceful fallback: show "playing" animation without real audio
       setListeningPhase('playing');
       setAnnouncement('Now playing neural audio (simulated).');
       setTimeout(() => {
-          setListeningPhase('idle');
-          setAnnouncement('Audio finished.');
+        setListeningPhase('idle');
+        setAnnouncement('Audio finished.');
       }, 8000);
     }
   }, [listeningPhase, chunks, currentChunk]);
 
-  // React to adaptation commands from the orchestrator
   useEffect(() => {
     if (!lastCommand) return;
-    setAnnouncement(`Neural trigger detected: ${lastCommand.reason || lastCommand.action}`);
+    setAnnouncement(`Adaptation: ${lastCommand.reason || lastCommand.action}`);
 
     if (lastCommand.action === 'switch_modality') {
       const modality = (lastCommand.data as any)?.modality ?? 'audio';
@@ -265,15 +259,16 @@ export default function Workspace() {
     router.push('/auth/login');
   };
 
+  const progress = chunks.length > 0 ? ((currentChunk + 1) / chunks.length) * 100 : 0;
+
   return (
-    <div data-theme={theme} className="flex flex-col h-screen overflow-hidden bg-surface font-label text-on-surface selection:bg-primary/30 transition-colors duration-500">
-      {/* Hidden audio element for TTS playback */}
+    <div data-theme={theme} className="flex flex-col h-screen overflow-hidden bg-surface font-label text-on-surface selection:bg-primary/20 transition-colors duration-500">
       <audio ref={audioRef} aria-hidden="true" />
       <TopNavBar studentId={studentId} onLogout={handleLogout} />
-      <main className="flex-1 flex overflow-hidden pt-16">
-        <ReadingZone 
-          chunks={chunks} 
-          currentChunk={currentChunk} 
+      <main className="flex-1 flex overflow-hidden pt-14">
+        <ReadingZone
+          chunks={chunks}
+          currentChunk={currentChunk}
           nextChunk={nextChunk}
           prevChunk={prevChunk}
           cssConfig={cssConfig}
@@ -282,6 +277,7 @@ export default function Workspace() {
           router={router}
           chunkVisual={chunkVisual}
           isGeneratingVisual={isGeneratingVisual}
+          progress={progress}
         />
         <AdaptationHUD
           isConnected={isConnected}
@@ -296,13 +292,13 @@ export default function Workspace() {
           chunkSummary={chunkSummary}
         />
       </main>
-      
+
       <GodModePanel sendTelemetry={sendTelemetry} />
-      
-      <AccessibilityController 
-        onNext={nextChunk} 
-        onPrev={prevChunk} 
-        onToggleListen={toggleListen} 
+
+      <AccessibilityController
+        onNext={nextChunk}
+        onPrev={prevChunk}
+        onToggleListen={toggleListen}
         announcement={announcement}
       />
     </div>
@@ -311,30 +307,29 @@ export default function Workspace() {
 
 function TopNavBar({ studentId, onLogout }: { studentId: string | null, onLogout: () => void }) {
   return (
-    <header className="fixed top-0 w-full z-50 flex justify-between items-center px-8 h-16 bg-surface-container/80 backdrop-blur-xl border-b border-outline-variant/20 shadow-2xl">
-      <div className="text-lg font-bold tracking-tighter text-on-surface flex items-center gap-2 before:content-[''] before:w-3 before:h-3 before:bg-[#FF6B6B] before:rounded-full before:shadow-[16px_0_0_#FFB84D,32px_0_0_#00C896]">
-        AdaptLearn
+    <header className="fixed top-0 w-full z-50 flex justify-between items-center px-6 h-14 bg-surface-container border-b border-outline-variant/10">
+      <div className="flex items-center gap-2">
+        <Brain size={18} className="text-primary" />
+        <span className="text-sm font-bold tracking-tight text-on-surface">AdaptLearn</span>
       </div>
-      <nav className="hidden md:flex gap-8 items-center font-headline font-medium text-sm tracking-tight" aria-label="Main Navigation">
-        <a className="text-on-surface border-b-2 border-primary pb-1" href="#">Workspace</a>
-        <a className="text-on-surface-variant hover:text-on-surface pb-1 transition-all" href="#">Curriculum</a>
-        <a className="text-on-surface-variant hover:text-on-surface pb-1 transition-all" href="#">Library</a>
+      <nav className="hidden md:flex gap-6 items-center text-sm" aria-label="Main Navigation">
+        <a className="text-on-surface font-medium border-b border-primary pb-0.5" href="#">Workspace</a>
+        <a className="text-on-surface-variant hover:text-on-surface transition-colors" href="#">Curriculum</a>
+        <a className="text-on-surface-variant hover:text-on-surface transition-colors" href="#">Library</a>
       </nav>
-      <div className="flex items-center gap-4">
-        <button onClick={onLogout} aria-label="Logout" className="text-on-surface-variant hover:text-red-400 p-2 rounded-full transition-all flex items-center gap-2">
-            <span className="text-[10px] uppercase font-bold tracking-widest">Logout</span>
-            <LogOut size={18} />
+      <div className="flex items-center gap-3">
+        <span className="text-[11px] text-on-surface-variant/40 hidden lg:block tabular-nums">
+          {studentId?.substring(0, 8)}
+        </span>
+        <button onClick={onLogout} aria-label="Logout" className="text-on-surface-variant hover:text-red-400 p-1.5 rounded-lg transition-colors">
+          <LogOut size={16} />
         </button>
-        <div className="text-[10px] font-bold text-on-surface-variant/40 uppercase tracking-widest hidden lg:block">
-            SID: {studentId?.substring(0, 8)}
-        </div>
-        <img alt="User Avatar" className="w-8 h-8 rounded-full border border-outline-variant object-cover" src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=100&q=80" />
       </div>
     </header>
   );
 }
 
-function ReadingZone({ chunks, currentChunk, nextChunk, prevChunk, cssConfig, title, contentId, router, chunkVisual, isGeneratingVisual }: {
+function ReadingZone({ chunks, currentChunk, nextChunk, prevChunk, cssConfig, title, contentId, router, chunkVisual, isGeneratingVisual, progress }: {
   chunks: string[];
   currentChunk: number;
   nextChunk: () => void;
@@ -345,113 +340,108 @@ function ReadingZone({ chunks, currentChunk, nextChunk, prevChunk, cssConfig, ti
   router: any;
   chunkVisual: string | null;
   isGeneratingVisual: boolean;
+  progress: number;
 }) {
   return (
-    <section className="w-full md:w-[70%] p-6 lg:p-10 flex flex-col items-center bg-surface overflow-y-auto transition-colors duration-500" aria-labelledby="lesson-title">
+    <section className="w-full md:w-[70%] flex flex-col bg-surface overflow-y-auto transition-colors duration-500" aria-labelledby="lesson-title">
       <h1 id="lesson-title" className="sr-only">{title}</h1>
-      <div className="w-full max-w-4xl bg-surface-container-high rounded-lg mac-shadow flex flex-col min-h-[80vh] overflow-hidden relative mb-12 border border-outline-variant/10">
-        <div className="h-10 px-4 flex items-center bg-surface-container-highest/50 backdrop-blur-md border-b border-outline-variant/10">
-          <div className="flex gap-2" aria-hidden="true">
-            <div className="w-3 h-3 rounded-full bg-[#FF6B6B]"></div>
-            <div className="w-3 h-3 rounded-full bg-[#FFB84D]"></div>
-            <div className="w-3 h-3 rounded-full bg-[#00C896]"></div>
+
+      {/* Progress bar */}
+      <div className="h-1 w-full bg-surface-container-low shrink-0">
+        <div
+          className="h-full bg-primary transition-all duration-700 ease-out"
+          style={{ width: `${progress}%` }}
+          role="progressbar"
+          aria-valuenow={Math.round(progress)}
+          aria-valuemin={0}
+          aria-valuemax={100}
+        />
+      </div>
+
+      {/* Content area */}
+      <div className="flex-1 flex flex-col items-center p-6 lg:p-10">
+        <div className="w-full max-w-3xl flex-1">
+          {/* Title bar */}
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <p className="text-xs text-on-surface-variant mb-1">
+                Section {chunks.length > 0 ? currentChunk + 1 : 0} of {chunks.length}
+              </p>
+              <h2 className="text-lg font-bold tracking-tight">{title}</h2>
+            </div>
           </div>
-          <div className="flex-1 text-center text-xs text-on-surface-variant font-medium opacity-60">Lesson: {title}</div>
-        </div>
-        
-        <div className="flex-1 p-12 lg:p-20 font-body relative group min-h-[60vh]">
-          <div className="space-y-12 leading-relaxed" style={cssConfig} aria-live="polite">
-            {chunkVisual && (
-              <motion.div 
-                initial={{ opacity: 0, y: -20 }} 
+
+          {/* Visual aid */}
+          {chunkVisual && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="w-full max-w-md mx-auto mb-8 p-5 bg-surface-container rounded-xl border border-outline-variant/8"
+              dangerouslySetInnerHTML={{ __html: chunkVisual }}
+            />
+          )}
+
+          {isGeneratingVisual && (
+            <div className="w-full max-w-md mx-auto mb-8 p-8 bg-surface-container rounded-xl border border-outline-variant/8 flex flex-col items-center gap-3">
+              <Loader2 className="animate-spin text-primary" size={24} />
+              <span className="text-xs text-on-surface-variant">Generating visual aid...</span>
+            </div>
+          )}
+
+          {/* Reading content */}
+          <div className="leading-relaxed text-on-surface/90 min-h-[50vh]" style={cssConfig} aria-live="polite">
+            {chunks.length > 0 ? (
+              <motion.div
+                key={currentChunk}
+                initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="w-full max-w-md mx-auto mb-12 p-6 bg-white/5 rounded-2xl border border-white/10"
-                dangerouslySetInnerHTML={{ __html: chunkVisual }}
-              />
-            )}
-            
-            {isGeneratingVisual && (
-              <div className="w-full max-w-md mx-auto mb-12 p-12 bg-white/5 rounded-2xl border border-white/10 flex flex-col items-center gap-4">
-                <Loader2 className="animate-spin text-primary" size={32} />
-                <span className="text-xs font-bold uppercase tracking-widest text-primary/60">Generating Visual Aid...</span>
+                transition={{ duration: 0.3 }}
+                className="text-base leading-[1.8]"
+              >
+                {chunks[currentChunk]}
+              </motion.div>
+            ) : (
+              <div className="text-center text-on-surface-variant/50 py-20">
+                Loading content...
               </div>
             )}
-
-            {chunks.length > 0 ? (
-                <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-                    {chunks[currentChunk]}
-                </div>
-            ) : (
-                <div className="text-center text-on-surface-variant opacity-50 py-20 italic">
-                    Loading adaptive content...
-                </div>
-            )}
-          </div>
-          
-          <div className="absolute left-4 top-1/2 -translate-y-1/2 flex flex-col gap-4">
-            <button 
-                onClick={prevChunk}
-                disabled={currentChunk === 0}
-                aria-label="Previous Chunk"
-                className="w-12 h-12 lg:w-16 lg:h-16 rounded-full glass-effect border border-white/10 flex items-center justify-center text-primary disabled:opacity-20 active:scale-90 transition-all shadow-xl hover:bg-white/10 focus:ring-2 focus:ring-primary focus:outline-none"
-            >
-              <ChevronLeft size={32} />
-            </button>
-          </div>
-          <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-4">
-            <button 
-                onClick={nextChunk}
-                disabled={currentChunk === chunks.length - 1}
-                aria-label="Next Chunk"
-                className="w-12 h-12 lg:w-16 lg:h-16 rounded-full glass-effect border border-white/10 flex items-center justify-center text-primary disabled:opacity-20 active:scale-90 transition-all shadow-xl hover:bg-white/10 focus:ring-2 focus:ring-primary focus:outline-none"
-            >
-              <ChevronRight size={32} />
-            </button>
           </div>
         </div>
-        
-        <div className="h-16 px-10 flex items-center justify-between bg-surface-container-highest/30 backdrop-blur-xl border-t border-outline-variant/10">
-          <div className="flex-1 mr-8">
-            <div className="flex justify-between text-xs text-on-surface-variant mb-2">
-              <span className="uppercase tracking-widest font-bold">Progress</span>
-              <span>Chunk {chunks.length > 0 ? currentChunk + 1 : 0} of {chunks.length}</span>
-            </div>
-            <div className="h-2 w-full bg-surface-container-low rounded-full overflow-hidden" role="progressbar" aria-valuenow={chunks.length > 0 ? Math.round(((currentChunk + 1) / chunks.length) * 100) : 0} aria-valuemin={0} aria-valuemax={100}>
-              <div 
-                className="h-full bg-primary shadow-[0_0_15px_rgba(196,192,255,0.6)] rounded-full transition-all duration-1000"
-                style={{ width: chunks.length > 0 ? `${((currentChunk + 1) / chunks.length) * 100}%` : '0%' }}
-              ></div>
-            </div>
-          </div>
+
+        {/* Navigation */}
+        <div className="w-full max-w-3xl flex items-center justify-between pt-8 mt-auto border-t border-outline-variant/8">
+          <button
+            onClick={prevChunk}
+            disabled={currentChunk === 0}
+            aria-label="Previous section"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm text-on-surface-variant hover:bg-surface-container disabled:opacity-25 transition-all"
+          >
+            <ChevronLeft size={16} /> Previous
+          </button>
+
           {currentChunk === chunks.length - 1 && chunks.length > 0 ? (
-              <button
-                onClick={() => router.push(`/student/assessments?content_id=${contentId}`)}
-                className="px-6 py-2 bg-secondary text-on-secondary font-bold rounded-full text-xs uppercase tracking-widest transition-all hover:opacity-90 shadow-lg shadow-secondary/20 animate-in zoom-in-95 duration-300"
-              >
-                Take Quiz
-              </button>
+            <button
+              onClick={() => router.push(`/student/assessments?content_id=${contentId}`)}
+              className="px-5 py-2.5 bg-secondary text-on-secondary font-medium rounded-lg text-sm transition-all hover:brightness-110"
+            >
+              Take Quiz
+            </button>
           ) : (
-              <button 
-                onClick={nextChunk}
-                disabled={currentChunk === chunks.length - 1}
-                aria-label="Load next chunk"
-                className="px-6 py-2 bg-primary text-on-primary font-bold rounded-full disabled:opacity-50 active:scale-95 transition-all shadow-lg shadow-primary/20"
-              >
-                Next Chunk
-              </button>
+            <button
+              onClick={nextChunk}
+              disabled={currentChunk === chunks.length - 1}
+              className="flex items-center gap-2 px-5 py-2.5 bg-primary text-on-primary font-medium rounded-lg text-sm disabled:opacity-50 transition-all hover:brightness-110"
+            >
+              Next <ChevronRight size={16} />
+            </button>
           )}
         </div>
       </div>
-      <footer className="w-full flex flex-col items-center gap-4 text-center py-8 mt-auto">
-        <div className="font-headline text-[10px] uppercase tracking-widest text-on-surface-variant/50">
-            © 2026 AdaptLearn. Inclusive education for all.
-        </div>
-      </footer>
     </section>
   );
 }
 
-function AdaptationHUD({ 
+function AdaptationHUD({
   isConnected, lastCommand, listeningPhase, onToggleListen, audioDuration,
   onSummarize, onGenerateVisual, isSummarizing, isGeneratingVisual, chunkSummary
 }: {
@@ -467,75 +457,72 @@ function AdaptationHUD({
   chunkSummary: string | null;
 }) {
   return (
-    <aside className="hidden md:flex flex-col w-[30%] bg-surface-container border-l border-outline-variant/15 p-8 gap-8 overflow-y-auto z-10" aria-label="Adaptation Controls">
-      <div className="flex items-center justify-between p-4 bg-surface-container-high rounded-xl border border-outline-variant/10">
-        <div className="flex items-center gap-4">
-          <div className="relative flex items-center justify-center" aria-hidden="true">
-            {isConnected && <div className="absolute inset-0 bg-secondary/20 rounded-full animate-ping"></div>}
-            <Brain className={`${isConnected ? 'text-secondary' : 'text-on-surface-variant'} relative z-10`} size={28} />
-          </div>
-          <div>
-            <div className="text-[10px] uppercase tracking-tighter text-on-surface-variant font-bold">Neural Sync</div>
-            <div className={`${isConnected ? 'text-secondary' : 'text-red-400'} font-bold text-sm tracking-wide uppercase`}>
-                {isConnected ? 'Sync Active' : 'Offline'}
-            </div>
+    <aside className="hidden md:flex flex-col w-[30%] bg-surface-container border-l border-outline-variant/10 p-6 gap-6 overflow-y-auto" aria-label="Adaptation Controls">
+      {/* Connection Status */}
+      <div className="flex items-center gap-3 p-3 bg-surface-container-high rounded-lg">
+        <Brain className={isConnected ? 'text-secondary' : 'text-on-surface-variant/40'} size={20} />
+        <div className="flex-1">
+          <div className="text-[11px] text-on-surface-variant">AI Adaptation</div>
+          <div className={`text-xs font-medium ${isConnected ? 'text-secondary' : 'text-red-400'}`}>
+            {isConnected ? 'Connected' : 'Offline'}
           </div>
         </div>
-        <div className={`h-8 w-1 ${isConnected ? 'bg-secondary' : 'bg-outline-variant'} rounded-full opacity-50`} aria-hidden="true"></div>
+        {isConnected && <div className="h-2 w-2 rounded-full bg-secondary animate-pulse" />}
       </div>
 
-      <div className="flex p-1 bg-surface-container-lowest rounded-xl border border-outline-variant/5">
-        <button 
+      {/* Mode Switcher */}
+      <div className="flex p-1 bg-surface-container-low rounded-lg gap-1">
+        <button
           aria-label="Reading Mode"
           aria-pressed={listeningPhase === 'idle'}
-          className={`flex-1 py-3 px-2 flex flex-col items-center gap-1 rounded-lg transition-all ${listeningPhase === 'idle' ? 'text-primary bg-primary/10' : 'text-on-surface-variant hover:bg-white/5'} focus:ring-2 focus:ring-inset focus:ring-primary outline-none`} 
+          className={`flex-1 py-2.5 flex flex-col items-center gap-1 rounded-md transition-all text-xs ${listeningPhase === 'idle' ? 'text-primary bg-primary/8 font-medium' : 'text-on-surface-variant hover:bg-surface-container-high'}`}
           onClick={() => listeningPhase !== 'idle' && onToggleListen()}
         >
-          <BookOpen size={20} />
-          <span className="text-[10px] uppercase font-bold tracking-widest">Read</span>
+          <BookOpen size={16} />
+          Read
         </button>
-        <button 
+        <button
           aria-label="Listen Mode"
           aria-pressed={listeningPhase !== 'idle'}
-          className={`flex-1 py-3 px-2 flex flex-col items-center gap-1 rounded-lg transition-all ${listeningPhase !== 'idle' ? 'text-primary bg-primary/10 font-bold' : 'text-on-surface-variant hover:bg-white/5'} focus:ring-2 focus:ring-inset focus:ring-primary outline-none`} 
+          className={`flex-1 py-2.5 flex flex-col items-center gap-1 rounded-md transition-all text-xs ${listeningPhase !== 'idle' ? 'text-primary bg-primary/8 font-medium' : 'text-on-surface-variant hover:bg-surface-container-high'}`}
           onClick={onToggleListen}
         >
-
-          <Headphones size={20} />
-          <span className="text-[10px] uppercase font-bold tracking-widest">Listen</span>
+          <Headphones size={16} />
+          Listen
         </button>
-        <button 
-          aria-label="Visual Mode" 
+        <button
+          aria-label="Visual Mode"
           onClick={onGenerateVisual}
-          className={`flex-1 py-3 px-2 flex flex-col items-center gap-1 rounded-lg text-on-surface-variant hover:bg-white/5 transition-all focus:ring-2 focus:ring-inset focus:ring-primary outline-none ${isGeneratingVisual ? 'animate-pulse text-primary' : ''}`}
+          className={`flex-1 py-2.5 flex flex-col items-center gap-1 rounded-md transition-all text-xs text-on-surface-variant hover:bg-surface-container-high ${isGeneratingVisual ? 'animate-pulse text-primary' : ''}`}
         >
-          <Eye size={20} />
-          <span className="text-[10px] uppercase font-bold tracking-widest">Visual</span>
+          <Eye size={16} />
+          Visual
         </button>
       </div>
 
-      <div className="p-6 bg-surface-container-high rounded-xl flex flex-col items-center border border-outline-variant/10 min-h-[280px] justify-center">
+      {/* Audio / Summary Panel */}
+      <div className="p-5 bg-surface-container-high rounded-xl flex flex-col items-center min-h-[220px] justify-center">
         <AnimatePresence mode="wait">
           {listeningPhase === 'idle' && (
             <motion.div key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center w-full">
               {chunkSummary ? (
                 <div className="w-full">
-                  <div className="text-[10px] uppercase font-bold tracking-widest text-primary mb-4 flex items-center gap-2">
+                  <div className="text-[11px] text-primary mb-3 flex items-center gap-1.5 font-medium">
                     <Sparkles size={12} /> AI Summary
                   </div>
-                  <p className="text-sm text-on-surface leading-relaxed italic border-l-2 border-primary/30 pl-4 py-1">
-                    "{chunkSummary}"
+                  <p className="text-sm text-on-surface leading-relaxed border-l-2 border-primary/20 pl-3 italic">
+                    &ldquo;{chunkSummary}&rdquo;
                   </p>
                 </div>
               ) : (
                 <>
-                  <div className="w-24 h-24 rounded-full bg-primary/5 flex items-center justify-center border border-primary/10 mb-6">
-                    <Headphones size={40} className="text-on-surface-variant/20" />
+                  <div className="w-16 h-16 rounded-full bg-surface-container-low flex items-center justify-center mb-4">
+                    <Headphones size={28} className="text-on-surface-variant/20" />
                   </div>
-                  <button 
-                    onClick={onToggleListen} 
+                  <button
+                    onClick={onToggleListen}
                     aria-label="Start audio synthesis"
-                    className="px-6 py-2 bg-primary text-on-primary rounded-full font-bold text-xs uppercase tracking-widest hover:scale-105 transition-all focus:ring-4 focus:ring-primary/20 outline-none"
+                    className="px-5 py-2 bg-primary text-on-primary rounded-lg font-medium text-xs hover:brightness-110 transition-all"
                   >
                     Start Audio
                   </button>
@@ -546,40 +533,40 @@ function AdaptationHUD({
 
           {listeningPhase === 'synthesizing' && (
             <motion.div key="synthesizing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center w-full" aria-busy="true" aria-live="assertive">
-              <Loader2 size={48} className="text-primary animate-spin mb-6" />
+              <Loader2 size={32} className="text-primary animate-spin mb-4" />
               <div className="text-center">
-                <div className="text-on-surface font-bold mb-1 uppercase tracking-widest text-xs">AI Synthesizing</div>
-                <div className="text-on-surface-variant text-[10px]">Generating natural speech...</div>
+                <div className="text-sm font-medium text-on-surface mb-0.5">Synthesizing...</div>
+                <div className="text-xs text-on-surface-variant">Generating speech</div>
               </div>
-              <div className="w-full bg-surface-container-lowest h-1 rounded-full mt-8 overflow-hidden">
+              <div className="w-full bg-surface-container-low h-1 rounded-full mt-6 overflow-hidden">
                 <motion.div initial={{ width: 0 }} animate={{ width: '100%' }} transition={{ duration: 2.5 }} className="h-full bg-primary" />
               </div>
             </motion.div>
           )}
 
           {listeningPhase === 'playing' && (
-            <motion.div key="playing" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center w-full">
-              <div className="flex items-end gap-1 mb-8 h-12" aria-hidden="true">
-                {[...Array(12)].map((_, i) => (
-                  <motion.div 
-                    key={i} 
-                    animate={{ height: [10, Math.random() * 40 + 10, 10] }} 
-                    transition={{ repeat: Infinity, duration: 0.5 + Math.random(), ease: "easeInOut" }} 
-                    className="w-1.5 bg-secondary rounded-full" 
+            <motion.div key="playing" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center w-full">
+              <div className="flex items-end gap-1 mb-6 h-8" aria-hidden="true">
+                {[...Array(10)].map((_, i) => (
+                  <motion.div
+                    key={i}
+                    animate={{ height: [6, Math.random() * 28 + 6, 6] }}
+                    transition={{ repeat: Infinity, duration: 0.5 + Math.random(), ease: "easeInOut" }}
+                    className="w-1 bg-secondary rounded-full"
                   />
                 ))}
               </div>
-              <button 
-                onClick={onToggleListen} 
+              <button
+                onClick={onToggleListen}
                 aria-label="Pause audio"
-                className="w-16 h-16 bg-secondary text-on-secondary rounded-full flex items-center justify-center shadow-xl mb-6 focus:ring-4 focus:ring-secondary/20 outline-none"
+                className="w-12 h-12 bg-secondary text-on-secondary rounded-full flex items-center justify-center mb-4"
               >
-                <Pause size={28} fill="currentColor" />
+                <Pause size={20} fill="currentColor" />
               </button>
               <div className="text-center">
-                <div className="text-on-surface font-bold mb-1 uppercase tracking-widest text-xs">Now Reading</div>
-                <div className="text-secondary text-[10px] font-bold">
-                  Rachel (Neural Voice){audioDuration > 0 ? ` • ${Math.floor(audioDuration / 60)}:${String(audioDuration % 60).padStart(2, '0')}` : ''}
+                <div className="text-sm font-medium text-on-surface">Playing</div>
+                <div className="text-xs text-secondary">
+                  Neural Voice{audioDuration > 0 ? ` \u2022 ${Math.floor(audioDuration / 60)}:${String(audioDuration % 60).padStart(2, '0')}` : ''}
                 </div>
               </div>
             </motion.div>
@@ -587,32 +574,30 @@ function AdaptationHUD({
         </AnimatePresence>
       </div>
 
-      <div className="space-y-4">
-        <div className="text-[10px] uppercase font-bold tracking-widest text-on-surface-variant px-1">Active AI Command</div>
-        <div className="flex flex-wrap gap-2" aria-live="polite">
-            {lastCommand ? (
-                <div className="flex items-center gap-2 py-2 px-4 bg-primary/10 rounded-full border border-primary/30 text-xs font-bold text-primary animate-pulse">
-                    {lastCommand.action}
-                    <Zap size={14} className="text-primary" fill="currentColor" />
-                </div>
-            ) : (
-                <div className="text-xs text-on-surface-variant italic px-1">Waiting for neural trigger...</div>
-            )}
+      {/* Active Command */}
+      <div>
+        <div className="text-[11px] text-on-surface-variant mb-2">Active Command</div>
+        <div aria-live="polite">
+          {lastCommand ? (
+            <div className="flex items-center gap-2 py-2 px-3 bg-primary/8 rounded-lg text-xs font-medium text-primary">
+              {lastCommand.action}
+              <Zap size={12} className="text-primary" />
+            </div>
+          ) : (
+            <div className="text-xs text-on-surface-variant/50 italic">Waiting for trigger...</div>
+          )}
         </div>
       </div>
 
-      <div 
-        className={`mt-auto p-4 rounded-xl border transition-all flex items-center justify-between cursor-pointer ${isSummarizing ? 'bg-primary/20 border-primary animate-pulse' : 'bg-primary/5 border-primary/20 hover:bg-primary/10'}`} 
-        role="button" 
-        aria-label="Summarize this chunk"
+      {/* Summarize */}
+      <button
+        className={`mt-auto p-3 rounded-lg border transition-all flex items-center gap-3 ${isSummarizing ? 'bg-primary/10 border-primary/20' : 'bg-surface-container-low border-outline-variant/8 hover:border-primary/20'}`}
         onClick={onSummarize}
+        aria-label="Summarize this section"
       >
-        <div className="flex items-center gap-3">
-          <Sparkles size={18} className={isSummarizing ? 'text-primary animate-spin' : 'text-primary'} />
-          <span className="text-xs font-semibold text-primary">{isSummarizing ? 'Thinking...' : 'Summarize this chunk?'}</span>
-        </div>
-        <button className="text-primary p-1 rounded-lg transition-colors focus:ring-2 focus:ring-primary outline-none" aria-label="Run summary action"><Zap size={18} fill="currentColor" /></button>
-      </div>
+        <Sparkles size={16} className={`text-primary ${isSummarizing ? 'animate-spin' : ''}`} />
+        <span className="text-xs font-medium text-on-surface-variant">{isSummarizing ? 'Thinking...' : 'Summarize this section'}</span>
+      </button>
     </aside>
   );
 }

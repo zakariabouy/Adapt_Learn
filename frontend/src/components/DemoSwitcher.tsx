@@ -33,7 +33,6 @@ export default function DemoSwitcher() {
       router.push(account.path);
       setOpen(false);
     } catch {
-      // silently fail
     } finally {
       setSwitching(null);
     }
@@ -52,30 +51,30 @@ export default function DemoSwitcher() {
       <AnimatePresence>
         {open && (
           <motion.div
-            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+            initial={{ opacity: 0, y: 6, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 10, scale: 0.95 }}
-            className="mb-2 bg-[#1a1a1c] border border-white/10 rounded-2xl shadow-2xl overflow-hidden w-56"
+            exit={{ opacity: 0, y: 6, scale: 0.97 }}
+            className="mb-2 bg-surface-container border border-outline-variant/15 rounded-xl shadow-lg overflow-hidden w-52"
           >
-            <div className="px-4 py-3 border-b border-white/5">
-              <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/40">Switch Account</span>
+            <div className="px-3 py-2.5 border-b border-outline-variant/8">
+              <span className="text-[10px] font-medium text-on-surface-variant/50">Switch Account</span>
             </div>
             {DEMO_ACCOUNTS.map((a) => (
               <button
                 key={a.email}
                 onClick={() => switchTo(a)}
                 disabled={switching !== null}
-                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-white/5 transition-colors disabled:opacity-40"
+                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-surface-container-high transition-colors disabled:opacity-40"
               >
-                <div className={`p-1.5 rounded-lg ${a.role === 'teacher' ? 'bg-purple-500/15 text-purple-400' : 'bg-emerald-500/15 text-emerald-400'}`}>
-                  {a.role === 'teacher' ? <Presentation size={14} /> : <GraduationCap size={14} />}
+                <div className={`p-1 rounded-md ${a.role === 'teacher' ? 'bg-primary/10 text-primary' : 'bg-secondary/10 text-secondary'}`}>
+                  {a.role === 'teacher' ? <Presentation size={13} /> : <GraduationCap size={13} />}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-xs font-bold text-white/90 truncate">{a.label}</div>
-                  <div className="text-[10px] text-white/30 truncate">{a.email}</div>
+                  <div className="text-xs font-medium text-on-surface truncate">{a.label}</div>
+                  <div className="text-[10px] text-on-surface-variant/40 truncate">{a.email}</div>
                 </div>
                 {switching === a.email && (
-                  <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <div className="w-3 h-3 border-2 border-on-surface-variant/20 border-t-on-surface rounded-full animate-spin" />
                 )}
               </button>
             ))}
@@ -85,11 +84,11 @@ export default function DemoSwitcher() {
 
       <button
         onClick={() => setOpen(prev => !prev)}
-        className="flex items-center gap-2 px-4 py-2 bg-[#1a1a1c] border border-white/10 rounded-full text-[10px] font-bold uppercase tracking-widest text-white/50 hover:text-white/80 hover:border-white/20 transition-all shadow-lg"
+        className="flex items-center gap-2 px-3 py-1.5 bg-surface-container border border-outline-variant/15 rounded-lg text-[10px] font-medium text-on-surface-variant/50 hover:text-on-surface-variant hover:border-outline-variant/25 transition-all shadow-sm"
       >
-        <Users size={14} />
+        <Users size={12} />
         Demo
-        <ChevronUp size={12} className={`transition-transform ${open ? '' : 'rotate-180'}`} />
+        <ChevronUp size={10} className={`transition-transform ${open ? '' : 'rotate-180'}`} />
       </button>
     </div>
   );

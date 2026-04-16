@@ -26,6 +26,35 @@ PROMPT_V3 = ROOT / "prompts" / "system_v3.md"
 
 GRADE_LEVEL_TO_NAME = {1: "CE1", 2: "CE1", 3: "CE2", 4: "CM1", 5: "CM2", 6: "6AP"}
 
+# Normalize subject names — content items may come in EN or FR.
+SUBJECT_ALIASES = {
+    "math": "mathematiques",
+    "maths": "mathematiques",
+    "mathematics": "mathematiques",
+    "mathématiques": "mathematiques",
+    "mathematiques": "mathematiques",
+    "science": "activite_scientifique",
+    "sciences": "activite_scientifique",
+    "activité scientifique": "activite_scientifique",
+    "activite_scientifique": "activite_scientifique",
+    "french": "francais",
+    "français": "francais",
+    "francais": "francais",
+    "arabic": "arabe",
+    "arabe": "arabe",
+    "civic": "education_civique",
+    "civics": "education_civique",
+    "education civique": "education_civique",
+    "education_civique": "education_civique",
+    "islamic": "education_islamique",
+    "education islamique": "education_islamique",
+    "education_islamique": "education_islamique",
+}
+
+
+def _normalize_subject(subject: str) -> str:
+    return SUBJECT_ALIASES.get((subject or "").strip().lower(), (subject or "").strip().lower())
+
 
 @lru_cache(maxsize=1)
 def _load_corpus() -> Dict[str, Any]:
@@ -60,7 +89,8 @@ def _lookup_men(grade_level: int, subject: str) -> Dict[str, Any]:
     """Return MEN competencies/vocabulary/avoid list for this grade × subject."""
     corpus = _load_corpus()
     grade = _grade_name(grade_level)
-    subj_data = corpus["subjects"].get(subject, {})
+    subj_key = _normalize_subject(subject)
+    subj_data = corpus["subjects"].get(subj_key, {})
     grade_data = subj_data.get(grade, {}) if isinstance(subj_data, dict) else {}
     transversal = subj_data.get("transversal", {}) if isinstance(subj_data, dict) else {}
     return {
@@ -79,10 +109,11 @@ def _select_few_shots(grade_level: int, subject: str, k: int = 2) -> List[Dict[s
     """Pick k nearest examples: same subject+grade first, then same subject, then any."""
     golden = _load_golden()
     target_grade = _grade_name(grade_level)
+    subj_key = _normalize_subject(subject)
 
-    same_both = [g for g in golden if g["subject"] == subject and g["grade"] == target_grade]
-    same_subject = [g for g in golden if g["subject"] == subject and g["grade"] != target_grade]
-    others = [g for g in golden if g["subject"] != subject]
+    same_both = [g for g in golden if g["subject"] == subj_key and g["grade"] == target_grade]
+    same_subject = [g for g in golden if g["subject"] == subj_key and g["grade"] != target_grade]
+    others = [g for g in golden if g["subject"] != subj_key]
 
     pool: List[Dict[str, Any]] = []
     pool.extend(same_both)

@@ -2,7 +2,7 @@ import os
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, EmailStr
-from shared.models import User, Role
+from shared.models import User, Role, ClassroomRewardRequest, TeacherCorrectionRequest
 from routers.auth import get_current_user
 from shared.database import get_pool
 from agents.iep.agent import generate_iep_report
@@ -272,3 +272,152 @@ async def get_student_orientation(student_id: UUID, current_teacher = Depends(ge
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Orientation generation failed: {str(e)}")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Classroom Rewards
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.post("/rewards")
+async def create_classroom_reward(
+    request: ClassroomRewardRequest,
+    current_teacher=Depends(get_current_teacher),
+):
+    """Teacher creates a classroom reward that students can redeem with XP."""
+    pool = await get_pool()
+    row = await pool.fetchrow(
+        """INSERT INTO classroom_rewards (teacher_id, title, description, xp_cost, icon)
+           VALUES ($1, $2, $3, $4, $5) RETURNING id""",
+        current_teacher["id"], request.title, request.description, request.xp_cost, request.icon,
+    )
+    return {"id": str(row["id"]), "status": "reward_created"}
+
+
+@router.get("/rewards")
+async def list_classroom_rewards(current_teacher=Depends(get_current_teacher)):
+    pool = await get_pool()
+    rows = await pool.fetch(
+        "SELECT * FROM classroom_rewards WHERE teacher_id = $1 ORDER BY created_at DESC",
+        current_teacher["id"],
+    )
+    return [
+        {
+            "id": str(r["id"]),
+            "title": r["title"],
+            "description": r["description"],
+            "xp_cost": r["xp_cost"],
+            "icon": r["icon"],
+            "is_active": r["is_active"],
+            "created_at": r["created_at"].isoformat(),
+        }
+        for r in rows
+    ]
+
+
+@router.delete("/rewards/{reward_id}")
+async def deactivate_reward(reward_id: UUID, current_teacher=Depends(get_current_teacher)):
+    pool = await get_pool()
+    await pool.execute(
+        "UPDATE classroom_rewards SET is_active = FALSE WHERE id = $1 AND teacher_id = $2",
+        reward_id, current_teacher["id"],
+    )
+    return {"status": "deactivated"}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# AI Correction & Data Injection
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.post("/correct-student")
+async def correct_student_profile(
+    request: TeacherCorrectionRequest,
+    current_teacher=Depends(get_current_teacher),
+):
+    """
+    Teacher corrects AI assumptions about a student.
+    Types: 'profile_override', 'behavior_note', 'attention_span', 'tag_adjustment'
+    """
+    pool = await get_pool()
+    student_id = UUID(request.student_id)
+
+    # Verify link
+    link = await pool.fetchrow(
+        "SELECT 1 FROM teacher_student_link WHERE teacher_id = $1 AND student_id = $2",
+        current_teacher["id"], student_id,
+    )
+    if not link:
+        raise HTTPException(status_code=403, detail="Student not linked to this teacher")
+
+    # Store correction
+    await pool.execute(
+        """INSERT INTO teacher_corrections (teacher_id, student_id, correction_type, data)
+           VALUES ($1, $2, $3, $4)""",
+        current_teacher["id"], student_id, request.correction_type, json.dumps(request.data),
+    )
+
+    # Apply correction to learner profile
+    profile_row = await pool.fetchrow(
+        "SELECT profile_data FROM learner_profiles WHERE student_id = $1", student_id
+    )
+    if not profile_row:
+        raise HTTPException(status_code=404, detail="Student profile not found")
+
+    profile = json.loads(profile_row["profile_data"])
+
+    if request.correction_type == "tag_adjustment":
+        # data: {"add_tags": ["visual_learner"], "remove_tags": ["slow_reader"], "tag_strengths": {"visual_learner": 0.9}}
+        for tag in request.data.get("add_tags", []):
+            if tag not in profile.get("learning_tags", []):
+                profile.setdefault("learning_tags", []).append(tag)
+        for tag in request.data.get("remove_tags", []):
+            if tag in profile.get("learning_tags", []):
+                profile["learning_tags"].remove(tag)
+        for tag, strength in request.data.get("tag_strengths", {}).items():
+            profile.setdefault("tag_strength", {})[tag] = strength
+
+    elif request.correction_type == "attention_span":
+        # data: {"chunk_size": 300, "reading_speed_wpm": 100}
+        if "chunk_size" in request.data:
+            profile["chunk_size"] = request.data["chunk_size"]
+        if "reading_speed_wpm" in request.data:
+            profile["reading_speed_wpm"] = request.data["reading_speed_wpm"]
+
+    elif request.correction_type == "profile_override":
+        # data: any profile fields to override directly
+        for key, value in request.data.items():
+            if key in profile:
+                profile[key] = value
+
+    elif request.correction_type == "behavior_note":
+        # Stored in corrections table only, not applied to profile
+        pass
+
+    # Save updated profile
+    await pool.execute(
+        "UPDATE learner_profiles SET profile_data = $1, last_updated = NOW() WHERE student_id = $2",
+        json.dumps(profile), student_id,
+    )
+
+    # Invalidate cached adaptations
+    await pool.execute("DELETE FROM adapted_content WHERE student_id = $1", student_id)
+
+    return {"status": "correction_applied", "correction_type": request.correction_type}
+
+
+@router.get("/corrections/{student_id}")
+async def list_corrections(student_id: UUID, current_teacher=Depends(get_current_teacher)):
+    """View correction history for a student."""
+    pool = await get_pool()
+    rows = await pool.fetch(
+        "SELECT * FROM teacher_corrections WHERE student_id = $1 AND teacher_id = $2 ORDER BY created_at DESC",
+        student_id, current_teacher["id"],
+    )
+    return [
+        {
+            "id": str(r["id"]),
+            "correction_type": r["correction_type"],
+            "data": json.loads(r["data"]) if isinstance(r["data"], str) else r["data"],
+            "created_at": r["created_at"].isoformat(),
+        }
+        for r in rows
+    ]

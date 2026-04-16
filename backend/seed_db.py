@@ -21,6 +21,9 @@ async def seed():
         "migrations/006_rag_vectors.sql",
         "migrations/007_guardrails.sql",
         "migrations/007_pending_actions.sql",
+        "migrations/008_parents_admin.sql",
+        "migrations/009_communication_feedback.sql",
+        "migrations/010_anti_addiction.sql",
     ]
 
     for m in migration_files:
@@ -144,6 +147,56 @@ async def seed():
             "INSERT INTO teacher_student_link (teacher_id, student_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
             teacher_id, s_id
         )
+
+    # 2b. Seed Parent (linked to Lina)
+    parent_email = "parent@family.com"
+    print(f"Seeding parent: {parent_email}")
+    await pool.execute(
+        "INSERT INTO users (id, email, role, hashed_password, name) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (email) DO NOTHING",
+        uuid4(), parent_email, "parent", hashed_password, "M. Khalid"
+    )
+    parent_id = (await pool.fetchrow("SELECT id FROM users WHERE email = $1", parent_email))["id"]
+
+    # Link parent to Lina
+    lina_id = student_ids["Lina"]
+    await pool.execute(
+        "INSERT INTO parent_child_link (parent_id, child_id, relationship) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
+        parent_id, lina_id, "parent"
+    )
+
+    # Parent onboarding data
+    await pool.execute(
+        """INSERT INTO parent_onboarding (parent_id, child_id, known_conditions, preferred_learning_time,
+               attention_span_minutes, interests, languages_spoken, additional_notes)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (parent_id, child_id) DO NOTHING""",
+        parent_id, lina_id,
+        ["needs_repetition"], "morning", 20,
+        ["drawing", "animals", "nature"], ["french", "arabic"],
+        "Lina prefers visual activities and needs encouragement."
+    )
+
+    # Parental controls
+    await pool.execute(
+        """INSERT INTO parental_controls (parent_id, child_id, daily_time_limit_minutes, session_max_minutes,
+               break_interval_minutes, break_duration_minutes)
+           VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (parent_id, child_id) DO NOTHING""",
+        parent_id, lina_id, 60, 30, 30, 10
+    )
+
+    # Custom reward
+    await pool.execute(
+        """INSERT INTO custom_rewards (parent_id, child_id, title, description, xp_cost, icon)
+           VALUES ($1, $2, $3, $4, $5, $6)""",
+        parent_id, lina_id, "Trip to the park", "A fun outing to the park after school!", 200, "tree"
+    )
+
+    # 2c. Seed Admin
+    admin_email = "admin@enset.edu"
+    print(f"Seeding admin: {admin_email}")
+    await pool.execute(
+        "INSERT INTO users (id, email, role, hashed_password, name) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (email) DO NOTHING",
+        uuid4(), admin_email, "admin", hashed_password, "Admin ENSET"
+    )
 
     # 3. Seed Content Items
     content_items_cfg = [

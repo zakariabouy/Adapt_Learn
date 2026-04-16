@@ -265,3 +265,44 @@ async def reembed_all(current_user=Depends(get_current_user)):
 
     result = await reembed_all_content()
     return result
+
+
+# ---------------------------------------------------------------------------
+# Content Critic
+# ---------------------------------------------------------------------------
+
+@router.post("/{content_id}/review")
+async def review_content_quality(content_id: UUID, current_user=Depends(get_current_user)):
+    """
+    Triggers the Content Critic Agent to review uploaded content.
+    Returns constructive feedback on clarity, grade appropriateness, and completeness.
+    Teacher only.
+    """
+    if current_user["role"] != "teacher":
+        raise HTTPException(status_code=403, detail="Teacher access required")
+
+    pool = await get_pool()
+    content = await pool.fetchrow(
+        "SELECT title, original_text, subject, grade_level FROM content_items WHERE id = $1 AND teacher_id = $2",
+        content_id, current_user["id"],
+    )
+    if not content:
+        raise HTTPException(status_code=404, detail="Content not found")
+
+    from agents.content_critic.agent import review_content
+    result = await review_content(
+        content_id=content_id,
+        title=content["title"],
+        text=content["original_text"],
+        subject=content["subject"] or "General",
+        grade_level=content["grade_level"] or 3,
+    )
+    return result
+
+
+@router.get("/{content_id}/reviews")
+async def get_content_reviews(content_id: UUID, current_user=Depends(get_current_user)):
+    """Get all reviews for a content item."""
+    from agents.content_critic.agent import get_content_reviews as fetch_reviews
+    reviews = await fetch_reviews(content_id)
+    return reviews

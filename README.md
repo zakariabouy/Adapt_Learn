@@ -478,7 +478,7 @@ npm run dev
 | **Student** | `lina@student.com` (Grade 2) | `password123` |
 | **Student** | `omar@student.com` (Grade 4) | `password123` |
 | **Student** | `yassine@student.com` (Grade 5) | `password123` |
-| **Parent** | `parent.lina@family.com` | `password123` |
+| **Parent** | `parent@family.com` | `password123` |
 
 ---
 

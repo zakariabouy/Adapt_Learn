@@ -34,6 +34,19 @@ const ibmPlexSans = IBM_Plex_Sans({
 export const metadata: Metadata = {
   title: "AdaptLearn — Agentic AI for Inclusive Education",
   description: "AI-powered inclusive education platform that adapts to each student's unique learning style using multi-agent AI.",
+  manifest: "/manifest.json",
+  themeColor: "#6366f1",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "AdaptLearn",
+  },
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+  },
   icons: {
     icon: "/logo.png",
     apple: "/logo.png",

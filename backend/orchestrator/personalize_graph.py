@@ -283,6 +283,8 @@ async def hitl_enqueue_node(state: PersonalizeState) -> Dict[str, Any]:
         "child_content": bundle["child_content"],
         "quiz": bundle["quiz"],
         "parent_summary": bundle["parent_summary"],
+        "men_tags": bundle.get("men_tags", []),
+        "cultural_anchors": bundle.get("cultural_anchors", []),
         "original_text": state["original_text"],
         "critic_report": report,
         "profile_snapshot": profile.model_dump(mode="json"),

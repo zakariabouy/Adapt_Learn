@@ -287,10 +287,20 @@ async def personalize_content(
             parent_summary, endpoint="personalizer/parent"
         )
 
+        # Preserve audit fields emitted by v3 prompt (used by Agent 3 Critic)
+        men_tags = bundle.get("men_tags") or []
+        cultural_anchors = bundle.get("cultural_anchors") or []
+        if not isinstance(men_tags, list):
+            men_tags = [str(men_tags)]
+        if not isinstance(cultural_anchors, list):
+            cultural_anchors = [str(cultural_anchors)]
+
         return {
             "child_content": child_check["filtered_text"],
             "quiz": quiz_items,
             "parent_summary": parent_check["filtered_text"],
+            "men_tags": [str(t) for t in men_tags],
+            "cultural_anchors": [str(a) for a in cultural_anchors],
         }
 
     except Exception as e:

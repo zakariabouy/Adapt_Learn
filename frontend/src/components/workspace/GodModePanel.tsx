@@ -26,7 +26,7 @@ export default function GodModePanel({ sendTelemetry }: GodModePanelProps) {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'D') {
         setIsVisible(prev => !prev);
       }
     };

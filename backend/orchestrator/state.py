@@ -29,3 +29,5 @@ class AgentState(TypedDict):
     orientation_report: Optional[Dict]
     # Teacher ID (needed for orientation reports)
     teacher_id: Optional[str]
+    # Content critic review output (only for flow_type="critic")
+    content_review: Optional[Dict]

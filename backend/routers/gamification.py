@@ -4,6 +4,7 @@ from routers.auth import get_current_user
 from pydantic import BaseModel
 from typing import List, Optional
 from uuid import UUID
+import json
 import math
 
 router = APIRouter(prefix="/gamification", tags=["Gamification"])
@@ -83,7 +84,13 @@ async def _apply_xp(conn, student_id: UUID, xp_amount: int, reason: str) -> dict
         raise ValueError("Student gamification record not found")
 
     new_xp = row["current_xp"]
-    already_unlocked: list = list(row["badges_unlocked"] or [])
+    raw_badges = row["badges_unlocked"]
+    if isinstance(raw_badges, str):
+        already_unlocked = json.loads(raw_badges)
+    elif isinstance(raw_badges, list):
+        already_unlocked = raw_badges
+    else:
+        already_unlocked = []
     newly_earned = []
 
     # 3. Auto-unlock badges based on XP thresholds
@@ -95,7 +102,7 @@ async def _apply_xp(conn, student_id: UUID, xp_amount: int, reason: str) -> dict
     if newly_earned:
         await conn.execute(
             "UPDATE student_gamification SET badges_unlocked = $2 WHERE student_id = $1",
-            student_id, already_unlocked,
+            student_id, json.dumps(already_unlocked),
         )
 
     return {

@@ -12,7 +12,6 @@ export default function Login() {
   const { register, handleSubmit, formState: { errors } } = useForm();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [role, setRole] = useState<'student' | 'teacher'>('student');
   const router = useRouter();
 
   const onSubmit = async (data: any) => {
@@ -33,8 +32,24 @@ export default function Login() {
 
         if (userRes.data.role === 'teacher') {
           router.push('/teacher/dashboard');
+        } else if (userRes.data.role === 'parent') {
+          router.push('/parent/dashboard');
+        } else if (userRes.data.role === 'admin') {
+          router.push('/admin/dashboard');
         } else {
-          router.push('/student/workspace');
+          // Student: check if VARK test is completed
+          try {
+            const varkRes = await axios.get(`${API_URL}/student/vark/status`, {
+              headers: { Authorization: `Bearer ${response.data.access_token}` }
+            });
+            if (!varkRes.data.completed) {
+              router.push('/student/vark');
+            } else {
+              router.push('/student/workspace');
+            }
+          } catch {
+            router.push('/student/workspace');
+          }
         }
       }
     } catch (err: any) {

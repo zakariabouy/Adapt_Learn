@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 from shared.database import get_pool
 from routers import auth, student, session, content, quiz, teacher, admin, gamification, exam
 from routers import guardrails as guardrails_router
+from routers import parent, messages, feedback, admin_reports
 from middleware.guardrails import GuardrailMiddleware
 from routers import pending
 from orchestrator.scheduler import start_scheduler
@@ -43,7 +44,7 @@ app = FastAPI(
 )
 
 # CORS Configuration — set ALLOWED_ORIGINS as comma-separated list in env
-_raw_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
+_raw_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000,http://127.0.0.1:3001")
 ALLOWED_ORIGINS = [o.strip() for o in _raw_origins.split(",") if o.strip()]
 
 app.add_middleware(
@@ -83,6 +84,10 @@ app.include_router(gamification.router)
 app.include_router(exam.router)
 app.include_router(guardrails_router.router)
 app.include_router(pending.router)
+app.include_router(parent.router)
+app.include_router(messages.router)
+app.include_router(feedback.router)
+app.include_router(admin_reports.router)
 
 @app.get("/health")
 async def health_check():

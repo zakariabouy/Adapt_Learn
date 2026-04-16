@@ -19,6 +19,7 @@ from shared.guardrails import (
 from agents.adaptation.agent import simplify_text, summarize_text
 from agents.exam.agent import generate_exam
 from agents.orientation.agent import generate_orientation_report
+from agents.content_critic.agent import review_content
 from shared.rag import build_rag_context
 import json
 
@@ -273,3 +274,50 @@ async def orientation_report_node(state: AgentState):
         logger.error("Orientation report node failed: %s", e)
         orchestrator_logs.add_log("orientation_report", f"FAILED: {e}")
         return {"orientation_report": None, "current_step": "end"}
+
+
+async def content_critic_node(state: AgentState):
+    """
+    Reviews uploaded content and provides constructive feedback.
+    Only runs when flow_type == "critic".
+    """
+    orchestrator_logs.add_log("content_critic", "Starting content review")
+
+    content_id = state.get("content_id")
+    raw_text = state["raw_content"]
+    subject = state.get("subject") or "General"
+    grade_level = state.get("grade_level") or 3
+
+    if not content_id:
+        orchestrator_logs.add_log("content_critic", "ERROR: No content_id provided")
+        return {"content_review": None, "current_step": "end"}
+
+    try:
+        # Fetch title
+        pool = await get_pool()
+        row = await pool.fetchrow("SELECT title FROM content_items WHERE id = $1", UUID(content_id))
+        title = row["title"] if row else "Untitled"
+
+        result = await review_content(
+            content_id=UUID(content_id),
+            title=title,
+            text=raw_text,
+            subject=subject,
+            grade_level=grade_level,
+        )
+
+        orchestrator_logs.add_log(
+            "content_critic",
+            f"Review complete: score={result['review'].get('overall_score', 0):.0%}",
+            {"issues_count": len(result["review"].get("issues", []))},
+        )
+
+        return {
+            "content_review": result,
+            "adaptation_history": [f"Content reviewed: {title}"],
+            "current_step": "end",
+        }
+    except Exception as e:
+        logger.error("Content critic node failed: %s", e)
+        orchestrator_logs.add_log("content_critic", f"FAILED: {e}")
+        return {"content_review": None, "current_step": "end"}

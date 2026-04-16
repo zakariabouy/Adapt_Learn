@@ -314,9 +314,9 @@ function TopNavBar({ studentId, onLogout }: { studentId: string | null, onLogout
         <span className="text-sm font-bold tracking-tight text-on-surface">AdaptLearn</span>
       </div>
       <nav className="hidden md:flex gap-6 items-center text-sm" aria-label="Main Navigation">
-        <a className="text-on-surface font-medium border-b border-primary pb-0.5" href="#">Workspace</a>
-        <a className="text-on-surface-variant hover:text-on-surface transition-colors" href="#">Curriculum</a>
-        <a className="text-on-surface-variant hover:text-on-surface transition-colors" href="#">Library</a>
+        <a className="text-on-surface font-medium border-b border-primary pb-0.5" href="/student/workspace">Workspace</a>
+        <a className="text-on-surface-variant hover:text-on-surface transition-colors" href="/student/profile">Profile</a>
+        <a className="text-on-surface-variant hover:text-on-surface transition-colors" href="/student/games/memory">Games</a>
       </nav>
       <div className="flex items-center gap-3">
         <span className="text-[11px] text-on-surface-variant/40 hidden lg:block tabular-nums">
@@ -325,6 +325,9 @@ function TopNavBar({ studentId, onLogout }: { studentId: string | null, onLogout
         <button onClick={onLogout} aria-label="Logout" className="text-on-surface-variant hover:text-red-400 p-1.5 rounded-lg transition-colors">
           <LogOut size={16} />
         </button>
+        <div className="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center text-primary font-bold text-[10px]">
+          {studentId?.substring(0, 2).toUpperCase() || '??'}
+        </div>
       </div>
     </header>
   );

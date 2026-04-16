@@ -7,7 +7,7 @@ import axios from 'axios';
 import { API_URL } from '@/lib/api';
 import { ArrowLeft, Trophy, RotateCcw, Sparkles, Timer, CheckCircle2 } from 'lucide-react';
 
-const ROUNDS = 6;
+const ROUNDS = 8;
 const TIME_PER_ROUND = 20;
 
 interface PuzzleRound {
@@ -16,20 +16,72 @@ interface PuzzleRound {
   instruction: string;
 }
 
+const ALL_PUZZLES: PuzzleRound[] = [
+  // Life cycles
+  { items: ['🥚', '🐣', '🐥', '🐔'], correctOrder: ['🥚', '🐣', '🐥', '🐔'], instruction: 'Du plus jeune au plus vieux' },
+  { items: ['🐛', '🫘', '🦋', '🥚'], correctOrder: ['🥚', '🐛', '🫘', '🦋'], instruction: 'Cycle de vie du papillon' },
+  { items: ['🌱', '🌿', '🌳', '🍂'], correctOrder: ['🌱', '🌿', '🌳', '🍂'], instruction: 'La vie d\'un arbre' },
+  { items: ['🐸', '🥚', '🐟', '🦎'], correctOrder: ['🥚', '🐟', '🦎', '🐸'], instruction: 'Cycle de vie de la grenouille' },
+
+  // Time & nature
+  { items: ['🌅', '☀️', '🌇', '🌙'], correctOrder: ['🌅', '☀️', '🌇', '🌙'], instruction: 'Du matin au soir' },
+  { items: ['❄️', '🌸', '☀️', '🍁'], correctOrder: ['❄️', '🌸', '☀️', '🍁'], instruction: 'Les 4 saisons dans l\'ordre' },
+  { items: ['🌑', '🌓', '🌕', '🌗'], correctOrder: ['🌑', '🌓', '🌕', '🌗'], instruction: 'Phases de la lune' },
+  { items: ['💧', '☁️', '🌧️', '🌊'], correctOrder: ['🌊', '💧', '☁️', '🌧️'], instruction: 'Le cycle de l\'eau' },
+
+  // Numbers — sorting
+  { items: ['10', '2', '7', '4'], correctOrder: ['2', '4', '7', '10'], instruction: 'Du plus petit au plus grand' },
+  { items: ['25', '8', '31', '14'], correctOrder: ['8', '14', '25', '31'], instruction: 'Du plus petit au plus grand' },
+  { items: ['99', '42', '67', '15'], correctOrder: ['15', '42', '67', '99'], instruction: 'Du plus petit au plus grand' },
+  { items: ['50', '20', '80', '10'], correctOrder: ['80', '50', '20', '10'], instruction: 'Du plus grand au plus petit' },
+
+  // Numbers — sequences
+  { items: ['1', '3', '5', '7'], correctOrder: ['1', '3', '5', '7'], instruction: 'Nombres impairs dans l\'ordre' },
+  { items: ['2', '4', '6', '8'], correctOrder: ['2', '4', '6', '8'], instruction: 'Nombres pairs dans l\'ordre' },
+  { items: ['5', '10', '15', '20'], correctOrder: ['5', '10', '15', '20'], instruction: 'Compte par 5' },
+  { items: ['3', '6', '9', '12'], correctOrder: ['3', '6', '9', '12'], instruction: 'Table de 3' },
+
+  // Letters & language
+  { items: ['A', 'E', 'I', 'O'], correctOrder: ['A', 'E', 'I', 'O'], instruction: 'Les voyelles dans l\'ordre' },
+  { items: ['D', 'B', 'A', 'C'], correctOrder: ['A', 'B', 'C', 'D'], instruction: 'Ordre alphabétique' },
+  { items: ['W', 'X', 'Y', 'Z'], correctOrder: ['W', 'X', 'Y', 'Z'], instruction: 'Fin de l\'alphabet' },
+  { items: ['M', 'N', 'O', 'P'], correctOrder: ['M', 'N', 'O', 'P'], instruction: 'Ordre alphabétique' },
+
+  // Size & measurement
+  { items: ['🐜', '🐈', '🐕', '🐘'], correctOrder: ['🐜', '🐈', '🐕', '🐘'], instruction: 'Du plus petit au plus grand' },
+  { items: ['🫐', '🍎', '🍉', '🎃'], correctOrder: ['🫐', '🍎', '🍉', '🎃'], instruction: 'Du plus petit au plus gros' },
+  { items: ['🏠', '🏢', '🏔️', '🌍'], correctOrder: ['🏠', '🏢', '🏔️', '🌍'], instruction: 'Du plus petit au plus grand' },
+
+  // Daily routines
+  { items: ['🛏️', '🪥', '🍳', '🎒'], correctOrder: ['🛏️', '🪥', '🍳', '🎒'], instruction: 'Routine du matin' },
+  { items: ['🎒', '📖', '🍽️', '🛏️'], correctOrder: ['🎒', '📖', '🍽️', '🛏️'], instruction: 'Après l\'école' },
+  { items: ['🌾', '🍞', '🥪', '😋'], correctOrder: ['🌾', '🍞', '🥪', '😋'], instruction: 'Du blé au sandwich' },
+  { items: ['🐄', '🥛', '🧀', '🍕'], correctOrder: ['🐄', '🥛', '🧀', '🍕'], instruction: 'Du lait à la pizza' },
+
+  // Science & space
+  { items: ['☀️', '🪨', '🌍', '🌙'], correctOrder: ['☀️', '🌍', '🌙', '🪨'], instruction: 'Du plus grand au plus petit (espace)' },
+  { items: ['🔥', '💨', '💧', '🧊'], correctOrder: ['🔥', '💨', '💧', '🧊'], instruction: 'Du plus chaud au plus froid' },
+  { items: ['🐢', '🚶', '🚗', '✈️'], correctOrder: ['🐢', '🚶', '🚗', '✈️'], instruction: 'Du plus lent au plus rapide' },
+  { items: ['🕯️', '💡', '🔦', '☀️'], correctOrder: ['🕯️', '🔦', '💡', '☀️'], instruction: 'De la lumière la plus faible à la plus forte' },
+
+  // History / process
+  { items: ['🌾', '🔨', '🏠', '🏙️'], correctOrder: ['🌾', '🔨', '🏠', '🏙️'], instruction: 'Du village à la ville' },
+  { items: ['📝', '✉️', '📱', '💻'], correctOrder: ['📝', '✉️', '📱', '💻'], instruction: 'Évolution de la communication' },
+];
+
 function generatePuzzle(idx: number): PuzzleRound {
-  const puzzles: PuzzleRound[] = [
-    { items: ['🥚', '🐣', '🐥', '🐔'], correctOrder: ['🥚', '🐣', '🐥', '🐔'], instruction: 'Order from youngest to oldest' },
-    { items: ['🌱', '🌿', '🌳', '🍂'], correctOrder: ['🌱', '🌿', '🌳', '🍂'], instruction: 'Order the life of a tree' },
-    { items: ['1', '3', '5', '7'], correctOrder: ['1', '3', '5', '7'], instruction: 'Put the odd numbers in order' },
-    { items: ['🌅', '☀️', '🌙', '⭐'], correctOrder: ['🌅', '☀️', '🌙', '⭐'], instruction: 'Order from morning to night' },
-    { items: ['A', 'E', 'I', 'O'], correctOrder: ['A', 'E', 'I', 'O'], instruction: 'Put the vowels in order' },
-    { items: ['💧', '🌊', '☁️', '🌧️'], correctOrder: ['💧', '🌊', '☁️', '🌧️'], instruction: 'Order the water cycle' },
-    { items: ['🐛', '🦋', '🥚', '🫘'], correctOrder: ['🥚', '🐛', '🫘', '🦋'], instruction: 'Order butterfly life cycle' },
-    { items: ['10', '2', '7', '4'], correctOrder: ['2', '4', '7', '10'], instruction: 'Sort smallest to largest' },
-  ];
-  const p = puzzles[idx % puzzles.length];
+  const p = ALL_PUZZLES[idx % ALL_PUZZLES.length];
   const shuffled = [...p.items].sort(() => Math.random() - 0.5);
   return { ...p, items: shuffled };
+}
+
+function pickRandomPuzzles(count: number): number[] {
+  const indices = Array.from({ length: ALL_PUZZLES.length }, (_, i) => i);
+  for (let i = indices.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [indices[i], indices[j]] = [indices[j], indices[i]];
+  }
+  return indices.slice(0, count);
 }
 
 export default function PuzzleSolveGame() {
@@ -44,7 +96,10 @@ export default function PuzzleSolveGame() {
   const [timeLeft, setTimeLeft] = useState(TIME_PER_ROUND);
   const [totalTime, setTotalTime] = useState(0);
   const [gameResult, setGameResult] = useState<Record<string, unknown> | null>(null);
+  const [solved, setSolved] = useState(false);
   const startTimeRef = useRef(0);
+  const puzzleOrderRef = useRef<number[]>([]);
+  const advancingRef = useRef(false);
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
   const headers = { Authorization: `Bearer ${token}` };
@@ -74,41 +129,45 @@ export default function PuzzleSolveGame() {
   correctRef.current = correct;
 
   const advanceRound = useCallback((currentRound: number) => {
-    setFeedback(null);
     if (currentRound >= ROUNDS) {
       const elapsed = (Date.now() - startTimeRef.current) / 1000;
       setTotalTime(elapsed);
       submitResult(correctRef.current, elapsed);
+      advancingRef.current = false;
       return;
     }
-    const p = generatePuzzle(currentRound);
+    const puzzleIdx = puzzleOrderRef.current[currentRound] ?? currentRound;
+    const p = generatePuzzle(puzzleIdx);
     setPuzzle(p);
     setUserOrder([]);
     setRemaining([...p.items]);
     setTimeLeft(TIME_PER_ROUND);
+    setFeedback(null);
+    advancingRef.current = false;
   }, [submitResult]);
 
   useEffect(() => {
-    if (phase !== 'playing' || feedback) return;
+    if (phase !== 'playing' || solved) return;
     if (timeLeft <= 0) {
+      setSolved(true);
       setFeedback('wrong');
-      const nextRound = round + 1;
-      setRound(nextRound);
-      const t = setTimeout(() => advanceRound(nextRound), 1000);
-      return () => clearTimeout(t);
+      return;
     }
     const timer = setTimeout(() => setTimeLeft(t => t - 1), 1000);
     return () => clearTimeout(timer);
-  }, [phase, timeLeft, feedback, round, advanceRound]);
+  }, [phase, timeLeft, solved]);
 
   const startGame = useCallback(() => {
+    puzzleOrderRef.current = pickRandomPuzzles(ROUNDS);
+    advancingRef.current = false;
+    setSolved(false);
     setRound(0);
     setCorrect(0);
     setTotalTime(0);
     setGameResult(null);
     setFeedback(null);
     startTimeRef.current = Date.now();
-    const p = generatePuzzle(0);
+    const p = generatePuzzle(puzzleOrderRef.current[0]);
     setPuzzle(p);
     setUserOrder([]);
     setRemaining([...p.items]);
@@ -117,14 +176,41 @@ export default function PuzzleSolveGame() {
   }, []);
 
   const pickItem = useCallback((item: string, idx: number) => {
-    if (feedback) return;
-    setUserOrder(prev => [...prev, item]);
-    setRemaining(prev => {
-      const next = [...prev];
-      next.splice(idx, 1);
-      return next;
-    });
-  }, [feedback]);
+    if (solved || !puzzle || advancingRef.current) return;
+    const newOrder = [...userOrder, item];
+    const newRemaining = [...remaining];
+    newRemaining.splice(idx, 1);
+
+    setUserOrder(newOrder);
+    setRemaining(newRemaining);
+
+    if (newOrder.length === puzzle.correctOrder.length) {
+      const isCorrect = newOrder.every((it, i) => it === puzzle.correctOrder[i]);
+      if (isCorrect) {
+        setSolved(true);
+        setFeedback('correct');
+        setCorrect(c => c + 1);
+      } else {
+        setFeedback('wrong');
+      }
+    }
+  }, [solved, puzzle, userOrder, remaining]);
+
+  const retryPuzzle = useCallback(() => {
+    if (!puzzle) return;
+    setFeedback(null);
+    setUserOrder([]);
+    setRemaining([...puzzle.items].sort(() => Math.random() - 0.5));
+  }, [puzzle]);
+
+  const goNextRound = useCallback(() => {
+    advancingRef.current = true;
+    setSolved(false);
+    setFeedback(null);
+    const nextRound = round + 1;
+    setRound(nextRound);
+    advanceRound(nextRound);
+  }, [round, advanceRound]);
 
   const undoLast = useCallback(() => {
     if (feedback || userOrder.length === 0) return;
@@ -132,19 +218,6 @@ export default function PuzzleSolveGame() {
     setUserOrder(prev => prev.slice(0, -1));
     setRemaining(prev => [...prev, last]);
   }, [feedback, userOrder]);
-
-  useEffect(() => {
-    if (!puzzle || feedback || phase !== 'playing') return;
-    if (userOrder.length === puzzle.correctOrder.length) {
-      const isCorrect = userOrder.every((item, i) => item === puzzle.correctOrder[i]);
-      setFeedback(isCorrect ? 'correct' : 'wrong');
-      if (isCorrect) setCorrect(c => c + 1);
-      const nextRound = round + 1;
-      setRound(nextRound);
-      const t = setTimeout(() => advanceRound(nextRound), 1000);
-      return () => clearTimeout(t);
-    }
-  }, [userOrder, puzzle, feedback, phase, round, advanceRound]);
 
   const accuracy = round > 0 ? Math.round((correct / round) * 100) : 0;
 
@@ -231,9 +304,62 @@ export default function PuzzleSolveGame() {
               </div>
 
               {feedback && (
-                <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}
-                  className={`mt-4 text-center text-sm font-medium ${feedback === 'correct' ? 'text-secondary' : 'text-red-400'}`}>
-                  {feedback === 'correct' ? 'Perfect order!' : `Correct: ${puzzle.correctOrder.join(' → ')}`}
+                <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="mt-5 space-y-3">
+                  <div className={`text-center text-sm font-medium ${feedback === 'correct' ? 'text-secondary' : 'text-red-400'}`}>
+                    {feedback === 'correct' ? 'Bravo ! Ordre parfait !' : 'Pas tout à fait... essaie encore !'}
+                  </div>
+
+                  {feedback === 'correct' && (
+                    <div className="flex justify-center gap-1.5 text-lg">
+                      {puzzle.correctOrder.map((item, i) => (
+                        <span key={i} className="w-10 h-10 flex items-center justify-center rounded-lg bg-secondary/10 border border-secondary/20">{item}</span>
+                      ))}
+                    </div>
+                  )}
+
+                  {feedback === 'wrong' && !solved && (
+                    <div className="flex justify-center gap-3">
+                      <button
+                        onClick={retryPuzzle}
+                        className="px-5 py-2.5 bg-primary/10 border border-primary/20 text-primary text-sm font-medium rounded-xl hover:bg-primary/20 active:scale-95 transition-all"
+                      >
+                        Réessayer
+                      </button>
+                      <button
+                        onClick={() => { setSolved(true); setFeedback('wrong'); }}
+                        className="px-5 py-2.5 bg-white/5 border border-white/10 text-on-surface-variant text-sm rounded-xl hover:bg-white/10 active:scale-95 transition-all"
+                      >
+                        Voir la réponse
+                      </button>
+                    </div>
+                  )}
+
+                  {feedback === 'wrong' && solved && (
+                    <div className="text-center">
+                      <div className="text-[10px] text-on-surface-variant uppercase tracking-widest mb-2">Réponse correcte</div>
+                      <div className="flex justify-center gap-1.5 text-lg">
+                        {puzzle.correctOrder.map((item, i) => (
+                          <span key={i} className="w-10 h-10 flex items-center justify-center rounded-lg bg-red-400/10 border border-red-400/20 text-sm">{item}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {(feedback === 'correct' || solved) && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.3 }}
+                      className="flex justify-center"
+                    >
+                      <button
+                        onClick={goNextRound}
+                        className="px-6 py-3 bg-secondary/20 border border-secondary/30 text-secondary text-sm font-bold rounded-xl hover:bg-secondary/30 active:scale-95 transition-all flex items-center gap-2"
+                      >
+                        {round >= ROUNDS ? 'Voir mes résultats' : 'Puzzle suivant →'}
+                      </button>
+                    </motion.div>
+                  )}
                 </motion.div>
               )}
             </div>

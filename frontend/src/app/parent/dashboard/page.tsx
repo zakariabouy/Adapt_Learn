@@ -157,11 +157,17 @@ export default function ParentDashboard() {
   return (
     <div className="min-h-screen bg-surface text-on-surface font-body selection:bg-primary/20">
       {/* Header */}
-      <header className="fixed top-0 w-full z-50 flex items-center justify-between px-6 h-14 bg-surface-container border-b border-outline-variant/10">
-        <div className="flex items-center gap-2">
-          <Brain size={18} className="text-primary" />
-          <span className="text-sm font-bold tracking-tight">AdaptLearn</span>
-          <span className="text-[10px] text-on-surface-variant/40 ml-1">Parent</span>
+      <header className="fixed top-0 w-full z-50 flex justify-between items-center px-6 sm:px-8 h-14 border-b border-outline-variant/10 bg-surface/60 backdrop-blur-xl">
+        <div className="flex items-center gap-3">
+          <div className="flex gap-1.5">
+            <span className="w-2.5 h-2.5 bg-[#FF6B6B] rounded-full" />
+            <span className="w-2.5 h-2.5 bg-[#FFB84D] rounded-full" />
+            <span className="w-2.5 h-2.5 bg-[#00C896] rounded-full" />
+          </div>
+          <img src="/logo.png" alt="AdaptLearn" className="w-7 h-7 object-contain ml-2" />
+          <span className="font-headline font-bold tracking-tighter text-on-surface ml-1 text-sm">
+            AdaptLearn <span className="text-on-surface-variant font-normal">/ Parent</span>
+          </span>
         </div>
         <div className="flex items-center gap-3">
           <span className="text-xs text-on-surface-variant hidden sm:block">{parentName}</span>

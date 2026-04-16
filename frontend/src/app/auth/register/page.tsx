@@ -37,9 +37,7 @@ export default function Register() {
     <div className="min-h-screen bg-surface font-body text-on-surface flex items-center justify-center p-6">
       <main className="w-full max-w-md">
         <div className="flex flex-col items-center text-center mb-10">
-          <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-5">
-            <Brain className="w-6 h-6 text-primary" strokeWidth={2} />
-          </div>
+          <img src="/logo.png" alt="AdaptLearn" className="w-20 h-20 object-contain mb-3" />
           <h1 className="font-headline font-bold text-2xl tracking-tight text-on-surface mb-1">Create Account</h1>
           <p className="text-on-surface-variant text-sm">Join the adaptive learning platform</p>
         </div>

@@ -523,6 +523,79 @@ async def get_observation(
 # Three-agent personalize pipeline trigger
 # ─────────────────────────────────────────────────────────────────────────────
 
+@router.get("/personalizer/preview/{content_id}/{student_id}")
+async def preview_personalizer_prompt(
+    content_id: UUID,
+    student_id: UUID,
+    current_teacher=Depends(get_current_teacher),
+):
+    """
+    Returns the fully-assembled v3 prompt (MEN corpus + constitutional guardrails +
+    few-shot examples + learner profile) that would be sent to Gemini for this
+    (content, student) pair — WITHOUT actually calling the LLM.
+
+    Use case: live jury demo — show the In-Context Fine-Tuning context in-browser.
+    """
+    from agents.profile.agent import get_student_profile
+    from agents.personalizer.prompt_builder import build_v3_prompt, _lookup_men, _select_few_shots
+    from agents.personalizer.agent import _describe_profile
+
+    await _assert_student_linked(current_teacher["id"], student_id)
+    pool = await get_pool()
+
+    content = await pool.fetchrow(
+        "SELECT id, title, original_text, subject, grade_level FROM content_items WHERE id = $1",
+        content_id,
+    )
+    if not content:
+        raise HTTPException(status_code=404, detail="Content not found")
+
+    profile = await get_student_profile(student_id)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Student profile not found")
+
+    grade_level = content["grade_level"] or 3
+    target_chars = max(400, int(profile.chunk_size or 200) * 4)
+    profile_desc = _describe_profile(profile)
+
+    prompt = build_v3_prompt(
+        profile_desc=profile_desc,
+        title=content["title"],
+        subject=content["subject"] or "General",
+        grade_level=grade_level,
+        safe_text=content["original_text"] or "",
+        target_chars=target_chars,
+        feedback_hint="",
+    )
+
+    men = _lookup_men(grade_level, content["subject"] or "General")
+    few_shots = _select_few_shots(grade_level, content["subject"] or "General", k=2)
+
+    return {
+        "prompt_version": os.getenv("PERSONALIZER_PROMPT_VERSION", "v3"),
+        "content": {
+            "id": str(content_id),
+            "title": content["title"],
+            "subject": content["subject"],
+            "grade_level": grade_level,
+        },
+        "student": {
+            "id": str(student_id),
+            "profile_description": profile_desc,
+        },
+        "men_rag": {
+            "grade": men["grade"],
+            "competencies": men["competencies"],
+            "vocabulary": men["vocabulary"],
+            "avoid": men["avoid"],
+            "pedagogical_note": men["pedagogical_note"],
+        },
+        "few_shot_example_ids": [ex["id"] for ex in few_shots],
+        "assembled_prompt": prompt,
+        "prompt_length_chars": len(prompt),
+    }
+
+
 @router.post("/personalize/{content_id}/{student_id}")
 async def trigger_personalize(
     content_id: UUID,

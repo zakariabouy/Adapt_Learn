@@ -149,13 +149,16 @@ export default function AdventureWorld() {
 
       switch (data.type) {
         case 'open_vark':
-          router.push('/student/vark');
+          router.push('/student/vark?retake=1');
           break;
         case 'open_workspace':
           router.push('/student/workspace');
           break;
         case 'open_games':
           router.push('/student/games');
+          break;
+        case 'open_shop':
+          router.push('/student/shop');
           break;
         case 'game_loaded':
           setLoading(false);

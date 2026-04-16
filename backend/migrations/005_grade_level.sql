@@ -39,4 +39,4 @@ SELECT
     RANK() OVER (ORDER BY sg.current_xp DESC) as global_rank
 FROM users u
 JOIN student_gamification sg ON u.id = sg.student_id
-WHERE u.role = 'student';
+WHERE u.role = 'student' AND u.name IS NOT NULL AND u.grade_level IS NOT NULL;

@@ -35,37 +35,20 @@ def get_llm():
 
 async def profile_analysis_node(state: AgentState):
     """
-    Reads LearnerModel, decides adaptation strategy.
+    Deterministic pass-through router. The old version made a Gemini call just
+    to produce a free-text "strategy" string that no downstream node read — a
+    pure waste of quota. Real profiling now happens in the personalize graph
+    (agents/profile/agent.py::build_profile_from_three_sources).
     """
     profile = state["learner_model"]
-    orchestrator_logs.add_log("profile_analysis", f"Analyzing profile for student: {profile.student_id}", {"learning_tags": profile.learning_tags})
-
-    prompt = f"""
-    Analyze the following student learning profile and decide on an adaptation strategy for learning content.
-    Profile:
-    - Learning Style Tags: {profile.learning_tags}
-    - Tag Strength: {profile.tag_strength}
-    - Preferred Modality: {profile.preferred_modality}
-    - Attention Span: {profile.chunk_size} characters per chunk
-
-    Return a JSON object with:
-    - "strategy": A brief description of the strategy.
-    - "simplification_level": 0.0 to 1.0 (how much to simplify).
-    - "chunk_size_override": Recommended chunk size.
-    """
-
-    try:
-        response = await get_llm().ainvoke([HumanMessage(content=prompt)])
-        strategy_info = response.content
-    except Exception as e:
-        logger.warning("Gemini profile analysis failed, using default strategy: %s", e)
-        strategy_info = '{"strategy": "Default readability enhancement", "simplification_level": 0.5}'
-    
-    orchestrator_logs.add_log("profile_analysis", "Strategy decision finalized", {"strategy": strategy_info})
-    
+    orchestrator_logs.add_log(
+        "profile_analysis",
+        f"Routing flow={state.get('flow_type', 'adapt')} for student {profile.student_id}",
+        {"learning_tags": profile.learning_tags},
+    )
     return {
-        "adaptation_history": [f"Strategy analysis complete: {strategy_info}"],
-        "current_step": "adaptation"
+        "adaptation_history": [f"Routing flow={state.get('flow_type', 'adapt')}"],
+        "current_step": "adaptation",
     }
 
 async def content_adaptation_node(state: AgentState):
@@ -255,9 +238,7 @@ async def orientation_report_node(state: AgentState):
         return {"orientation_report": None, "current_step": "end"}
 
     try:
-        report = await generate_orientation_report(
-            UUID(profile.student_id), UUID(teacher_id)
-        )
+        report = await generate_orientation_report(UUID(profile.student_id))
 
         orchestrator_logs.add_log(
             "orientation_report",

@@ -304,5 +304,31 @@ async def _deliver_approved_action(row) -> None:
                 student_id,
             )
 
+        elif action_type == "personalization":
+            # Three-agent bundle — materialize into personalization_deliveries so
+            # the student and parent can actually consume it.
+            content_id = row["content_id"]
+            await pool.execute(
+                """
+                INSERT INTO personalization_deliveries
+                    (student_id, content_id, pending_action_id,
+                     child_content, quiz, parent_summary,
+                     critic_report, approved_by)
+                VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7::jsonb, $8)
+                """,
+                student_id,
+                content_id,
+                row["id"],
+                payload.get("child_content", ""),
+                json.dumps(payload.get("quiz", [])),
+                payload.get("parent_summary", ""),
+                json.dumps(payload.get("critic_report") or {}),
+                teacher_id,
+            )
+            logger.info(
+                "Personalization delivered to student %s (content %s) from pending %s",
+                student_id, content_id, row["id"],
+            )
+
     except Exception as e:
         logger.error("Failed to deliver approved action %s: %s", row["id"], e)

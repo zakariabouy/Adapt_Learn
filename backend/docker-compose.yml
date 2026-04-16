@@ -26,6 +26,7 @@ services:
       - ./migrations/013_pending_actions.sql:/docker-entrypoint-initdb.d/013_pending_actions.sql:ro
       - ./migrations/014_student_exams.sql:/docker-entrypoint-initdb.d/014_student_exams.sql:ro
       - ./migrations/015_adventure.sql:/docker-entrypoint-initdb.d/015_adventure.sql:ro
+      - ./migrations/016_three_agent_schema.sql:/docker-entrypoint-initdb.d/016_three_agent_schema.sql:ro
 
   redis:
     image: redis:7-alpine

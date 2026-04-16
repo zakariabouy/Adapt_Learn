@@ -53,6 +53,194 @@ async def update_student_profile(student_id: UUID, profile: LearnerModel):
     return profile
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Agent 1 — Profiler
+# Fuses three input sources into a single LearnerModel:
+#   1. Parent  — parent_onboarding (home behavior, interests, conditions)
+#   2. Teacher — teacher_observations (class behavior, notes)
+#   3. Child   — existing learner_profiles row (VARK, games, IRT ability)
+# ─────────────────────────────────────────────────────────────────────────────
+
+async def _fetch_parent_inputs(student_id: UUID) -> dict:
+    pool = await get_pool()
+    row = await pool.fetchrow(
+        """
+        SELECT known_conditions, preferred_learning_time, attention_span_minutes,
+               interests, languages_spoken, additional_notes, favorite_color,
+               favorite_subject, favorite_animal, hobbies, personality_observations
+        FROM parent_onboarding WHERE child_id = $1
+        ORDER BY updated_at DESC LIMIT 1
+        """,
+        student_id,
+    )
+    return dict(row) if row else {}
+
+
+async def _fetch_teacher_inputs(student_id: UUID) -> dict:
+    pool = await get_pool()
+    row = await pool.fetchrow(
+        """
+        SELECT notes, updated_at FROM teacher_observations
+        WHERE student_id = $1 ORDER BY updated_at DESC LIMIT 1
+        """,
+        student_id,
+    )
+    return dict(row) if row else {}
+
+
+async def _fetch_child_kpis(student_id: UUID) -> dict:
+    """Child KPIs = existing VARK/Bartle/IRT signals captured from games + quiz."""
+    existing = await get_student_profile(student_id)
+    if not existing:
+        return {}
+    return {
+        "vark_scores": existing.vark_scores,
+        "vark_completed": existing.vark_completed,
+        "bartle_type": existing.bartle_type,
+        "bartle_scores": existing.bartle_scores,
+        "ability_estimate": existing.ability_estimate,
+        "reading_speed_wpm": existing.reading_speed_wpm,
+        "chunk_size": existing.chunk_size,
+        "mastery_by_topic": existing.mastery_by_topic,
+    }
+
+
+def _heuristic_merge(
+    parent: dict, teacher: dict, child: dict, existing: Optional[LearnerModel]
+) -> LearnerModel:
+    """
+    Deterministic fallback when the LLM is unavailable. Merges the three
+    sources into a LearnerModel using rules — guarantees Agent 1 always
+    produces output even with zero Gemini quota.
+    """
+    base = existing.model_dump() if existing else {}
+    base.setdefault("student_id", "")
+
+    # Parent-driven preferences
+    if parent:
+        if parent.get("attention_span_minutes"):
+            # Convert minutes → chunk_size characters (≈ 200 wpm × 5 chars/word)
+            base["chunk_size"] = max(60, int(parent["attention_span_minutes"]) * 60)
+        if parent.get("favorite_color"):
+            base["favorite_color"] = parent["favorite_color"]
+        if parent.get("favorite_subject"):
+            base["favorite_subject"] = parent["favorite_subject"]
+        if parent.get("favorite_animal"):
+            base["favorite_animal"] = parent["favorite_animal"]
+        if parent.get("hobbies"):
+            base["hobbies"] = list(parent["hobbies"])
+
+        # Known conditions map to learning tags
+        tags = set(base.get("learning_tags", []))
+        for cond in parent.get("known_conditions") or []:
+            cond_low = cond.lower()
+            if "dyslex" in cond_low or "slow_read" in cond_low:
+                tags.add("slow_reader")
+            if "adhd" in cond_low or "attention" in cond_low:
+                tags.add("short_attention")
+            if "autism" in cond_low:
+                tags.add("needs_repetition")
+        base["learning_tags"] = list(tags)
+
+    # Teacher-driven personality (free-text → keyword extraction)
+    if teacher and teacher.get("notes"):
+        notes = teacher["notes"].lower()
+        traits = set(base.get("personality_traits", []))
+        for keyword, trait in [
+            ("shy", "shy"), ("curious", "curious"), ("lead", "leader"),
+            ("quiet", "quiet"), ("active", "dynamic"), ("creative", "creative"),
+        ]:
+            if keyword in notes:
+                traits.add(trait)
+        base["personality_traits"] = list(traits)
+
+    # Child KPIs — VARK → preferred_modality
+    if child.get("vark_scores"):
+        v = child["vark_scores"]
+        if v:
+            top = max(v.items(), key=lambda kv: kv[1])[0]
+            base["preferred_modality"] = {
+                "V": "visual", "A": "audio", "R": "text", "K": "kinesthetic"
+            }.get(top, "text")
+            if top == "V" and "visual_learner" not in base.get("learning_tags", []):
+                base.setdefault("learning_tags", []).append("visual_learner")
+            if top == "A" and "audio_learner" not in base.get("learning_tags", []):
+                base.setdefault("learning_tags", []).append("audio_learner")
+
+    return LearnerModel(**base)
+
+
+async def build_profile_from_three_sources(student_id: UUID) -> LearnerModel:
+    """
+    Agent 1 — Profiler. Aggregates parent + teacher + child inputs into a
+    LearnerModel. Uses Gemini to enrich tag_strength and personality_traits
+    when available; falls back to a deterministic heuristic merge otherwise.
+    Always persists the result to learner_profiles.
+    """
+    parent_inputs = await _fetch_parent_inputs(student_id)
+    teacher_inputs = await _fetch_teacher_inputs(student_id)
+    child_inputs = await _fetch_child_kpis(student_id)
+    existing = await get_student_profile(student_id)
+
+    # Start with the heuristic merge — this is the guaranteed-correct baseline.
+    profile = _heuristic_merge(parent_inputs, teacher_inputs, child_inputs, existing)
+    profile.student_id = str(student_id)
+
+    # Try to enrich via LLM; on any failure, keep the heuristic result.
+    try:
+        context = {
+            "parent_inputs": {k: v for k, v in parent_inputs.items() if v},
+            "teacher_inputs": {k: str(v) for k, v in teacher_inputs.items() if v},
+            "child_kpis": {k: v for k, v in child_inputs.items() if v},
+            "current_profile": profile.model_dump(mode="json"),
+        }
+        prompt = f"""You are a child learning profiler. Given the three input sources
+below, refine the student's LearnerModel. Focus on:
+  - tag_strength (0.0-1.0) for each learning_tag
+  - personality_traits (short list of adjectives from teacher notes)
+  - preferred_modality ("visual", "audio", "text", "kinesthetic")
+
+Return ONLY a valid JSON object matching this schema (only include fields you
+want to change — other fields will be preserved):
+{{
+  "learning_tags": ["..."],
+  "tag_strength": {{"tag_name": 0.0-1.0}},
+  "personality_traits": ["..."],
+  "preferred_modality": "visual|audio|text|kinesthetic"
+}}
+
+## Inputs
+```json
+{json.dumps(context, ensure_ascii=False, default=str)}
+```"""
+
+        response = await get_llm().ainvoke([HumanMessage(content=prompt)])
+        raw = response.content.strip()
+        # Strip ```json fences if present
+        if raw.startswith("```"):
+            raw = raw.split("```", 2)[1].lstrip("json\n").strip()
+            if raw.endswith("```"):
+                raw = raw.rsplit("```", 1)[0].strip()
+
+        check = validate_json_output(raw, required_keys=[])
+        if check["valid"]:
+            enriched = check["parsed"]
+            base = profile.model_dump()
+            for key in ("learning_tags", "tag_strength", "personality_traits", "preferred_modality"):
+                if key in enriched and enriched[key]:
+                    base[key] = enriched[key]
+            profile = LearnerModel(**base)
+            logger.info("Agent 1 (Profiler) LLM enrichment applied for %s", student_id)
+        else:
+            logger.warning("Agent 1 LLM returned invalid JSON, keeping heuristic merge")
+    except Exception as e:
+        logger.warning("Agent 1 LLM unavailable (%s); using heuristic merge only", e)
+
+    # Persist
+    await update_student_profile(student_id, profile)
+    return profile
+
+
 async def generate_profile_summary(student_id: UUID) -> dict:
     """
     Generates a fun, kid-friendly description of the student's learning profile.

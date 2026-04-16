@@ -1047,3 +1047,128 @@ async def list_available_rewards(current_user=Depends(get_current_user)):
             for r in classroom
         ],
     }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Child feedback on delivered personalizations
+# Controlled-vocabulary tags so Agent 2 gets discrete signals for re-cycling.
+# ─────────────────────────────────────────────────────────────────────────────
+
+_FEEDBACK_TAG_VOCAB = {"too_hard", "too_easy", "confusing", "boring"}
+
+
+class ChildFeedbackRequest(BaseModel):
+    content_id: str
+    rating: int  # 1-5
+    tags: list[str] = []
+    free_text: Optional[str] = None
+    delivery_id: Optional[str] = None
+
+
+@router.post("/feedback")
+async def submit_child_feedback(
+    request: ChildFeedbackRequest,
+    current_user=Depends(get_current_user),
+):
+    """
+    Child feedback on a delivered personalization. Rating <= 3 triggers an
+    automatic re-personalization so the child doesn't stay stuck.
+    """
+    if not (1 <= request.rating <= 5):
+        raise HTTPException(status_code=400, detail="rating must be 1..5")
+
+    # Reject unknown tags — discrete vocabulary only.
+    bad = [t for t in request.tags if t not in _FEEDBACK_TAG_VOCAB]
+    if bad:
+        raise HTTPException(
+            status_code=400,
+            detail=f"unknown feedback tags: {bad}. Allowed: {sorted(_FEEDBACK_TAG_VOCAB)}",
+        )
+
+    pool = await get_pool()
+
+    # Verify content exists.
+    content_id = UUID(request.content_id)
+    content = await pool.fetchrow(
+        "SELECT id FROM content_items WHERE id = $1", content_id,
+    )
+    if not content:
+        raise HTTPException(status_code=404, detail="Content not found")
+
+    delivery_uuid = UUID(request.delivery_id) if request.delivery_id else None
+
+    await pool.execute(
+        """
+        INSERT INTO child_feedback
+            (student_id, content_id, delivery_id, rating, tags, free_text)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        """,
+        current_user["id"], content_id, delivery_uuid,
+        request.rating, request.tags, request.free_text,
+    )
+
+    result: dict = {"status": "saved", "auto_retry": False}
+
+    # Trigger a re-personalization cycle on low ratings. We need a teacher to
+    # own the resulting pending_action — use the most recent teacher who
+    # approved any prior delivery for this student, or fall back to the first
+    # linked teacher.
+    if request.rating <= 3:
+        teacher_id = await pool.fetchval(
+            """
+            SELECT approved_by FROM personalization_deliveries
+            WHERE student_id = $1 AND content_id = $2
+            ORDER BY approved_at DESC LIMIT 1
+            """,
+            current_user["id"], content_id,
+        )
+        if not teacher_id:
+            teacher_id = await pool.fetchval(
+                "SELECT teacher_id FROM teacher_student_link WHERE student_id = $1 LIMIT 1",
+                current_user["id"],
+            )
+
+        if teacher_id:
+            try:
+                from orchestrator.personalize_graph import run_personalize_pipeline
+                pipeline_result = await run_personalize_pipeline(
+                    student_id=str(current_user["id"]),
+                    content_id=str(content_id),
+                    teacher_id=str(teacher_id),
+                )
+                result["auto_retry"] = True
+                result["new_pending_id"] = pipeline_result["pending_action_id"]
+            except Exception as e:
+                logger.warning("Auto-retry personalize failed: %s", e)
+
+    return result
+
+
+@router.get("/delivery/{content_id}")
+async def get_latest_delivery(
+    content_id: UUID,
+    current_user=Depends(get_current_user),
+):
+    """Returns the most recent approved personalization for (student, content)."""
+    pool = await get_pool()
+    row = await pool.fetchrow(
+        """
+        SELECT id, child_content, quiz, parent_summary, approved_at
+        FROM personalization_deliveries
+        WHERE student_id = $1 AND content_id = $2
+        ORDER BY approved_at DESC LIMIT 1
+        """,
+        current_user["id"], content_id,
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="No approved delivery yet")
+    quiz = row["quiz"]
+    if isinstance(quiz, str):
+        quiz = json.loads(quiz)
+    return {
+        "delivery_id": str(row["id"]),
+        "child_content": row["child_content"],
+        "quiz": quiz,
+        "parent_summary": row["parent_summary"],
+        "approved_at": row["approved_at"].isoformat(),
+    }

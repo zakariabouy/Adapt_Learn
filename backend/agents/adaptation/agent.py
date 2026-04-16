@@ -15,7 +15,6 @@ import os
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage
 from elevenlabs.client import ElevenLabs
-from elevenlabs import save
 
 logger = logging.getLogger(__name__)
 
@@ -178,15 +177,20 @@ async def tts_convert(text: str, student_id: str) -> str:
     file_path = str(tmp_dir / f"{student_id}_tts.mp3")
     
     try:
-        # Generate audio using ElevenLabs
-        audio = get_eleven_client().generate(
+        # Generate audio using ElevenLabs SDK v1+ (text_to_speech.convert returns a byte iterator).
+        # "Rachel" voice_id is the stable public-preset ID.
+        audio_iter = get_eleven_client().text_to_speech.convert(
             text=text,
-            voice="Rachel",
-            model="eleven_multilingual_v2"
+            voice_id="21m00Tcm4TlvDq8ikWAM",  # Rachel
+            model_id="eleven_multilingual_v2",
+            output_format="mp3_44100_128",
         )
-        
-        # Save audio to file
-        save(audio, file_path)
+
+        # Concatenate the byte chunks into the output file.
+        with open(file_path, "wb") as f:
+            for chunk in audio_iter:
+                if chunk:
+                    f.write(chunk)
         return file_path
     except Exception as e:
         logger.warning("ElevenLabs TTS failed for student %s: %s", student_id, e)

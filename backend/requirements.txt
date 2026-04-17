@@ -7,6 +7,7 @@ python-multipart==0.0.22
 langgraph==1.1.6
 langchain==1.2.15
 langchain-google-genai==4.2.1
+langchain-groq==1.1.2
 
 # Databases
 asyncpg>=0.30.0

@@ -238,13 +238,24 @@ def validate_json_output(raw_text: str, required_keys: list[str]) -> dict:
         cleaned = cleaned.split("```")[1].split("```")[0].strip()
 
     try:
-        parsed = json.loads(cleaned)
-    except json.JSONDecodeError as e:
-        return {
-            "valid": False,
-            "parsed": None,
-            "errors": [f"Invalid JSON: {str(e)[:200]}"],
-        }
+        parsed = json.loads(cleaned, strict=False)
+    except json.JSONDecodeError:
+        # Some LLMs (e.g. Llama via Groq) emit literal newlines/tabs inside
+        # string values. Retry after escaping bare control characters.
+        import re as _re
+        repaired = _re.sub(
+            r'("(?:[^"\\]|\\.)*")',
+            lambda m: m.group(0).replace("\n", "\\n").replace("\t", "\\t").replace("\r", "\\r"),
+            cleaned,
+        )
+        try:
+            parsed = json.loads(repaired, strict=False)
+        except json.JSONDecodeError as e:
+            return {
+                "valid": False,
+                "parsed": None,
+                "errors": [f"Invalid JSON: {str(e)[:200]}"],
+            }
 
     if not isinstance(parsed, dict):
         return {

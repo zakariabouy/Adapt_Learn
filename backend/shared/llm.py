@@ -1,11 +1,16 @@
 """
-Rotating Gemini LLM wrapper.
+Multi-provider rotating LLM wrapper.
 
-Multiple GOOGLE_API_KEY* env vars are pooled. Each .ainvoke() picks the next
-key in round-robin order; on a 429/quota error the key is parked in cooldown
-and the call retries with the next available key. Demos survive RPM spikes.
+Primary provider chosen via LLM_PROVIDER env (groq|gemini).
+On quota/rate-limit errors the wrapper transparently falls back to the
+other provider so demos stay alive. Inside Gemini we also rotate across
+GOOGLE_API_KEY, GOOGLE_API_KEY_2, GOOGLE_API_KEY_3, …
 
-Env vars read: GOOGLE_API_KEY, GOOGLE_API_KEY_2, GOOGLE_API_KEY_3, ...
+Env vars read:
+  LLM_PROVIDER         → "groq" (default if GROQ_API_KEY set) | "gemini"
+  GROQ_API_KEY         → Groq cloud key (gsk_...)
+  GROQ_MODEL           → default "llama-3.3-70b-versatile"
+  GOOGLE_API_KEY*      → one or more Gemini keys (round-robin)
 """
 
 from __future__ import annotations
@@ -23,7 +28,7 @@ logger = logging.getLogger(__name__)
 _COOLDOWN_SECONDS = 60
 
 
-def _load_keys() -> List[str]:
+def _load_gemini_keys() -> List[str]:
     keys: List[str] = []
     primary = os.getenv("GOOGLE_API_KEY")
     if primary:
@@ -40,20 +45,33 @@ def _load_keys() -> List[str]:
 
 def _is_quota_error(err: Exception) -> bool:
     msg = str(err).lower()
-    return any(s in msg for s in ("429", "quota", "resource_exhausted", "resourceexhausted", "rate limit"))
+    return any(
+        s in msg
+        for s in (
+            "429",
+            "quota",
+            "resource_exhausted",
+            "resourceexhausted",
+            "rate limit",
+            "rate_limit",
+            "too many requests",
+        )
+    )
 
 
-class RotatingLLM:
-    def __init__(self, model: str = "gemini-2.5-flash", structured_schema: Any = None, **kwargs: Any):
+# ─── Gemini rotator (unchanged behaviour) ─────────────────────────────────────
+
+class _GeminiRotator:
+    def __init__(self, model: str, structured_schema: Any, **kwargs: Any):
         self._model = model
         self._kwargs = kwargs
         self._schema = structured_schema
-        self._keys = _load_keys()
-        if not self._keys:
-            raise RuntimeError("No GOOGLE_API_KEY* environment variables set")
+        self._keys = _load_gemini_keys()
         self._idx = 0
         self._cooldown_until = [0.0] * len(self._keys)
-        logger.info("RotatingLLM initialized model=%s keys=%d", model, len(self._keys))
+
+    def available(self) -> bool:
+        return bool(self._keys)
 
     def _build(self, key: str):
         llm = ChatGoogleGenerativeAI(model=self._model, google_api_key=key, **self._kwargs)
@@ -61,10 +79,7 @@ class RotatingLLM:
             llm = llm.with_structured_output(self._schema)
         return llm
 
-    def with_structured_output(self, schema: Any) -> "RotatingLLM":
-        return RotatingLLM(model=self._model, structured_schema=schema, **self._kwargs)
-
-    def _pick_key(self) -> Optional[int]:
+    def _pick(self) -> Optional[int]:
         now = time.time()
         n = len(self._keys)
         for offset in range(n):
@@ -73,48 +88,142 @@ class RotatingLLM:
                 return i
         return None
 
-    def _mark_cooldown(self, i: int) -> None:
+    def _cooldown(self, i: int) -> None:
         self._cooldown_until[i] = time.time() + _COOLDOWN_SECONDS
-        logger.warning("Gemini key #%d in cooldown for %ds (quota)", i + 1, _COOLDOWN_SECONDS)
+        logger.warning("Gemini key #%d cooldown %ds", i + 1, _COOLDOWN_SECONDS)
 
     async def ainvoke(self, messages: Any, **kw: Any) -> Any:
+        if not self._keys:
+            raise RuntimeError("No GOOGLE_API_KEY* configured")
         n = len(self._keys)
-        last_err: Optional[Exception] = None
+        last: Optional[Exception] = None
         for _ in range(n):
-            i = self._pick_key()
+            i = self._pick()
             if i is None:
-                wait = max(0.5, min(self._cooldown_until) - time.time())
-                logger.warning("All Gemini keys cooled; sleeping %.1fs", wait)
-                await asyncio.sleep(min(wait, 5))
-                i = self._pick_key() or 0
+                await asyncio.sleep(0.5)
+                i = 0
             self._idx = (i + 1) % n
             try:
                 return await self._build(self._keys[i]).ainvoke(messages, **kw)
             except Exception as e:
-                last_err = e
+                last = e
                 if _is_quota_error(e):
-                    self._mark_cooldown(i)
+                    self._cooldown(i)
                     continue
                 raise
-        assert last_err is not None
-        raise last_err
+        assert last is not None
+        raise last
+
+
+# ─── Groq wrapper ─────────────────────────────────────────────────────────────
+
+class _GroqClient:
+    def __init__(self, model: str, structured_schema: Any, **kwargs: Any):
+        self._key = os.getenv("GROQ_API_KEY")
+        self._model = os.getenv("GROQ_MODEL", model)
+        self._kwargs = kwargs
+        self._schema = structured_schema
+        self._cooldown_until = 0.0
+
+    def available(self) -> bool:
+        return bool(self._key) and time.time() >= self._cooldown_until
+
+    def _build(self):
+        from langchain_groq import ChatGroq
+        llm = ChatGroq(model=self._model, api_key=self._key, **self._kwargs)
+        if self._schema is not None:
+            llm = llm.with_structured_output(self._schema)
+        return llm
+
+    async def ainvoke(self, messages: Any, **kw: Any) -> Any:
+        if not self._key:
+            raise RuntimeError("GROQ_API_KEY not set")
+        try:
+            return await self._build().ainvoke(messages, **kw)
+        except Exception as e:
+            if _is_quota_error(e):
+                self._cooldown_until = time.time() + _COOLDOWN_SECONDS
+                logger.warning("Groq rate limit — cooldown %ds", _COOLDOWN_SECONDS)
+            raise
+
+
+# ─── Multi-provider façade ────────────────────────────────────────────────────
+
+# Groq model whitelist — used when the façade is built with a Gemini model name.
+_GROQ_DEFAULT = "llama-3.3-70b-versatile"
+
+
+class RotatingLLM:
+    """
+    Drop-in replacement for the previous single-provider RotatingLLM.
+    Tries the primary provider first, falls back to the other on quota errors.
+    """
+
+    def __init__(
+        self,
+        model: str = "gemini-2.5-flash",
+        structured_schema: Any = None,
+        **kwargs: Any,
+    ):
+        self._schema = structured_schema
+        self._kwargs = kwargs
+        self._model_req = model
+
+        primary = os.getenv("LLM_PROVIDER", "").lower().strip()
+        if not primary:
+            primary = "groq" if os.getenv("GROQ_API_KEY") else "gemini"
+
+        self._groq = _GroqClient(
+            model=_GROQ_DEFAULT if model.startswith("gemini") else model,
+            structured_schema=structured_schema,
+            **kwargs,
+        )
+        self._gemini = _GeminiRotator(
+            model=model if model.startswith("gemini") else "gemini-2.5-flash",
+            structured_schema=structured_schema,
+            **kwargs,
+        )
+
+        order = (
+            (self._groq, self._gemini) if primary == "groq" else (self._gemini, self._groq)
+        )
+        self._order = [c for c in order if c.available() or isinstance(c, _GeminiRotator) and c._keys]
+        if not self._order:
+            # still keep the list even if all unavailable — will raise on invoke
+            self._order = list(order)
+
+        logger.info(
+            "RotatingLLM model=%s primary=%s groq=%s gemini_keys=%d",
+            model,
+            primary,
+            bool(self._groq._key),
+            len(self._gemini._keys),
+        )
+
+    def with_structured_output(self, schema: Any) -> "RotatingLLM":
+        return RotatingLLM(
+            model=self._model_req, structured_schema=schema, **self._kwargs
+        )
+
+    async def ainvoke(self, messages: Any, **kw: Any) -> Any:
+        last: Optional[Exception] = None
+        for client in self._order:
+            try:
+                return await client.ainvoke(messages, **kw)
+            except Exception as e:
+                last = e
+                if _is_quota_error(e):
+                    logger.warning(
+                        "Provider %s exhausted — trying fallback", type(client).__name__
+                    )
+                    continue
+                raise
+        assert last is not None
+        raise last
 
     def invoke(self, messages: Any, **kw: Any) -> Any:
-        n = len(self._keys)
-        last_err: Optional[Exception] = None
-        for _ in range(n):
-            i = self._pick_key() or 0
-            self._idx = (i + 1) % n
-            try:
-                return self._build(self._keys[i]).invoke(messages, **kw)
-            except Exception as e:
-                last_err = e
-                if _is_quota_error(e):
-                    self._mark_cooldown(i)
-                    continue
-                raise
-        assert last_err is not None
-        raise last_err
+        # Sync path — only Gemini supports sync here; Groq path goes async-only.
+        return asyncio.get_event_loop().run_until_complete(self.ainvoke(messages, **kw))
 
 
 _singletons: dict[str, RotatingLLM] = {}

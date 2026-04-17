@@ -141,50 +141,46 @@ export default function MemoryGame() {
     if (lockRef.current) return;
     if (selected.length >= 2) return;
 
-    setCards((prev) => {
-      const card = prev[id];
-      if (card.flipped || card.matched) return prev;
-      const next = prev.map((c, i) => (i === id ? { ...c, flipped: true } : c));
+    const card = cards[id];
+    if (!card || card.flipped || card.matched) return;
 
-      const newSelected = [...selected, id];
+    // Pure state update — no side-effects inside the updater.
+    setCards((prev) => prev.map((c, i) => (i === id ? { ...c, flipped: true } : c)));
 
-      if (newSelected.length === 2) {
-        lockRef.current = true;
-        const [a, b] = newSelected;
-        const cardA = next[a];
-        const cardB = next[b];
+    const newSelected = [...selected, id];
+    setSelected(newSelected);
 
-        if (cardA.emoji === cardB.emoji) {
-          // Match!
-          heroReact('happy.png', pick(['Nice match! 🎉', 'You found a pair! ⭐', 'Great memory! 🧠']), 2000);
-          setTimeout(() => {
-            setCards((p) => p.map((c, i) => (i === a || i === b ? { ...c, matched: true } : c)));
-            setMatches((m) => {
-              const newM = m + 1;
-              if (newM === EMOJI_PAIRS.length) {
-                submitResult(newM, attempts + 1);
-              }
-              return newM;
-            });
-            setSelected([]);
-            lockRef.current = false;
-          }, 500);
-        } else {
-          // No match — flip back
-          heroReact('frustrated.png', pick(["Not quite... try again! 🤔", "Keep looking! 👀", "Almost! You'll get it! 💪"]), 2000);
-          setTimeout(() => {
-            setCards((p) => p.map((c, i) => (i === a || i === b ? { ...c, flipped: false } : c)));
-            setSelected([]);
-            lockRef.current = false;
-          }, 800);
-        }
-        setAttempts((a) => a + 1);
+    if (newSelected.length === 2) {
+      lockRef.current = true;
+      const [a, b] = newSelected;
+      const cardA = cards[a];
+      const cardB = cards[b];
+      const isMatch = cardA.emoji === cardB.emoji;
+      const nextAttempts = attempts + 1;
+      setAttempts(nextAttempts);
+
+      if (isMatch) {
+        heroReact('happy.png', pick(['Nice match! 🎉', 'You found a pair! ⭐', 'Great memory! 🧠']), 2000);
+        setTimeout(() => {
+          setCards((p) => p.map((c, i) => (i === a || i === b ? { ...c, matched: true } : c)));
+          const nextMatches = matches + 1;
+          setMatches(nextMatches);
+          setSelected([]);
+          lockRef.current = false;
+          if (nextMatches === EMOJI_PAIRS.length) {
+            submitResult(nextMatches, nextAttempts);
+          }
+        }, 500);
+      } else {
+        heroReact('frustrated.png', pick(["Not quite... try again! 🤔", "Keep looking! 👀", "Almost! You'll get it! 💪"]), 2000);
+        setTimeout(() => {
+          setCards((p) => p.map((c, i) => (i === a || i === b ? { ...c, flipped: false } : c)));
+          setSelected([]);
+          lockRef.current = false;
+        }, 800);
       }
-
-      setSelected(newSelected);
-      return next;
-    });
-  }, [selected, attempts, submitResult]);
+    }
+  }, [cards, selected, attempts, matches, heroReact, submitResult]);
 
   const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
   const accuracy = attempts > 0 ? Math.round((matches / attempts) * 100) : 0;

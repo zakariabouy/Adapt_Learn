@@ -1,0 +1,90 @@
+{
+  "prompt_injection_detect": {
+    "iters": 1000,
+    "mean_ms": 0.5765,
+    "p50_ms": 0.569,
+    "p95_ms": 0.6378,
+    "p99_ms": 0.721,
+    "max_ms": 0.9459
+  },
+  "content_safety_check": {
+    "iters": 1000,
+    "mean_ms": 0.0409,
+    "p50_ms": 0.0399,
+    "p95_ms": 0.046,
+    "p99_ms": 0.0547,
+    "max_ms": 0.0675
+  },
+  "hallucination_check": {
+    "iters": 1000,
+    "mean_ms": 0.0766,
+    "p50_ms": 0.0745,
+    "p95_ms": 0.0899,
+    "p99_ms": 0.1019,
+    "max_ms": 0.1872
+  },
+  "json_schema_validate": {
+    "iters": 1000,
+    "mean_ms": 0.0039,
+    "p50_ms": 0.0038,
+    "p95_ms": 0.004,
+    "p99_ms": 0.0049,
+    "max_ms": 0.0286
+  },
+  "rate_limit_check": {
+    "iters": 1000,
+    "mean_ms": 0.0011,
+    "p50_ms": 0.001,
+    "p95_ms": 0.0011,
+    "p99_ms": 0.0011,
+    "max_ms": 0.0047
+  },
+  "input_sanitize": {
+    "iters": 1000,
+    "mean_ms": 0.0115,
+    "p50_ms": 0.0112,
+    "p95_ms": 0.0115,
+    "p99_ms": 0.0144,
+    "max_ms": 0.142
+  },
+  "rag_chunking_500b": {
+    "iters": 500,
+    "mean_ms": 0.0731,
+    "p50_ms": 0.07,
+    "p95_ms": 0.0872,
+    "p99_ms": 0.0964,
+    "max_ms": 0.1895
+  },
+  "hot_path_request_chain": {
+    "iters": 500,
+    "mean_ms": 0.6648,
+    "p50_ms": 0.6594,
+    "p95_ms": 0.7297,
+    "p99_ms": 0.7955,
+    "max_ms": 0.848
+  },
+  "hot_path_response_chain": {
+    "iters": 500,
+    "mean_ms": 0.1219,
+    "p50_ms": 0.1174,
+    "p95_ms": 0.1386,
+    "p99_ms": 0.1767,
+    "max_ms": 0.2667
+  },
+  "agent2_prompt_build_v3": {
+    "iters": 200,
+    "mean_ms": 0.0472,
+    "p50_ms": 0.0429,
+    "p95_ms": 0.0509,
+    "p99_ms": 0.0615,
+    "max_ms": 0.7137
+  },
+  "agent2_eval_harness_full": {
+    "iters": 20,
+    "mean_ms": 0.6946,
+    "p50_ms": 0.6736,
+    "p95_ms": 0.7519,
+    "p99_ms": 0.7519,
+    "max_ms": 0.8607
+  }
+}

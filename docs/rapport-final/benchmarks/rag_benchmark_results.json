@@ -1,0 +1,313 @@
+{
+  "retriever": "BM25 (k1=1.5, b=0.75) — offline lexical baseline",
+  "corpus_chunks": 19,
+  "slices": {
+    "verbatim": {
+      "slice": "verbatim",
+      "n": 20,
+      "dropped": 0,
+      "recall_at_1": 0.95,
+      "recall_at_3": 1.0,
+      "recall_at_5": 1.0,
+      "mrr": 0.967,
+      "mean_latency_ms": 0.0119,
+      "p95_latency_ms": 0.0151
+    },
+    "paraphrase": {
+      "slice": "paraphrase",
+      "n": 10,
+      "dropped": 0,
+      "recall_at_1": 0.4,
+      "recall_at_3": 0.5,
+      "recall_at_5": 0.6,
+      "mrr": 0.518,
+      "mean_latency_ms": 0.0074,
+      "p95_latency_ms": 0.008
+    },
+    "out_of_domain": {
+      "slice": "out_of_domain",
+      "n": 5,
+      "reject_threshold": 6.013,
+      "rejection_rate": 1.0,
+      "mean_top1_score": 0.0,
+      "max_top1_score": 0.0
+    }
+  },
+  "per_query": [
+    {
+      "slice": "verbatim",
+      "query": "apprendre à compter les nombres unités dizaines centaines jusqu'à 999",
+      "expected": "mathematiques/CE1",
+      "retrieved_top1": "mathematiques/CE2",
+      "rank_of_expected": 3,
+      "top1_score": 5.164
+    },
+    {
+      "slice": "verbatim",
+      "query": "tables de multiplication jusqu'à 10 et notion de moitié",
+      "expected": "mathematiques/CE2",
+      "retrieved_top1": "mathematiques/CE2",
+      "rank_of_expected": 1,
+      "top1_score": 13.897
+    },
+    {
+      "slice": "verbatim",
+      "query": "fractions simples numérateur dénominateur et aire du rectangle",
+      "expected": "mathematiques/CM1",
+      "retrieved_top1": "mathematiques/CM1",
+      "rank_of_expected": 1,
+      "top1_score": 9.814
+    },
+    {
+      "slice": "verbatim",
+      "query": "pourcentage proportionnalité et volume du cube et pavé droit",
+      "expected": "mathematiques/CM2",
+      "retrieved_top1": "mathematiques/CM2",
+      "rank_of_expected": 1,
+      "top1_score": 13.607
+    },
+    {
+      "slice": "verbatim",
+      "query": "français langue seconde vocabulaire de base couleurs nombres famille école",
+      "expected": "francais/CE1",
+      "retrieved_top1": "francais/CE1",
+      "rank_of_expected": 1,
+      "top1_score": 20.666
+    },
+    {
+      "slice": "verbatim",
+      "query": "conjuguer être avoir verbes du premier groupe au présent",
+      "expected": "francais/CE2",
+      "retrieved_top1": "francais/CE2",
+      "rank_of_expected": 1,
+      "top1_score": 7.6
+    },
+    {
+      "slice": "verbatim",
+      "query": "lire texte 100 mots idées principales passé composé futur simple",
+      "expected": "francais/CM1",
+      "retrieved_top1": "francais/CM1",
+      "rank_of_expected": 1,
+      "top1_score": 19.024
+    },
+    {
+      "slice": "verbatim",
+      "query": "rédiger un texte structuré et résumer un texte dans ses propres mots",
+      "expected": "francais/CM2",
+      "retrieved_top1": "francais/CM2",
+      "rank_of_expected": 1,
+      "top1_score": 18.738
+    },
+    {
+      "slice": "verbatim",
+      "query": "lire des textes courts vocalisés en arabe 25 à 40 mots",
+      "expected": "arabe/CE1",
+      "retrieved_top1": "arabe/CE1",
+      "rank_of_expected": 1,
+      "top1_score": 11.086
+    },
+    {
+      "slice": "verbatim",
+      "query": "accorder le verbe avec son sujet singulier pluriel artisanat zellige",
+      "expected": "arabe/CE2",
+      "retrieved_top1": "arabe/CE2",
+      "rank_of_expected": 1,
+      "top1_score": 16.314
+    },
+    {
+      "slice": "verbatim",
+      "query": "paragraphe structuré conjugaison présent passé futur patrimoine amazigh",
+      "expected": "arabe/CM1",
+      "retrieved_top1": "arabe/CM1",
+      "rank_of_expected": 1,
+      "top1_score": 14.572
+    },
+    {
+      "slice": "verbatim",
+      "query": "textes narratif informatif argumentatif temps composés distinguer fait opinion",
+      "expected": "arabe/CM2",
+      "retrieved_top1": "arabe/CM2",
+      "rank_of_expected": 1,
+      "top1_score": 19.818
+    },
+    {
+      "slice": "verbatim",
+      "query": "observer le vivant plantes animaux du Maroc et les 5 sens",
+      "expected": "activite_scientifique/CE1",
+      "retrieved_top1": "activite_scientifique/CE1",
+      "rank_of_expected": 1,
+      "top1_score": 13.525
+    },
+    {
+      "slice": "verbatim",
+      "query": "cycle de vie des plantes états de la matière chaîne alimentaire",
+      "expected": "activite_scientifique/CE2",
+      "retrieved_top1": "activite_scientifique/CE2",
+      "rank_of_expected": 1,
+      "top1_score": 18.395
+    },
+    {
+      "slice": "verbatim",
+      "query": "corps humain squelette digestion énergies solaire éolienne Noor",
+      "expected": "activite_scientifique/CM1",
+      "retrieved_top1": "activite_scientifique/CM1",
+      "rank_of_expected": 1,
+      "top1_score": 22.658
+    },
+    {
+      "slice": "verbatim",
+      "query": "système solaire phases de la Lune circuit électrique biodiversité",
+      "expected": "activite_scientifique/CM2",
+      "retrieved_top1": "activite_scientifique/CM2",
+      "rank_of_expected": 1,
+      "top1_score": 19.462
+    },
+    {
+      "slice": "verbatim",
+      "query": "cinq piliers de l'Islam valeurs respect des parents partage honnêteté",
+      "expected": "education_islamique/CE1",
+      "retrieved_top1": "education_islamique/CE1",
+      "rank_of_expected": 1,
+      "top1_score": 20.732
+    },
+    {
+      "slice": "verbatim",
+      "query": "valeurs citoyennes vivre-ensemble respect de la diversité religieuse tolérance",
+      "expected": "education_islamique/CM1",
+      "retrieved_top1": "education_islamique/CM1",
+      "rank_of_expected": 1,
+      "top1_score": 23.916
+    },
+    {
+      "slice": "verbatim",
+      "query": "symboles du Royaume drapeau hymne devise Allah Al-Watan Al-Malik droits de l'enfant",
+      "expected": "education_civique/transversal",
+      "retrieved_top1": "education_civique/transversal",
+      "rank_of_expected": 1,
+      "top1_score": 34.021
+    },
+    {
+      "slice": "verbatim",
+      "query": "égalité fille garçon diversité culturelle et linguistique du Maroc",
+      "expected": "education_civique/transversal",
+      "retrieved_top1": "education_civique/transversal",
+      "rank_of_expected": 1,
+      "top1_score": 15.831
+    },
+    {
+      "slice": "paraphrase",
+      "query": "diviser un gâteau en parts égales pour comprendre les morceaux",
+      "expected": "mathematiques/CM1",
+      "retrieved_top1": "education_islamique/CM1",
+      "rank_of_expected": 7,
+      "top1_score": 2.069
+    },
+    {
+      "slice": "paraphrase",
+      "query": "combien ça coûte si chaque cahier vaut 12 dirhams et on en achète 5",
+      "expected": "mathematiques/CE2",
+      "retrieved_top1": "mathematiques/CE1",
+      "rank_of_expected": 2,
+      "top1_score": 0.0
+    },
+    {
+      "slice": "paraphrase",
+      "query": "enseigner la taille des formes rondes et carrées à un petit",
+      "expected": "mathematiques/CE1",
+      "retrieved_top1": "mathematiques/CE1",
+      "rank_of_expected": 1,
+      "top1_score": 2.07
+    },
+    {
+      "slice": "paraphrase",
+      "query": "calculer l'espace occupé par une boîte cubique",
+      "expected": "mathematiques/CM2",
+      "retrieved_top1": "mathematiques/CE1",
+      "rank_of_expected": 4,
+      "top1_score": 0.0
+    },
+    {
+      "slice": "paraphrase",
+      "query": "premiers mots en français pour un enfant qui parle arabe à la maison",
+      "expected": "francais/CE1",
+      "retrieved_top1": "francais/CE1",
+      "rank_of_expected": 1,
+      "top1_score": 6.293
+    },
+    {
+      "slice": "paraphrase",
+      "query": "écrire une petite rédaction avec début milieu fin",
+      "expected": "francais/CM1",
+      "retrieved_top1": "francais/CM1",
+      "rank_of_expected": 1,
+      "top1_score": 1.954
+    },
+    {
+      "slice": "paraphrase",
+      "query": "raconter une histoire à haute voix en arabe classique",
+      "expected": "arabe/CE2",
+      "retrieved_top1": "mathematiques/CE1",
+      "rank_of_expected": 6,
+      "top1_score": 0.0
+    },
+    {
+      "slice": "paraphrase",
+      "query": "comment sont nourris les lézards et les plantes dans la nature",
+      "expected": "activite_scientifique/CE2",
+      "retrieved_top1": "activite_scientifique/CE2",
+      "rank_of_expected": 1,
+      "top1_score": 2.165
+    },
+    {
+      "slice": "paraphrase",
+      "query": "expliquer pourquoi il ne faut pas gaspiller l'eau aux enfants",
+      "expected": "activite_scientifique/CM2",
+      "retrieved_top1": "activite_scientifique/CE2",
+      "rank_of_expected": 16,
+      "top1_score": 3.808
+    },
+    {
+      "slice": "paraphrase",
+      "query": "apprendre la politesse et l'entraide selon la tradition religieuse",
+      "expected": "education_islamique/CE1",
+      "retrieved_top1": "education_islamique/CM1",
+      "rank_of_expected": 18,
+      "top1_score": 3.593
+    },
+    {
+      "slice": "out_of_domain",
+      "query": "meilleure recette de pastilla au poulet",
+      "top1_id": "mathematiques/CE1",
+      "top1_score": 0.0,
+      "rejected": true
+    },
+    {
+      "slice": "out_of_domain",
+      "query": "comment réparer un moteur de voiture diesel",
+      "top1_id": "mathematiques/CE1",
+      "top1_score": 0.0,
+      "rejected": true
+    },
+    {
+      "slice": "out_of_domain",
+      "query": "derniers résultats du championnat de football européen",
+      "top1_id": "mathematiques/CE1",
+      "top1_score": 0.0,
+      "rejected": true
+    },
+    {
+      "slice": "out_of_domain",
+      "query": "prix du baril de pétrole brent aujourd'hui",
+      "top1_id": "mathematiques/CE1",
+      "top1_score": 0.0,
+      "rejected": true
+    },
+    {
+      "slice": "out_of_domain",
+      "query": "itinéraire touristique de 7 jours à Tokyo",
+      "top1_id": "mathematiques/CE1",
+      "top1_score": 0.0,
+      "rejected": true
+    }
+  ]
+}

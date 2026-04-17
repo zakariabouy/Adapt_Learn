@@ -151,12 +151,19 @@ async def upload_content(file: UploadFile = File(...), current_user = Depends(ge
 
     pool = await get_pool()
     content_id = uuid4()
-    
+
+    # Clamp grade_level to primary-school range [1, 6] — DB has a CHECK constraint.
+    try:
+        raw_grade = int(ai_data.get("grade_level") or 3)
+    except (TypeError, ValueError):
+        raw_grade = 3
+    grade_level = max(1, min(6, raw_grade))
+
     # 1. Save Content Item
     await pool.execute(
         "INSERT INTO content_items (id, title, original_text, teacher_id, created_at, subject, grade_level) VALUES ($1, $2, $3, $4, $5, $6, $7)",
         content_id, file.filename, text_content, current_user["id"], datetime.datetime.now(),
-        ai_data.get("subject"), ai_data.get("grade_level")
+        ai_data.get("subject"), grade_level
     )
     
     # 2. Seed Question Bank

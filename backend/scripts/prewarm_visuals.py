@@ -17,7 +17,14 @@ import json
 import sys
 from uuid import UUID
 
-from agents.adaptation.agent import generate_visual_aid, _visual_cache_path
+import os
+
+from agents.adaptation.agent import (
+    generate_visual_aid,
+    generate_visual_png,
+    _visual_cache_path,
+    _visual_png_cache_path,
+)
 from shared.database import get_pool
 
 
@@ -35,15 +42,29 @@ async def main(content_id: str, student_id: str) -> int:
         return 1
 
     chunks = json.loads(row["adapted_text"])
-    print(f"Pre-warming {len(chunks)} chunk(s)...")
+    hf_enabled = bool(os.getenv("HF_API_TOKEN"))
+    mode = "HF PNG (FLUX) + SVG fallback" if hf_enabled else "Gemini SVG only"
+    print(f"Pre-warming {len(chunks)} chunk(s) [{mode}]...")
+
     for i, chunk in enumerate(chunks):
-        path = _visual_cache_path(chunk)
-        if path.exists():
-            print(f"  [{i+1}/{len(chunks)}] cached -> {path.name}")
+        if hf_enabled:
+            png_path = _visual_png_cache_path(chunk)
+            if png_path.exists():
+                print(f"  [{i+1}/{len(chunks)}] PNG cached -> {png_path.name}")
+                continue
+            data_url = await generate_visual_png(chunk)
+            if data_url:
+                print(f"  [{i+1}/{len(chunks)}] PNG OK -> {png_path.name}")
+                continue
+            print(f"  [{i+1}/{len(chunks)}] PNG failed, falling back to SVG")
+
+        svg_path = _visual_cache_path(chunk)
+        if svg_path.exists():
+            print(f"  [{i+1}/{len(chunks)}] SVG cached -> {svg_path.name}")
             continue
         svg = await generate_visual_aid(chunk)
         marker = "OK" if "<svg" in svg and "Illustration coming soon" not in svg else "PLACEHOLDER"
-        print(f"  [{i+1}/{len(chunks)}] {marker} -> {path.name}")
+        print(f"  [{i+1}/{len(chunks)}] SVG {marker} -> {svg_path.name}")
     print("Done.")
     return 0
 

@@ -8,7 +8,7 @@ from routers.auth import get_current_user
 from agents.profile.agent import get_student_profile, update_student_profile, generate_profile_summary
 from agents.profile.game_profiler import process_game_result, get_available_games
 from agents.profile.vark import process_vark_submission, get_vark_questions
-from agents.adaptation.agent import chunk_content, transform_font, tts_convert, summarize_text, generate_visual_aid
+from agents.adaptation.agent import chunk_content, transform_font, tts_convert, summarize_text, generate_visual_aid, generate_visual_png
 from orchestrator.graph import adapt_content
 from routers.gamification import _apply_xp
 from shared.database import get_pool
@@ -390,7 +390,18 @@ async def get_chunk_visual(
     chunks = json.loads(row["adapted_text"])
     if chunk_index < 0 or chunk_index >= len(chunks):
         raise HTTPException(status_code=400, detail="Invalid chunk index")
-        
+
+    # Prefer FLUX.1-schnell PNG via Hugging Face when HF_API_TOKEN is set.
+    # Frontend injects the returned string via dangerouslySetInnerHTML, so we
+    # wrap the data URL in an <img> tag — falls into the existing container.
+    png_data_url = await generate_visual_png(chunks[chunk_index])
+    if png_data_url:
+        img_html = (
+            f'<img src="{png_data_url}" alt="Illustration" '
+            'style="width:100%;height:auto;border-radius:12px;display:block;" />'
+        )
+        return {"svg": img_html}
+
     svg_code = await generate_visual_aid(chunks[chunk_index])
     return {"svg": svg_code}
 

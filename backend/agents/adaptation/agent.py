@@ -2,7 +2,9 @@ import re
 import logging
 import tempfile
 import hashlib
+import base64
 import textstat
+import httpx
 from pathlib import Path
 from typing import List
 from shared.models import LearnerModel
@@ -134,6 +136,94 @@ _PLACEHOLDER_SVG = (
 def _visual_cache_path(text: str) -> Path:
     digest = hashlib.sha256(text.strip().encode("utf-8")).hexdigest()
     return _VISUAL_CACHE_DIR / f"{digest}.svg"
+
+
+def _visual_png_cache_path(text: str) -> Path:
+    digest = hashlib.sha256(text.strip().encode("utf-8")).hexdigest()
+    return _VISUAL_CACHE_DIR / f"{digest}.png"
+
+
+_HF_IMAGE_MODEL = os.getenv("HF_IMAGE_MODEL", "black-forest-labs/FLUX.1-schnell")
+_HF_INFERENCE_URL = f"https://api-inference.huggingface.co/models/{_HF_IMAGE_MODEL}"
+
+
+def _png_bytes_to_data_url(png: bytes) -> str:
+    return "data:image/png;base64," + base64.b64encode(png).decode("ascii")
+
+
+async def _build_image_prompt(text: str) -> str:
+    summary_prompt = (
+        "In ONE short English sentence (<20 words) describe a single, concrete, "
+        "child-friendly illustration that would help a primary-school student "
+        "understand this passage. No text in the image. Passage:\n\n"
+        f"{text[:1200]}"
+    )
+    try:
+        resp = await get_llm().ainvoke([HumanMessage(content=summary_prompt)])
+        scene = resp.content.strip().replace("\n", " ")
+        if scene:
+            return (
+                f"Children's educational illustration: {scene}. "
+                "Flat vector style, bold outlines, bright primary colors, "
+                "high contrast, simple shapes, friendly, no text, no letters."
+            )
+    except Exception as e:
+        logger.warning("Image-prompt summarization failed: %s", e)
+    return (
+        "Children's educational illustration. Flat vector style, bold outlines, "
+        "bright primary colors, high contrast, simple shapes, friendly, no text."
+    )
+
+
+async def generate_visual_png(text: str) -> str:
+    """
+    Generate a PNG illustration via Hugging Face Inference API (FLUX.1-schnell
+    by default). Cached on disk by sha256(text). Returns a data: URL string
+    ready to drop into an <img src="">. Returns empty string on any failure —
+    callers fall back to the SVG path.
+    """
+    token = os.getenv("HF_API_TOKEN")
+    if not token:
+        return ""
+
+    cache_path = _visual_png_cache_path(text)
+    if cache_path.exists():
+        try:
+            return _png_bytes_to_data_url(cache_path.read_bytes())
+        except OSError as e:
+            logger.warning("PNG visual cache read failed (%s); regenerating", e)
+
+    input_check = await run_input_guardrails(text, endpoint="adaptation/visual_png")
+    image_prompt = await _build_image_prompt(input_check["sanitized_text"])
+
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "image/png",
+    }
+    payload = {"inputs": image_prompt}
+
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            r = await client.post(_HF_INFERENCE_URL, headers=headers, json=payload)
+        if r.status_code != 200:
+            logger.warning(
+                "HF image API %s -> %s: %s",
+                _HF_IMAGE_MODEL, r.status_code, r.text[:200],
+            )
+            return ""
+        ctype = r.headers.get("content-type", "")
+        if "image" not in ctype:
+            logger.warning("HF image API returned non-image content-type: %s", ctype)
+            return ""
+        try:
+            _VISUAL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+            cache_path.write_bytes(r.content)
+        except OSError as e:
+            logger.warning("PNG visual cache write failed: %s", e)
+        return _png_bytes_to_data_url(r.content)
+    except Exception as e:
+        logger.warning("HF image generation failed: %s", e)
+        return ""
 
 
 async def generate_visual_aid(text: str) -> str:

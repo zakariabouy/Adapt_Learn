@@ -49,6 +49,21 @@ export default function TeacherDashboard() {
       return;
     }
     const headers = { Authorization: `Bearer ${token}` };
+
+    // Role guard — a stale student/parent token must not land here.
+    try {
+      const me = await axios.get(`${API_URL}/auth/me`, { headers });
+      if (me.data?.role !== 'teacher') {
+        localStorage.removeItem('token');
+        router.push('/auth/login');
+        return;
+      }
+    } catch {
+      localStorage.removeItem('token');
+      router.push('/auth/login');
+      return;
+    }
+
     try {
       const [studentsRes, statsRes, cohortRes, contentRes, guardrailRes] = await Promise.all([
         axios.get(`${API_URL}/teacher/students`, { headers }),

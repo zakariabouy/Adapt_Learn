@@ -391,6 +391,25 @@ async def get_chunk_visual(
     if chunk_index < 0 or chunk_index >= len(chunks):
         raise HTTPException(status_code=400, detail="Invalid chunk index")
 
+    # Pre-rendered demo images: drop nano-banana / Gemini-generated PNGs
+    # into backend/cache/visuals/demo/{content_id}_{chunk_index}.png (exact match)
+    # or {content_id}_cover.png (fallback for any chunk without a specific image).
+    # These take precedence over any live generation.
+    demo_dir = Path(__file__).resolve().parents[1] / "cache" / "visuals" / "demo"
+    demo_path = demo_dir / f"{content_id}_{chunk_index}.png"
+    if not demo_path.exists():
+        cover_path = demo_dir / f"{content_id}_cover.png"
+        demo_path = cover_path if cover_path.exists() else demo_path
+    if demo_path.exists():
+        import base64
+        png_bytes = demo_path.read_bytes()
+        data_url = "data:image/png;base64," + base64.b64encode(png_bytes).decode("ascii")
+        img_html = (
+            f'<img src="{data_url}" alt="Illustration" '
+            'style="width:100%;height:auto;border-radius:12px;display:block;" />'
+        )
+        return {"svg": img_html}
+
     # Prefer FLUX.1-schnell PNG via Hugging Face when HF_API_TOKEN is set.
     # Frontend injects the returned string via dangerouslySetInnerHTML, so we
     # wrap the data URL in an <img> tag — falls into the existing container.

@@ -39,7 +39,7 @@ const mockSystemHealth = {
 };
 
 const mockUsers = [
-  { name: 'Mme. Fatima', email: 'teacher@enset.edu', role: 'Professeur', date: '2025-09-01', status: 'active' as const },
+  { name: 'Mme. Fatima', email: 'teacher@adaptlearn.com', role: 'Professeur', date: '2025-09-01', status: 'active' as const },
   { name: 'Omar', email: 'omar@student.com', role: 'Élève', date: '2025-09-15', status: 'active' as const },
   { name: 'Lina', email: 'lina@student.com', role: 'Élève', date: '2025-09-15', status: 'active' as const },
   { name: 'M. Khalid', email: 'parent@family.com', role: 'Parent', date: '2025-10-02', status: 'active' as const },

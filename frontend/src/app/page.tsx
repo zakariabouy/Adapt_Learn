@@ -41,7 +41,7 @@ export default function Home() {
             className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary/8 border border-primary/15 rounded-full text-xs font-medium text-primary mb-8"
           >
             <Sparkles size={12} />
-            ENSET Challenge 2026 &mdash; IA Agentique
+            Agentic AI for Primary Education
           </motion.div>
 
           <motion.h1
@@ -238,7 +238,7 @@ export default function Home() {
           <div className="bg-surface-container rounded-xl border border-outline-variant/8 p-5 mb-8 text-left">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {[
-                { role: 'Teacher', email: 'teacher@enset.edu' },
+                { role: 'Teacher', email: 'teacher@adaptlearn.com' },
                 { role: 'Student (G4)', email: 'omar@student.com' },
                 { role: 'Student (G2)', email: 'lina@student.com' },
                 { role: 'Student (G5)', email: 'yassine@student.com' },
@@ -266,7 +266,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="py-8 px-6 border-t border-outline-variant/8 text-center">
         <p className="text-[11px] text-on-surface-variant/40">
-          &copy; 2026 AdaptLearn &mdash; Team 2IE, INSEA Rabat
+          &copy; 2026 AdaptLearn &mdash; Personalized learning, every child.
         </p>
       </footer>
     </main>

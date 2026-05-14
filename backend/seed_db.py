@@ -38,7 +38,7 @@ async def seed():
     hashed_password = get_password_hash("password123")
 
     # 1. Seed Teacher
-    teacher_email = "teacher@enset.edu"
+    teacher_email = "teacher@adaptlearn.com"
     print(f"Seeding teacher: {teacher_email}")
     await pool.execute(
         "INSERT INTO users (id, email, role, hashed_password, name) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (email) DO UPDATE SET hashed_password = EXCLUDED.hashed_password",
@@ -199,11 +199,11 @@ async def seed():
     )
 
     # 2c. Seed Admin
-    admin_email = "admin@enset.edu"
+    admin_email = "admin@adaptlearn.com"
     print(f"Seeding admin: {admin_email}")
     await pool.execute(
         "INSERT INTO users (id, email, role, hashed_password, name) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (email) DO UPDATE SET hashed_password = EXCLUDED.hashed_password",
-        uuid4(), admin_email, "admin", hashed_password, "Admin ENSET"
+        uuid4(), admin_email, "admin", hashed_password, "Admin AdaptLearn"
     )
 
     # 3. Seed Content Items

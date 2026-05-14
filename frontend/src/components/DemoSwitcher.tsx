@@ -8,12 +8,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Users, GraduationCap, Presentation, Heart, Shield, ChevronUp } from 'lucide-react';
 
 const DEMO_ACCOUNTS = [
-  { label: 'Mme. Fatima', role: 'teacher', email: 'teacher@enset.edu', password: 'password123', path: '/teacher/dashboard' },
+  { label: 'Mme. Fatima', role: 'teacher', email: 'teacher@adaptlearn.com', password: 'password123', path: '/teacher/dashboard' },
   { label: 'Omar (G4)', role: 'student', email: 'omar@student.com', password: 'password123', path: '/student/workspace' },
   { label: 'Lina (G2)', role: 'student', email: 'lina@student.com', password: 'password123', path: '/student/workspace' },
   { label: 'Yassine (G5)', role: 'student', email: 'yassine@student.com', password: 'password123', path: '/student/workspace' },
   { label: 'M. Khalid', role: 'parent', email: 'parent@family.com', password: 'password123', path: '/parent/dashboard' },
-  { label: 'Admin ENSET', role: 'admin', email: 'admin@enset.edu', password: 'password123', path: '/admin/dashboard' },
+  { label: 'Admin AdaptLearn', role: 'admin', email: 'admin@adaptlearn.com', password: 'password123', path: '/admin/dashboard' },
 ];
 
 export default function DemoSwitcher() {

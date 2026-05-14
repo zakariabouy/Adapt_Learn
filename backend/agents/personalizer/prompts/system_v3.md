@@ -12,7 +12,7 @@ improvements_over_v2:
   - Auditability: output includes `men_tags` and `cultural_anchors` for Agent 3 (Critic) verification.
 methodology: In-Context Fine-Tuning (ICFT) — behavioral fine-tuning via structured context injection rather than weight-level training.
 rationale: |
-  Weight-level fine-tuning rejected for this hackathon context due to:
+  Weight-level fine-tuning rejected at this MVP stage due to:
   (1) data drift — MEN curriculum revisions require re-training cycles;
   (2) auditability — fine-tuned weights are opaque to pedagogical inspectors;
   (3) inference cost — Gemini tuned models carry ~30% latency overhead;

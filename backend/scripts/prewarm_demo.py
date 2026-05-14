@@ -52,7 +52,7 @@ class Target(TypedDict, total=False):
 
 # ─── EDIT ME ────────────────────────────────────────────────────────────────
 # These come from the handoff brief. Add more rows for any other
-# students/content the jury might click on.
+# students/content a demo visitor might click on.
 DEMO_TARGETS: list[Target] = [
     {
         "label": "Lina + The Magic of Plants",

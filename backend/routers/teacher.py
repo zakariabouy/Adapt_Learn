@@ -534,7 +534,7 @@ async def preview_personalizer_prompt(
     few-shot examples + learner profile) that would be sent to Gemini for this
     (content, student) pair — WITHOUT actually calling the LLM.
 
-    Use case: live jury demo — show the In-Context Fine-Tuning context in-browser.
+    Use case: live demo — show the In-Context Fine-Tuning context in-browser.
     """
     from agents.profile.agent import get_student_profile
     from agents.personalizer.prompt_builder import build_v3_prompt, _lookup_men, _select_few_shots

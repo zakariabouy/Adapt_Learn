@@ -35,8 +35,9 @@ def get_embeddings_model() -> GoogleGenerativeAIEmbeddings:
     global _embed_model
     if _embed_model is None:
         _embed_model = GoogleGenerativeAIEmbeddings(
-            model="models/text-embedding-004",
+            model="models/gemini-embedding-001",
             google_api_key=os.getenv("GOOGLE_API_KEY"),
+            output_dimensionality=768,
         )
     return _embed_model
 

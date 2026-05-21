@@ -10,3 +10,6 @@ node_modules/
 backend/.venv/
 .agents/
 .claude/
+
+# Generated dataset artifacts (pushed to HuggingFace, not tracked in git)
+backend/data_pipeline/output/

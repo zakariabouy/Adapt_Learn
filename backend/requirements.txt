@@ -8,6 +8,7 @@ langgraph==1.1.6
 langchain==1.2.15
 langchain-google-genai==4.2.1
 langchain-groq==1.1.2
+langchain-openai==1.2.1
 
 # Databases
 asyncpg>=0.30.0
@@ -31,3 +32,7 @@ scipy==1.17.1
 # Environment
 python-dotenv==1.2.2
 pydantic[email]==2.12.5
+
+# HuggingFace — dataset collection & fine-tuning pipeline
+huggingface_hub>=0.23.0
+datasets>=2.19.0

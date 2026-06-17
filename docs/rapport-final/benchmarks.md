@@ -3,7 +3,7 @@
 **Date :** 2026-04-17
 **Scope :** RAG retrieval · Guardrails (prompt injection + content safety) · Orchestration & middleware latency · Agent 2 (Personalizer) prompt-engineering scoring
 
-All benchmarks in this folder are **offline**, **deterministic**, and **reproducible** by the jury — no LLM calls, no API keys, no network. Live LLM latency is captured separately at runtime in the God-Mode observability panel (`/god-mode`).
+All benchmarks in this folder are **offline**, **deterministic**, and **independently reproducible** — no LLM calls, no API keys, no network. Live LLM latency is captured separately at runtime in the God-Mode observability panel (`/god-mode`).
 
 ```
 docs/rapport-final/benchmarks/
@@ -45,7 +45,7 @@ Three evaluation slices — we separate *easy* from *hard* to avoid inflating a 
 - **Paraphrase slice :** same intent, minimal vocabulary overlap (e.g. *"diviser un gâteau en parts égales"* → `mathematiques/CM1`). BM25 drops to 0.40 at rank 1 — this is the gap the embedding layer is supposed to close, and the honest reason the production pipeline uses `text-embedding-004` on top.
 - **Out-of-domain slice :** 5 queries unrelated to the curriculum (cooking, cars, tourism). 100 % receive a top-1 score of 0 → the retriever does not silently return garbage when no relevant chunk exists. This is a precision signal that recall-at-K alone hides.
 
-**Why this matters for the jury :** a single *recall@3 = 1.0* looks great but says nothing about realistic teacher queries or out-of-domain prompts. Reporting three slices makes the BM25 lower bound defensible and pinpoints where the semantic embedding layer actually pays for itself (the paraphrase gap).
+**Why this matters :** a single *recall@3 = 1.0* looks great but says nothing about realistic teacher queries or out-of-domain prompts. Reporting three slices makes the BM25 lower bound defensible and pinpoints where the semantic embedding layer actually pays for itself (the paraphrase gap).
 
 ---
 
@@ -107,7 +107,7 @@ Measures every **non-LLM** code path that runs on every request — the work jud
 
 ### 3.1 End-to-end hot-path chains
 
-These two chains are the numbers that actually matter to the jury — they measure the **combined overhead** of the guardrails in the order FastAPI runs them per request / per response (not isolated micro-bars).
+These two chains are the numbers that actually matter — they measure the **combined overhead** of the guardrails in the order FastAPI runs them per request / per response (not isolated micro-bars).
 
 | Chain | Stages | iters | p50 ms | p95 ms | p99 ms |
 |:------|:-------|------:|-------:|-------:|-------:|
@@ -130,7 +130,7 @@ Total non-LLM overhead per full round-trip = **≈ 0.9 ms p95**.
 | Agent 2 — prompt assembly (v3)     |  200  | 0.043   | 0.051   | 0.062   |
 | Agent 2 — eval harness (10 × 5)    |   20  | 0.674   | 0.752   | 0.752   |
 
-**Reading :** The **entire non-LLM stack adds under 1 ms p95** before any network call. A full re-run of the Agent-2 evaluation harness (10 golden items × 5 metrics) completes in under 1 ms — the jury can re-score prompt versions in real time during the demo.
+**Reading :** The **entire non-LLM stack adds under 1 ms p95** before any network call. A full re-run of the Agent-2 evaluation harness (10 golden items × 5 metrics) completes in under 1 ms — prompt versions can be re-scored in real time during a live demo.
 
 ---
 
@@ -170,14 +170,14 @@ The in-repo `evaluate.py` simulates v3's output by handing the gold `expected_ou
 |:----------------------------------|:-------|
 | End-to-end Gemini latency         | Depends on quota + network; captured live in God Mode instead of frozen in a report. |
 | Multi-agent comparison vs GPT-4o / Claude | Opens questions the report cannot close (cost, rate limits, licensing). |
-| Pedagogical learning-gain metrics | Would require a multi-week classroom study; out of hackathon scope. |
+| Pedagogical learning-gain metrics | Would require a multi-week classroom study; out of current scope. |
 | Semantic embedding retrieval vs BM25 | Requires a live API key; the BM25 lower bound already passes Recall@3 = 1.0 on the gold set. |
 
 Every number above is a number the system can defend in 30 seconds of live demo.
 
 ---
 
-## 6. TL;DR for the jury
+## 6. TL;DR
 
 - **RAG (MEN corpus, three slices) :** verbatim R@1 = 0.95 · paraphrase R@1 = 0.40 (BM25 lower bound; embedding layer closes this gap) · 100 % rejection on 5 out-of-domain queries.
 - **Prompt injection :** 0 false positives across 35 benign prompts (including 10 borderline). Textbook English : flag-tier F1 = 0.89. Hardened (obfuscation + FR / Darija / Arabic) : flag-tier F1 = 0.46 — an honest gap the HITL layer is designed to catch, and the regression test for adding multilingual patterns.

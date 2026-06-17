@@ -1,6 +1,6 @@
 # AdaptLearn — Technical Achievement Summary
 
-> **ENSET Challenge 2026 — Adaptive Learning Platform for Neurodivergent Primary Students (Grades 1–6)**
+> **Adaptive Learning Platform for Neurodivergent Primary Students (Grades 1–6)**
 
 AdaptLearn is a multi-agent AI platform that observes how a child learns — through games, reading sessions, and quizzes — and dynamically adapts lessons, assessments, and screen time to their neurocognitive profile. Four user roles (Student, Teacher, Parent, Admin) each get a purpose-built workflow, and every AI output passes through a guardrail + human-in-the-loop pipeline before reaching a student.
 
@@ -160,10 +160,10 @@ All passwords: `password123`
 | Student (Grade 2) | `lina@student.com` |
 | Student (Grade 4) | `omar@student.com` |
 | Student (Grade 5) | `yassine@student.com` |
-| Teacher | `teacher@enset.edu` |
+| Teacher | `teacher@adaptlearn.com` |
 | Parent (Lina's dad) | `parent@family.com` |
-| Admin | `admin@enset.edu` |
+| Admin | `admin@adaptlearn.com` |
 
 ---
 
-*Developed for ENSET Challenge 2026.*
+*AdaptLearn — Agentic AI for Personalized Primary Education.*

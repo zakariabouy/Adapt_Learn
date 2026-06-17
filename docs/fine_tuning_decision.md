@@ -1,6 +1,6 @@
 # Agent 2 (Personnalisateur) — Méthodologie de Fine-Tuning & Évaluation des Prompts
 
-**Projet :** AdaptLearn — ENSET Challenge 2026
+**Projet :** AdaptLearn
 **Auteur :** Adam Daoudi
 **Date :** 16 avril 2026
 **Statut :** Production (v3)
@@ -24,7 +24,7 @@ Pour l'Agent 2 (Personnalisateur de contenu pédagogique), nous avons adopté un
 | Mise à jour curriculaire (MEN) | Re-training complet nécessaire | Édition JSON → effet immédiat |
 | Coût d'inférence marginal | +30 % latence, +20 % coût par requête | ~0 % grâce au context caching Gemini 1.5 |
 | Auditabilité pédagogique | Boîte noire (poids opaques) | 100 % inspectable (prompts versionnés + RAG sources) |
-| Reproductibilité par un tiers (jury) | Impossible sans accès aux poids | `python -m agents.personalizer.eval.evaluate` |
+| Reproductibilité par un tiers | Impossible sans accès aux poids | `python -m agents.personalizer.eval.evaluate` |
 | Robustesse au data drift | Élevée dans le temps court, dégradation sans re-training | Couvre le drift par mise à jour du corpus |
 
 ### 2.2 Justification pédagogique (spécifique au contexte marocain)
@@ -125,7 +125,7 @@ cd backend
 python3 -m agents.personalizer.eval.evaluate
 ```
 
-Temps d'exécution : **< 1 seconde**. Le harness est 100 % déterministe — un membre du jury peut rejouer l'évaluation et obtenir les mêmes chiffres.
+Temps d'exécution : **< 1 seconde**. Le harness est 100 % déterministe — n'importe quel tiers peut rejouer l'évaluation et obtenir les mêmes chiffres.
 
 ---
 
@@ -141,7 +141,7 @@ C'est l'équivalent fonctionnel d'un **RLHF léger** — sans coût de re-traini
 
 ---
 
-## 6. Perspectives (Post-Hackathon)
+## 6. Perspectives
 
 Le fine-tuning de poids deviendra pertinent lorsque :
 

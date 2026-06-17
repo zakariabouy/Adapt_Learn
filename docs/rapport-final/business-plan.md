@@ -63,7 +63,7 @@ Le B2C direct marche mal au primaire marocain : les parents ne payent pas sponta
 
 | Phase | Budget | Sources |
 |:--|--:|:--|
-| Phase 1 (MVP → pilote) | 331 k MAD | Seed friends/family + concours (ENSET, MITEF, Startupbootcamp Africa) + subventions CCG Innov Invest |
+| Phase 1 (MVP → pilote) | 331 k MAD | Seed friends/family + concours startups (MITEF, Startupbootcamp Africa) + subventions CCG Innov Invest |
 | Phase 2 (12 mois commercial) | 1 762 k MAD | Seed Round — VCs locaux (Azur Innovation Fund, Maroc Numeric Fund, Outlierz) ou early-stage EdTech international |
 | Phase 3 (6 mois scale) | 1 800 k MAD | Série A conditionnée à la traction |
 | **Total 24 mois** | **≈ 3.9 M MAD (~390 k USD)** | |
@@ -95,7 +95,7 @@ Par élève actif par mois (~150 interactions LLM / mois) :
 | Scénario | Élèves actifs fin M24 | ARR MAD | ARR USD |
 |:--|--:|--:|--:|
 | Conservateur | 5 000 (10 écoles privées) | 1.8 M | 180 k |
-| **Base (promis au jury)** | **20 000 (40 écoles + 1 académie pilote)** | **7.2 M** | **720 k** |
+| **Base (scénario cible)** | **20 000 (40 écoles + 1 académie pilote)** | **7.2 M** | **720 k** |
 | Optimiste (upside) | 60 000 (contrat MEN régional) | 21.6 M | 2.2 M |
 
 **Break-even opérationnel :** ~12 000 élèves actifs avec l'équipe de 10 pers. (~mois 20 en scénario base).
@@ -107,16 +107,16 @@ Par élève actif par mois (~150 interactions LLM / mois) :
 | Risque | Impact | Mitigation |
 |:--|:--|:--|
 | Cycle de vente public long (18 mois+) | Cash burn | Attaquer écoles privées en parallèle pour cash-flow immédiat |
-| Dépendance Gemini (pricing, quota) | COGS imprévisible | Fallback multi-providers déjà codé (Groq + heuristique) — prouvé au hackathon |
+| Dépendance Gemini (pricing, quota) | COGS imprévisible | Fallback multi-providers déjà codé (Groq + heuristique) — validé en prototype |
 | Parents non-payeurs au primaire | Limite B2C | B2B2C uniquement Phases 1–2 |
 | RGPD / loi marocaine 09-08 sur données enfants | Juridique | Audit CNDP dès M6, hébergement données Maroc (Atlas Cloud, OVH Casa) |
 | Coût TTS (ElevenLabs ~40 % COGS) | Marge érodée | Migration progressive vers Coqui TTS self-hosted au-delà de 15k élèves |
 
 ---
 
-## 7. Ce qu'on met dans le pitch jury
+## 7. Points clés du pitch investisseurs
 
-- **Budget Phase 1 uniquement :** 331 k MAD pour prouver la traction sur 3 écoles — un chiffre crédible pour un jury académique.
+- **Budget Phase 1 uniquement :** 331 k MAD pour prouver la traction sur 3 écoles — un chiffre crédible pour des investisseurs early-stage.
 - **Unit economics :** « COGS ~8 MAD/élève/mois, prix de vente ~30 MAD → marge 73 % » en une seule slide.
 - **Roadmap de financement :** seed → VC local → scale, pas une levée massive d'un coup.
 - **Ne pas promettre** le scénario optimiste (60 k élèves) — promettre le scénario base et montrer l'optimiste comme upside.

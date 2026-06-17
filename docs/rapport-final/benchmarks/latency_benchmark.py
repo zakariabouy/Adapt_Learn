@@ -154,8 +154,8 @@ def bench_hot_path_request() -> dict:
         rate_limit → prompt_injection_detect → sanitize → chunk
 
     This gives the real per-request overhead — the sum of the isolated
-    components plus Python call overhead — which is what the jury should care
-    about (a single ~request~-equivalent number, not 7 separate micro-bars).
+    components plus Python call overhead — which is what actually matters
+    (a single ~request~-equivalent number, not 7 separate micro-bars).
     """
     def _full_pipeline():
         # 1. Rate-limit (middleware would reject here on overflow)

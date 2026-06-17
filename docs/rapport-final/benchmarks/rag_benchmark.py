@@ -298,7 +298,7 @@ def _run_ood(queries: list[str], chunks: list[dict], bm25: "BM25",
     """Score out-of-domain queries: correct behavior is a low top-1 score.
 
     We report the rejection rate (top-1 score below `reject_threshold`) so
-    the jury can see the retriever does not blindly return something for
+    a reader can see the retriever does not blindly return something for
     every query — an honest precision signal that recall@K alone misses.
     """
     rejected = 0

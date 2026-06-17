@@ -10,7 +10,6 @@
 [![Python](https://img.shields.io/badge/Python_3.11-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 
-> **ENSET Challenge 2026 --- IA Agentique**
 > A multi-agent AI platform that personalizes learning for every primary school student (grades 1-6) across their entire 6-year journey --- adapting content, tracking growth, gamifying progress, and generating data-driven orientation reports.
 
 ---
@@ -297,7 +296,7 @@ AI-generated content flows through a **teacher review queue** before reaching st
 ## Project Structure
 
 ```
-enset-challenge-submission-2IE/
+adaptlearn/
 ├── backend/
 │   ├── agents/
 │   │   ├── profile/
@@ -400,8 +399,8 @@ enset-challenge-submission-2IE/
 ### 1. Clone & pull LFS assets
 
 ```bash
-git clone https://github.com/adam04-D/enset-challenge-submission-2IE.git
-cd enset-challenge-submission-2IE
+git clone https://github.com/zakariabouy/Adapt_Learn.git
+cd Adapt_Learn
 git lfs pull    # Downloads the Godot WASM + PCK files
 ```
 
@@ -474,7 +473,7 @@ npm run dev
 
 | Role | Email | Password |
 |---|---|---|
-| **Teacher** | `teacher@enset.edu` | `password123` |
+| **Teacher** | `teacher@adaptlearn.com` | `password123` |
 | **Student** | `lina@student.com` (Grade 2) | `password123` |
 | **Student** | `omar@student.com` (Grade 4) | `password123` |
 | **Student** | `yassine@student.com` (Grade 5) | `password123` |
@@ -613,8 +612,6 @@ AdaptLearn uses a **structured prompt engineering approach** across all agents:
 | **AI Agents & Orchestrator** | Zakariae Bouyaknifen |
 
 **Institution:** INSEA --- Institut National de Statistique et d'Economie Appliquee, Rabat, Morocco
-
-**Hackathon:** ENSET Challenge 2026 --- IA Agentique
 
 ---
 

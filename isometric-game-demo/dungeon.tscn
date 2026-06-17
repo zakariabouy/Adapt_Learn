@@ -21,7 +21,6 @@
 [ext_resource type="Script" uid="uid://b3ym8vgvedlf1" path="res://mission_ui.gd" id="21"]
 [ext_resource type="Script" uid="uid://eyyu3carp1uh" path="res://exp_bar.gd" id="22"]
 [ext_resource type="Texture2D" uid="uid://c4oinr0w0dtwf" path="res://decorations/carpet_enset.png" id="23"]
-[ext_resource type="Texture2D" uid="uid://cd6icc4vo3kyd" path="res://decorations/ensetchalleng2026.png" id="24"]
 
 [sub_resource type="CanvasItemMaterial" id="23"]
 blend_mode = 1
@@ -738,11 +737,6 @@ texture = ExtResource("23")
 position = Vector2(976, 290)
 scale = Vector2(-0.25, 0.25)
 texture = ExtResource("23")
-
-[node name="EnsetChallenge2026" type="Sprite2D" parent="Walls/FloorObjects" unique_id=295849020]
-position = Vector2(296, 251)
-scale = Vector2(0.08138683, 0.07123014)
-texture = ExtResource("24")
 
 [node name="PawPrints" type="Polygon2D" parent="Walls/FloorObjects" unique_id=1797942521]
 position = Vector2(786, 334)

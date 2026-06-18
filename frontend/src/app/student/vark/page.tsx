@@ -8,18 +8,35 @@ import { API_URL } from '@/lib/api';
 import {
   ArrowLeft, ArrowRight, Check, Loader2,
   Sparkles, Eye, Headphones, BookOpen, Hand,
-  Rocket,
+  Rocket, Volume2,
 } from 'lucide-react';
 
 /* ─── types ─── */
 interface VARKOption {
   id: 'V' | 'A' | 'R' | 'K';
   label: string;
+  short?: string;   // short, concrete label for young children (gamified overlay)
 }
 interface VARKQuestion {
   id: number;
   text: string;
+  prompt?: string;  // short spoken-friendly prompt (gamified overlay)
+  scene?: string;   // scene emoji for the stop
   options: VARKOption[];
+}
+
+/* ─── speak helper: reads text aloud so non-readers aren't blocked ─── */
+function speak(text: string) {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+  try {
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 0.95;
+    u.pitch = 1.1;
+    window.speechSynthesis.speak(u);
+  } catch {
+    /* speech synthesis unavailable — silently degrade to text-only */
+  }
 }
 interface VARKScores {
   V: number;
@@ -288,6 +305,24 @@ function VARKTestInner() {
     return () => window.removeEventListener('keydown', handler);
   }, [phase, current, answers, questions, goNext, goBack, selectAnswer]);
 
+  // Auto-read the question prompt aloud each time it appears, so children who
+  // can't read yet are never blocked. A user gesture ("Let's Go!") precedes
+  // the quiz, so browsers allow speech here.
+  useEffect(() => {
+    if (phase !== 'quiz') return;
+    const q = questions[current];
+    if (q) speak(q.prompt || q.text);
+  }, [phase, current, questions]);
+
+  // Stop any speech when leaving the page.
+  useEffect(() => {
+    return () => {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
+
   const progress = questions.length > 0 ? ((current + 1) / questions.length) * 100 : 0;
   const allAnswered = questions.length > 0 && Object.keys(answers).length === questions.length;
   const currentQ = questions[current];
@@ -380,7 +415,7 @@ function VARKTestInner() {
                     <span className="text-primary">Learning Superpower</span>
                   </h1>
                   <p className="text-on-surface-variant text-base sm:text-lg mt-3 max-w-md mx-auto leading-relaxed">
-                    Answer 16 fun questions to find out how YOUR brain learns best. There are no wrong answers!
+                    Play 16 quick questions to find how YOUR brain learns best. Tap the speaker to hear them &mdash; there are no wrong answers!
                   </p>
                 </div>
 
@@ -447,17 +482,27 @@ function VARKTestInner() {
                   {/* question number chip */}
                   <div className="flex items-center gap-2 mb-5">
                     <span className="px-3 py-1 rounded-full bg-primary/15 text-primary font-label text-xs font-bold tracking-wide">
-                      Q{currentQ.id}
+                      {currentQ.scene ? `${currentQ.scene} ` : ''}Q{currentQ.id}
                     </span>
                     <span className="text-on-surface-variant/40 font-label text-xs">
                       of {questions.length}
                     </span>
                   </div>
 
-                  {/* question text */}
-                  <h2 className="font-headline text-xl sm:text-2xl font-bold text-on-surface leading-snug mb-8">
-                    {currentQ.text}
-                  </h2>
+                  {/* spoken-friendly prompt + hear-it button */}
+                  <div className="flex items-start gap-3 mb-8">
+                    <h2 className="font-headline text-2xl sm:text-3xl font-bold text-on-surface leading-snug">
+                      {currentQ.prompt || currentQ.text}
+                    </h2>
+                    <button
+                      type="button"
+                      onClick={() => speak(currentQ.prompt || currentQ.text)}
+                      aria-label="Hear the question"
+                      className="shrink-0 mt-1 w-11 h-11 rounded-full bg-primary/15 text-primary flex items-center justify-center hover:bg-primary/25 active:scale-95 transition-all"
+                    >
+                      <Volume2 className="w-5 h-5" />
+                    </button>
+                  </div>
 
                   {/* options */}
                   <div className="flex flex-col gap-3">
@@ -478,41 +523,34 @@ function VARKTestInner() {
                           style={isSelected ? { background: meta.bg } : undefined}
                         >
                           <div className="flex items-center gap-4">
-                            {/* number badge */}
-                            <div className={`
-                              w-9 h-9 rounded-xl flex items-center justify-center shrink-0 font-headline font-bold text-sm transition-all
-                              ${isSelected
-                                ? 'text-on-surface'
-                                : 'bg-surface-container-highest/40 text-on-surface-variant/60'
-                              }
-                            `}
-                              style={isSelected ? { background: meta.color, color: '#0D0D0F' } : undefined}
+                            {/* big sensory emoji tile */}
+                            <div
+                              className="relative w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 text-3xl transition-all"
+                              style={{ background: isSelected ? meta.color : meta.bg }}
                             >
-                              {idx + 1}
+                              {OPTION_EMOJIS[opt.id]}
+                              {isSelected && (
+                                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-secondary flex items-center justify-center border-2 border-[#0D0D0F]">
+                                  <Check className="w-3 h-3 text-[#0D0D0F]" strokeWidth={3} />
+                                </span>
+                              )}
                             </div>
 
-                            {/* label */}
-                            <span className={`font-body text-sm sm:text-base leading-snug ${isSelected ? 'text-on-surface font-medium' : 'text-on-surface-variant'}`}>
-                              {opt.label}
+                            {/* short, concrete label (kid-friendly) */}
+                            <span className={`font-headline text-lg sm:text-xl leading-snug ${isSelected ? 'text-on-surface font-bold' : 'text-on-surface/90 font-semibold'}`}>
+                              {opt.short || opt.label}
                             </span>
 
-                            {/* emoji */}
-                            <span className={`ml-auto text-lg transition-all ${isSelected ? 'opacity-100 scale-110' : 'opacity-0 group-hover:opacity-40'}`}>
-                              {OPTION_EMOJIS[opt.id]}
-                            </span>
-                          </div>
-
-                          {/* selected indicator */}
-                          {isSelected && (
-                            <motion.div
-                              layoutId="selected-indicator"
-                              className="absolute right-4 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full flex items-center justify-center"
-                              style={{ background: meta.color }}
-                              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                            {/* hear this choice aloud */}
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); speak(opt.short || opt.label); }}
+                              aria-label={`Hear choice ${idx + 1}`}
+                              className="ml-auto shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant/50 hover:text-on-surface hover:bg-surface-container-highest/40 active:scale-95 transition-all"
                             >
-                              <Check className="w-3.5 h-3.5 text-[#0D0D0F]" strokeWidth={3} />
-                            </motion.div>
-                          )}
+                              <Volume2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </button>
                       );
                     })}

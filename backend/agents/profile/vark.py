@@ -191,6 +191,57 @@ VARK_QUESTIONS: List[dict] = [
 ]
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Gamified ("Discovery Quest") layer — child-friendly overlay
+#
+# The classic VARK above is linguistically heavy for ages 6–12: long question
+# stems and full-sentence options assume fluent reading and abstract concepts
+# (e.g. "mind map", "podcast"). That biases the result toward Read/Write and
+# produces noise for the kids it is meant to help.
+#
+# This overlay keeps the SAME V/A/R/K mapping and scoring, but adds, per
+# question: a short spoken-friendly `prompt`, a `scene` emoji, and a 2–3 word
+# concrete `short` label per option. The frontend renders sensory tiles and can
+# read everything aloud (text-to-speech), so reading is never a prerequisite.
+# Fields are additive — older clients that read `text`/`label` keep working.
+# ─────────────────────────────────────────────────────────────────────────────
+
+VARK_QUEST_META: Dict[int, dict] = {
+    1:  {"scene": "🐾", "prompt": "A new animal is here! How do you want to meet it?",
+         "short": {"V": "Watch it", "A": "Hear it", "R": "Read about it", "K": "Go see it"}},
+    2:  {"scene": "🗺️", "prompt": "How do you find the way to a friend's house?",
+         "short": {"V": "Picture the path", "A": "Say the steps", "R": "Read the map", "K": "Just walk it"}},
+    3:  {"scene": "🌱", "prompt": "How do you learn how plants grow?",
+         "short": {"V": "See a picture", "A": "Listen", "R": "Read it", "K": "Plant a seed"}},
+    4:  {"scene": "🎵", "prompt": "You want to learn a new song. What first?",
+         "short": {"V": "Watch it", "A": "Listen", "R": "Read the words", "K": "Dance it"}},
+    5:  {"scene": "🎮", "prompt": "Which game is the most fun?",
+         "short": {"V": "Picture puzzles", "A": "Sound games", "R": "Word games", "K": "Active games"}},
+    6:  {"scene": "🧠", "prompt": "How do you remember something?",
+         "short": {"V": "Draw it", "A": "Say it", "R": "Write it", "K": "Act it out"}},
+    7:  {"scene": "🧱", "prompt": "Building with blocks — how do you start?",
+         "short": {"V": "Look at the picture", "A": "Hear the steps", "R": "Read the steps", "K": "Just build"}},
+    8:  {"scene": "📖", "prompt": "Teacher tells a story. How do you follow?",
+         "short": {"V": "Picture it", "A": "Listen", "R": "Read along", "K": "Act it out"}},
+    9:  {"scene": "🪐", "prompt": "How do you want to learn about space?",
+         "short": {"V": "Watch", "A": "Listen", "R": "Read", "K": "Build a model"}},
+    10: {"scene": "💡", "prompt": "When you feel stuck, what helps?",
+         "short": {"V": "See a picture", "A": "Hear it again", "R": "Read more", "K": "Try it myself"}},
+    11: {"scene": "🍳", "prompt": "Cooking with family — how do you learn?",
+         "short": {"V": "Watch", "A": "Listen", "R": "Read the recipe", "K": "Jump in"}},
+    12: {"scene": "✏️", "prompt": "Which homework is the most fun?",
+         "short": {"V": "Drawing", "A": "Talking", "R": "Writing", "K": "Making things"}},
+    13: {"scene": "🏛️", "prompt": "At a museum, what do you like most?",
+         "short": {"V": "Look at things", "A": "Audio guide", "R": "Read the labels", "K": "Touch things"}},
+    14: {"scene": "🌟", "prompt": "How do you show what you learned?",
+         "short": {"V": "Make a poster", "A": "Tell the class", "R": "Write it", "K": "Build or show it"}},
+    15: {"scene": "🔢", "prompt": "What makes math click for you?",
+         "short": {"V": "See it", "A": "Hear the trick", "R": "Read examples", "K": "Use blocks"}},
+    16: {"scene": "🧸", "prompt": "You get a new toy. What do you do?",
+         "short": {"V": "Look at pictures", "A": "Ask someone", "R": "Read the manual", "K": "Press buttons"}},
+}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Scoring
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -314,5 +365,28 @@ async def process_vark_submission(
 
 
 def get_vark_questions() -> List[dict]:
-    """Returns the full VARK questionnaire for the frontend."""
-    return VARK_QUESTIONS
+    """
+    Returns the full VARK questionnaire for the frontend, enriched with the
+    gamified "Discovery Quest" overlay (scene emoji, short spoken prompt, and
+    concrete 2–3 word labels per option).
+
+    The enrichment is additive: original `text` and option `label` are kept, so
+    a client can fall back to them. A gamified client uses `prompt`, `scene`,
+    and each option's `short`. Scoring is unaffected — the V/A/R/K ids are
+    unchanged.
+    """
+    enriched: List[dict] = []
+    for q in VARK_QUESTIONS:
+        meta = VARK_QUEST_META.get(q["id"], {})
+        shorts = meta.get("short", {})
+        enriched.append({
+            "id": q["id"],
+            "text": q["text"],
+            "prompt": meta.get("prompt", q["text"]),
+            "scene": meta.get("scene", "✨"),
+            "options": [
+                {**opt, "short": shorts.get(opt["id"], opt["label"])}
+                for opt in q["options"]
+            ],
+        })
+    return enriched

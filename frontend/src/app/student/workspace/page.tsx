@@ -208,6 +208,9 @@ export default function Workspace() {
         audioRef.current.pause();
         audioRef.current.src = '';
       }
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
       setListeningPhase('idle');
       setAudioDuration(0);
       setAnnouncement('Audio paused.');
@@ -250,9 +253,31 @@ export default function Workspace() {
       setListeningPhase('playing');
       setAnnouncement('Now playing neural audio for this chunk.');
     } catch (err) {
-      console.warn('TTS unavailable, falling back to animation:', err);
+      // Backend neural TTS unavailable (e.g. no/invalid ElevenLabs key).
+      // Fall back to the browser's built-in speech so "Listen" still reads the
+      // text aloud — no dependency, no cost. Only if that's missing do we show
+      // the timed simulated state.
+      console.warn('Neural TTS unavailable, using browser speech fallback:', err);
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        try {
+          window.speechSynthesis.cancel();
+          const utter = new SpeechSynthesisUtterance(currentText);
+          utter.rate = 0.95;
+          utter.pitch = 1.05;
+          utter.onend = () => {
+            setListeningPhase('idle');
+            setAnnouncement('Audio finished.');
+          };
+          window.speechSynthesis.speak(utter);
+          setListeningPhase('playing');
+          setAnnouncement('Now reading this section aloud.');
+          return;
+        } catch {
+          /* fall through to simulated state below */
+        }
+      }
       setListeningPhase('playing');
-      setAnnouncement('Now playing neural audio (simulated).');
+      setAnnouncement('Now playing audio (simulated).');
       setTimeout(() => {
         setListeningPhase('idle');
         setAnnouncement('Audio finished.');

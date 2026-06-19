@@ -225,7 +225,9 @@ export default function StudentOrientation() {
   const [report, setReport] = useState<OrientationReport | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [useMock, setUseMock] = useState(false);
+  // Default to the demo report so the page always has something impressive to
+  // show during prototype demos. The header toggle switches to the live API.
+  const [useMock, setUseMock] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
@@ -267,7 +269,7 @@ export default function StudentOrientation() {
     </div>
   );
 
-  if (status === 'not_found') return (
+  if (!useMock && status === 'not_found') return (
     <div className="min-h-screen bg-[#0a0a0f] flex flex-col items-center justify-center p-6 text-center">
       <div className="w-20 h-20 rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 flex items-center justify-center mb-6">
         <span className="text-4xl">🔮</span>
@@ -285,7 +287,7 @@ export default function StudentOrientation() {
     </div>
   );
 
-  if (status === 'pending' || status === 'rejected') {
+  if (!useMock && (status === 'pending' || status === 'rejected')) {
     return <WaitingState onBack={() => router.push('/student/workspace')} />;
   }
 
